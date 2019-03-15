@@ -1,3 +1,4 @@
+use crate::find_files::{PathsToAnalyze, WEB_CONFIG, PACKAGES_CONFIG};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use regex::Regex;
@@ -93,8 +94,10 @@ pub struct Project {
     pub target_frameworks: Vec<String>,
     pub embedded_debugging: bool,
     pub linked_solution_info: bool,
+
     pub packages_config: FileStatus,
     pub project_json: FileStatus,
+    
     pub packages: Vec<Package>,
     pub referenced_projects: Vec<Arc<Project>>,
     pub referenced_assemblies: Vec<String>,
@@ -126,14 +129,14 @@ pub struct Package {
 }
 
 impl Project {
-    pub fn new(path: &Path) -> Self {
+    pub fn new(path: &Path, pta: &PathsToAnalyze) -> Self {
         let mut proj = Project::default();
         proj.file = path.to_owned();
 
         match std::fs::read_to_string(path) {
             Ok(s) => {
                 proj.is_valid_utf8 = true;
-                proj.analyze(s);
+                proj.analyze(pta, s);
             },
             Err(e) => {
                 proj.is_valid_utf8 = false;
@@ -145,7 +148,7 @@ impl Project {
 
     /// Factor the guts of the analysis out into a separate function so that it
     /// can be easily unit tested.
-    fn analyze(&mut self, contents: String) {
+    fn analyze(&mut self, pta: &PathsToAnalyze, contents: String) {
         self.contents = contents;
 
         self.version = if self.contents.contains("<Project Sdk=\"Microsoft.NET.Sdk\">") {
@@ -161,9 +164,9 @@ impl Project {
         self.linked_solution_info = Self::has_linked_solution_info(&self.contents);
         self.referenced_assemblies = Self::get_referenced_assemblies(&self.contents);
         self.auto_generate_binding_redirects = Self::has_auto_generate_binding_redirects(&self.contents);
-        self.packages_config = Self::has_packages_config(&self.contents, &self.file);
+        self.packages_config = Self::has_packages_config(&self.contents, &self.file, pta);
 
-        // pub packages_config: bool,
+        
         // pub project_json: bool,
         // pub packages: Vec<Package>,
         // pub referenced_projects: Vec<Arc<Project>>,
@@ -288,12 +291,12 @@ impl Project {
         contents.contains("<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>")
     }
 
-    fn has_packages_config(contents: &str, proj_file_path: &Path) -> FileStatus {
+    fn has_packages_config(contents: &str, proj_file_path: &Path, pta: &PathsToAnalyze) -> FileStatus {
         lazy_static! {
             static ref PKG_CONFIG_RE: Regex = Regex::new(r##"\sInclude="[Pp]ackages.[Cc]onfig"\s*?/>"##).unwrap();
         }
 
-        match (PKG_CONFIG_RE.is_match(contents), 1 == 1) {
+        match (PKG_CONFIG_RE.is_match(contents), pta.project_has_other_file(proj_file_path, PACKAGES_CONFIG)) {
             (true, true) => FileStatus::InProjectFileAndOnDisk,
             (true, false) => FileStatus::InProjectFileOnly,
             (false, true) => FileStatus::OnDiskOnly,

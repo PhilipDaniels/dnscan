@@ -72,7 +72,7 @@ pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
 
     let (elapsed, projects) = measure_time(|| {
         paths.csproj_files.par_iter().map(|path| {
-            Project::new(path)
+            Project::new(path, &paths)
         }).collect::<Vec<_>>()
     });
 
