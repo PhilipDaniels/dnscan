@@ -1,6 +1,6 @@
 use crate::options::Options;
 use dnlib::path_extensions::PathExtensions;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use walkdir::{DirEntry, WalkDir};
 
 /// This struct is used to collect the raw directory walking results prior to further
@@ -16,7 +16,9 @@ pub struct PathsToAnalyze {
 
 impl PathsToAnalyze {
     pub fn is_empty(&self) -> bool {
-        self.sln_files.is_empty() && self.csproj_files.is_empty()
+        self.sln_files.is_empty() &&
+        self.csproj_files.is_empty() &&
+        self.other_files.is_empty()
     }
 }
 
@@ -25,6 +27,30 @@ impl PathsToAnalyze {
         self.sln_files.sort();
         self.csproj_files.sort();
         self.other_files.sort();
+    }
+
+    /// Checks to see whether a project has another file associated with it
+    /// (i.e. that the other file actually exists on disk). This check is based on
+    /// the directory of the project and the 'other_files'; we do not use the
+    /// XML contents of the project file for this check. We are looking for actual
+    /// physical files "in the expected places". This allows us to spot orphaned
+    /// files that should have been deleted as part of project migration.
+    pub fn project_has_other_file(&self, project: &Path, other_filename: &str) -> bool {
+        if let Some(project_dir) = project.parent() {
+            let other_filename = other_filename.to_lowercase();
+            let possible_other_files = self.get_other_files_in_dir(project_dir);
+            return possible_other_files.iter()
+                .any(|other| other.filename_as_str().to_lowercase() == other_filename);
+        }
+
+        false
+    }
+
+    pub fn get_other_files_in_dir(&self, directory: &Path) -> Vec<&PathBuf> {
+        self.other_files.iter().filter(|path| match path.parent() {
+            Some(dir) => dir == directory,
+            None => false
+        }).collect()
     }
 }
 
@@ -84,4 +110,61 @@ fn continue_walking(entry: &DirEntry) -> bool {
     }
 
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_pta() -> PathsToAnalyze {
+        let mut input = PathsToAnalyze::default();
+        input.csproj_files.push(Path::new("/temp/foo.csproj").to_owned());
+        input.other_files.push(Path::new("/temp/app.config").to_owned());
+        input.other_files.push(Path::new("/temp/web.config").to_owned());
+        input.other_files.push(Path::new("/wherever/web.config").to_owned());
+        input
+    }
+
+    #[test]
+    pub fn get_other_files_in_dir_for_empty() {
+        let input = PathsToAnalyze::default();
+        let result = input.get_other_files_in_dir(Path::new("/temp"));
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    pub fn get_other_files_in_dir_for_no_other_files() {
+        let mut input = PathsToAnalyze::default();
+        input.csproj_files.push(Path::new("/temp/foo.csproj").to_owned());
+        let result = input.get_other_files_in_dir(Path::new("/temp"));
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    pub fn get_other_files_in_dir_for_some_other_files() {
+        let input = make_pta();
+        let result = input.get_other_files_in_dir(Path::new("/temp"));
+        assert_eq!(result, vec![Path::new("/temp/app.config"), Path::new("/temp/web.config")])
+    }
+
+    #[test]
+    pub fn project_has_other_file_for_no_other_file() {
+        let input = PathsToAnalyze::default();
+        let result = input.project_has_other_file(Path::new("/temp"), "app.config");
+        assert!(!result);
+    }
+
+    #[test]
+    pub fn project_has_other_file_for_other_file_of_same_case() {
+        let input = make_pta();
+        let result = input.project_has_other_file(Path::new("/temp/foo.csproj"), "app.config");
+        assert!(result);
+    }
+
+    #[test]
+    pub fn project_has_other_file_for_other_file_of_different_case() {
+        let input = make_pta();
+        let result = input.project_has_other_file(Path::new("/temp/foo.csproj"), "App.Config");
+        assert!(result);
+    }
 }
