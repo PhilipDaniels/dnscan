@@ -402,7 +402,7 @@ mod sdk_tests {
     use super::*;
 
     fn sdk_csproj() -> String {
-        include_str!("sdk1.csproj").to_owned()
+        include_str!("sdk1.csproj.xml").to_owned()
     }
 
     fn analyze() -> Project {
@@ -465,7 +465,7 @@ mod old_style_tests {
     use super::*;
 
     fn old_style_csproj() -> String {
-        include_str!("old1.csproj").to_owned()
+        include_str!("old1.csproj.xml").to_owned()
     }
 
     fn analyze() -> Project {
