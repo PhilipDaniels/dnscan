@@ -1,0 +1,14 @@
+[package]
+name = "dnclean"
+version = "0.1.0"
+authors = ["Philip Daniels <Philip.Daniels1971@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+dnlib = { path = "../dnlib" }
+clap = "2.32.0"
+getch = "0.2.0"
+rayon = "1.0.3"
+termcolor = "1"
+walkdir = "2.2.7"
+

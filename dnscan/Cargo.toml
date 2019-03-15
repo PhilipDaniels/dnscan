@@ -1,0 +1,14 @@
+[package]
+name = "dnscan"
+version = "0.1.0"
+authors = ["Philip Daniels <Philip.Daniels1971@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+dnlib = { path = "../dnlib" }
+elapsed = "0.1.2"
+clap = "2.32.0"
+lazy_static = "1.3.0"
+rayon = "1.0.3"
+regex = "1"
+walkdir = "2.2.7"
