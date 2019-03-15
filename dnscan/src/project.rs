@@ -161,7 +161,7 @@ impl Project {
         self.linked_solution_info = Self::has_linked_solution_info(&self.contents);
         self.referenced_assemblies = Self::get_referenced_assemblies(&self.contents);
         self.auto_generate_binding_redirects = Self::has_auto_generate_binding_redirects(&self.contents);
-        //self.packages_config = Self::has_packages_config(&self.contents, self.file.parent().unwrap());
+        self.packages_config = Self::has_packages_config(&self.contents, &self.file);
 
         // pub packages_config: bool,
         // pub project_json: bool,
@@ -288,20 +288,18 @@ impl Project {
         contents.contains("<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>")
     }
 
-    // fn has_packages_config(contents: &str, directory: &Path) -> FileStatus {
-    //     lazy_static! {
-    //         static ref PKG_CONFIG_RE: Regex = Regex::new(r##"\sInclude="[Pp]ackages.[Cc]onfig"\s*?/>"##).unwrap();
-    //     }
+    fn has_packages_config(contents: &str, proj_file_path: &Path) -> FileStatus {
+        lazy_static! {
+            static ref PKG_CONFIG_RE: Regex = Regex::new(r##"\sInclude="[Pp]ackages.[Cc]onfig"\s*?/>"##).unwrap();
+        }
 
-    //     FileStatus::Unknown
-
-    //     // match (DEBUG_RE.is_match(contents), RELEASE_RE.is_match(contents)) {
-    //     //     (true, true) => XmlDoc::Both,
-    //     //     (true, false) => XmlDoc::Debug,
-    //     //     (false, true) => XmlDoc::Release,
-    //     //     (false, false) => XmlDoc::None,
-    //     // }
-    // }
+        match (PKG_CONFIG_RE.is_match(contents), 1 == 1) {
+            (true, true) => FileStatus::InProjectFileAndOnDisk,
+            (true, false) => FileStatus::InProjectFileOnly,
+            (false, true) => FileStatus::OnDiskOnly,
+            (false, false) => FileStatus::NotPresent
+        }
+    }
 }
 
 #[cfg(test)]
