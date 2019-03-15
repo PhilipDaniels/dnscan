@@ -66,6 +66,7 @@ impl Default for XmlDoc {
 #[derive(Debug, Default)]
 pub struct Project {
     pub file: PathBuf,
+    pub is_valid_utf8: bool,
     pub contents: String,
     pub version: ProjectVersion,
     //pub last_modify_date: String
@@ -113,7 +114,17 @@ impl Project {
     pub fn new(path: &Path) -> Self {
         let mut proj = Project::default();
         proj.file = path.to_owned();
-        proj.analyze(std::fs::read_to_string(path).unwrap());
+
+        match std::fs::read_to_string(path) {
+            Ok(s) => {
+                proj.is_valid_utf8 = true;
+                proj.analyze(s);
+            },
+            Err(e) => {
+                proj.is_valid_utf8 = false;
+            }
+        }
+
         proj
     }
 

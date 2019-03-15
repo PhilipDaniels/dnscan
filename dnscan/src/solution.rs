@@ -22,6 +22,7 @@ pub struct Solution {
     pub version: VisualStudioVersion,
     pub file: PathBuf,
     pub contents: String,
+    pub is_valid_utf8: bool,
     //pub last_modify_date: String
     //pub git_branch: String,
     //pub git_sha: String,
@@ -33,7 +34,14 @@ impl Solution {
     pub fn new(path: &Path) -> Self {
         let mut sln = Solution::default();
         sln.file = path.to_owned();
-        sln.contents = std::fs::read_to_string(path).unwrap();
+
+        match std::fs::read_to_string(path) {
+            Ok(s) => {
+                sln.is_valid_utf8 = true;
+                sln.contents = s;
+            },
+            Err(_) => sln.is_valid_utf8 = false,
+        }
 
         sln.version = if sln.contents.contains("# Visual Studio 14") {
              VisualStudioVersion::VS2015
