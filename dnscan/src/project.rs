@@ -63,6 +63,21 @@ impl Default for XmlDoc {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum FileStatus {
+    Unknown,
+    NotPresent,
+    InProjectFileOnly,
+    OnDiskOnly,
+    InProjectFileAndOnDisk
+}
+
+impl Default for FileStatus {
+    fn default() -> Self {
+        FileStatus::Unknown
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Project {
     pub file: PathBuf,
@@ -78,8 +93,8 @@ pub struct Project {
     pub target_frameworks: Vec<String>,
     pub embedded_debugging: bool,
     pub linked_solution_info: bool,
-    pub packages_config: bool,
-    pub project_json: bool,
+    pub packages_config: FileStatus,
+    pub project_json: FileStatus,
     pub packages: Vec<Package>,
     pub referenced_projects: Vec<Arc<Project>>,
     pub referenced_assemblies: Vec<String>,
@@ -146,6 +161,15 @@ impl Project {
         self.linked_solution_info = Self::has_linked_solution_info(&self.contents);
         self.referenced_assemblies = Self::get_referenced_assemblies(&self.contents);
         self.auto_generate_binding_redirects = Self::has_auto_generate_binding_redirects(&self.contents);
+        //self.packages_config = Self::has_packages_config(&self.contents, self.file.parent().unwrap());
+
+        // pub packages_config: bool,
+        // pub project_json: bool,
+        // pub packages: Vec<Package>,
+        // pub referenced_projects: Vec<Arc<Project>>,
+        // pub is_test_project: bool,
+        // pub test_framework: String,
+        //app.config, web.config, appsettings.json
 
         if self.version == ProjectVersion::MicrosoftNetSdk {
             self.analyze_sdk_project();
@@ -157,20 +181,10 @@ impl Project {
     fn analyze_sdk_project(&mut self) {
         self.embedded_debugging = Self::has_embedded_debugging(&self.contents);
         self.target_frameworks = Self::sdk_get_target_frameworks(&self.contents);
-
-        // pub packages_config: bool,
-        // pub project_json: bool,
-
-        // pub packages: Vec<Package>,
-        // pub referenced_projects: Vec<Arc<Project>>,
-
-        // pub is_test_project: bool,
-        // pub test_framework: String,
-
-        //app.config, web.config, appsettings.json
     }
 
     fn analyze_old_style_project(&mut self) {
+        self.embedded_debugging = false;
         self.target_frameworks = Self::old_get_target_frameworks(&self.contents);
     }
 
@@ -273,6 +287,21 @@ impl Project {
     fn has_auto_generate_binding_redirects(contents: &str) -> bool {
         contents.contains("<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>")
     }
+
+    // fn has_packages_config(contents: &str, directory: &Path) -> FileStatus {
+    //     lazy_static! {
+    //         static ref PKG_CONFIG_RE: Regex = Regex::new(r##"\sInclude="[Pp]ackages.[Cc]onfig"\s*?/>"##).unwrap();
+    //     }
+
+    //     FileStatus::Unknown
+
+    //     // match (DEBUG_RE.is_match(contents), RELEASE_RE.is_match(contents)) {
+    //     //     (true, true) => XmlDoc::Both,
+    //     //     (true, false) => XmlDoc::Debug,
+    //     //     (false, true) => XmlDoc::Release,
+    //     //     (false, false) => XmlDoc::None,
+    //     // }
+    // }
 }
 
 #[cfg(test)]

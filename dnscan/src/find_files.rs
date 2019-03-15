@@ -11,6 +11,7 @@ use walkdir::{DirEntry, WalkDir};
 pub struct PathsToAnalyze {
     pub sln_files: Vec<PathBuf>,
     pub csproj_files: Vec<PathBuf>,
+    pub other_files: Vec<PathBuf>
 }
 
 impl PathsToAnalyze {
@@ -23,7 +24,29 @@ impl PathsToAnalyze {
     pub fn sort(&mut self) {
         self.sln_files.sort();
         self.csproj_files.sort();
+        self.other_files.sort();
     }
+}
+
+// Use the newtype pattern to create a set of associated string constants.
+//#[derive(Debug, Clone, PartialEq, Eq)]
+//pub struct FileToAnalyze(String);
+
+// Good files.
+pub const WEB_CONFIG: &str = "web.config";
+pub const APP_CONFIG: &str = "app.config";
+pub const APP_SETTINGS_JSON: &str = "appsettings.json";
+
+// Bad files.
+pub const PACKAGE_JSON: &str = "package.json";
+pub const PACKAGES_CONFIG: &str = "packages.config";
+
+fn is_file_of_interest(filename: &str) -> bool {
+    filename == PACKAGES_CONFIG ||
+    filename == WEB_CONFIG ||
+    filename == APP_CONFIG ||
+    filename == APP_SETTINGS_JSON ||
+    filename == PACKAGES_CONFIG
 }
 
 pub fn get_paths_of_interest(options: &Options) -> PathsToAnalyze {
@@ -36,6 +59,11 @@ pub fn get_paths_of_interest(options: &Options) -> PathsToAnalyze {
             paths.sln_files.push(path.to_owned());
         } else if path.is_csproj_file() {
             paths.csproj_files.push(path.to_owned());
+        } else {
+            let filename = path.filename_as_str().to_lowercase();
+            if is_file_of_interest(&filename) {
+                paths.other_files.push(path.to_owned());
+            }
         }
     }
 
