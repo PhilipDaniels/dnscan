@@ -1,7 +1,7 @@
 use crate::find_files::{PathsToAnalyze, InterestingFile};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 use lazy_static::lazy_static;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -101,8 +101,9 @@ pub struct Project {
     pub web_config: FileStatus,
     pub app_config: FileStatus,
     pub app_settings_json: FileStatus,
-    pub project_json: FileStatus,
+    pub package_json: FileStatus,
     pub packages_config: FileStatus,
+    pub project_json: FileStatus,
 
     pub referenced_assemblies: Vec<String>,
     pub packages: Vec<Package>,
@@ -171,11 +172,12 @@ impl Project {
         self.referenced_assemblies = self.get_referenced_assemblies();
         self.auto_generate_binding_redirects = self.has_auto_generate_binding_redirects();
 
-        // pub web_config: FileStatus,
-        // pub app_config: FileStatus,
-        // pub app_settings_json: FileStatus,
-        // pub project_json: FileStatus,
-        self.packages_config = self.has_packages_config(pta);
+        self.web_config = self.has_file_of_interest(pta, InterestingFile::WebConfig);
+        self.app_config = self.has_file_of_interest(pta, InterestingFile::AppConfig);
+        self.app_settings_json = self.has_file_of_interest(pta, InterestingFile::AppSettingsJson);
+        self.package_json = self.has_file_of_interest(pta, InterestingFile::PackageJson);
+        self.packages_config = self.has_file_of_interest(pta, InterestingFile::PackagesConfig);
+        self.project_json = self.has_file_of_interest(pta, InterestingFile::ProjectJson);
 
         // pub packages: Vec<Package>,
         // pub referenced_projects: Vec<Arc<Project>>,
@@ -290,12 +292,43 @@ impl Project {
         self.contents.contains("<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>")
     }
 
-    fn has_packages_config(&self, pta: &PathsToAnalyze) -> FileStatus {
+    fn has_file_of_interest(&self, pta: &PathsToAnalyze, interesting_file: InterestingFile) -> FileStatus {
         lazy_static! {
-            static ref PKG_CONFIG_RE: Regex = Regex::new(r##"\sInclude="[Pp]ackages.[Cc]onfig"\s*?/>"##).unwrap();
+            static ref WEB_CONFIG_RE: Regex = RegexBuilder::new(
+                    &format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::WebConfig.as_str()))
+                    .case_insensitive(true).build().unwrap();
+
+            static ref APP_CONFIG_RE: Regex = RegexBuilder::new(
+                    &format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::AppConfig.as_str()))
+                    .case_insensitive(true).build().unwrap();
+
+            static ref APP_SETTINGS_JSON_RE: Regex = RegexBuilder::new(
+                    &format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::AppSettingsJson.as_str()))
+                    .case_insensitive(true).build().unwrap();
+
+            static ref PACKAGE_JSON_RE: Regex = RegexBuilder::new(
+                    &format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::PackageJson.as_str()))
+                    .case_insensitive(true).build().unwrap();
+
+            static ref PACKAGES_CONFIG_RE: Regex = RegexBuilder::new(
+                    &format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::PackagesConfig.as_str()))
+                    .case_insensitive(true).build().unwrap();
+
+            static ref PROJECT_JSON_RE: Regex = RegexBuilder::new(
+                    &format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::ProjectJson.as_str()))
+                    .case_insensitive(true).build().unwrap();
         }
 
-        match (PKG_CONFIG_RE.is_match(&self.contents), pta.project_has_other_file(&self.file, InterestingFile::PackagesConfig)) {
+        let re: &Regex = match interesting_file {
+            InterestingFile::WebConfig => &WEB_CONFIG_RE,
+            InterestingFile::AppConfig => &APP_CONFIG_RE,
+            InterestingFile::AppSettingsJson => &APP_SETTINGS_JSON_RE,
+            InterestingFile::PackageJson => &PACKAGE_JSON_RE,
+            InterestingFile::PackagesConfig => &PACKAGES_CONFIG_RE,
+            InterestingFile::ProjectJson => &PROJECT_JSON_RE,
+        };
+
+        match (re.is_match(&self.contents), pta.project_has_other_file(&self.file, interesting_file)) {
             (true, true) => FileStatus::InProjectFileAndOnDisk,
             (true, false) => FileStatus::InProjectFileOnly,
             (false, true) => FileStatus::OnDiskOnly,

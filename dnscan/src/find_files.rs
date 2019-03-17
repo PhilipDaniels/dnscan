@@ -58,11 +58,23 @@ impl PathsToAnalyze {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InterestingFile {
+    /// The web.config file.
     WebConfig,
+
+    /// The app.config file.
     AppConfig,
+
+    /// The appsettings.json file.
     AppSettingsJson,
+
+    /// The package.json file (required by npm).
     PackageJson,
-    PackagesConfig
+
+    /// The packages.config file (obsolete, should be removed)
+    PackagesConfig,
+
+    /// The project.json (obsolete, should be removed)
+    ProjectJson
 }
 
 impl std::str::FromStr for InterestingFile {
@@ -76,6 +88,7 @@ impl std::str::FromStr for InterestingFile {
             "appsettings.json" => Ok(InterestingFile::AppSettingsJson),
             "package.json" => Ok(InterestingFile::PackageJson),
             "packages.config" => Ok(InterestingFile::PackagesConfig),
+            "project.json" => Ok(InterestingFile::ProjectJson),
             _ => Err(AnalysisError::InvalidInterestingFile(s)),
         }
     }
@@ -89,6 +102,7 @@ impl InterestingFile {
             InterestingFile::AppSettingsJson => "appsettings.json",
             InterestingFile::PackageJson => "package.json",
             InterestingFile::PackagesConfig => "packages.config",
+            InterestingFile::ProjectJson => "project.json"
         }
     }
 }
