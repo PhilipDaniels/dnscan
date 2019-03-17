@@ -179,6 +179,7 @@ impl Project {
         self.linked_solution_info = self.has_linked_solution_info();
         self.referenced_assemblies = self.get_referenced_assemblies();
         self.auto_generate_binding_redirects = self.has_auto_generate_binding_redirects();
+        self.test_framework = self.get_test_framework();
 
         self.web_config = self.has_file_of_interest(pta, InterestingFile::WebConfig);
         self.app_config = self.has_file_of_interest(pta, InterestingFile::AppConfig);
@@ -190,6 +191,7 @@ impl Project {
         // pub packages: Vec<Package>,
         // pub referenced_projects: Vec<Arc<Project>>,
         // pub test_framework: String,
+        // pub uses_specflow
 
         if self.version == ProjectVersion::MicrosoftNetSdk {
             self.embedded_debugging = self.has_embedded_debugging();
@@ -211,6 +213,17 @@ impl Project {
             // This appears to be the default, certainly for SDK-style projects anyway.
             OutputType::Library
         }
+    }
+
+    fn get_test_framework(&self) -> TestFramework {
+        // Basically, we need to get the package references and then check for
+        // libraries of a specific name:
+        //      MSTest.TestAdapter or MSTest.TestFramework = MSTest
+        //      xunit.* = XUnit
+        //      nunit.* = NUnit
+        // All should be matched case-insensitively.
+
+        TestFramework::None
     }
 
     fn has_xml_doc(&self) -> XmlDoc {

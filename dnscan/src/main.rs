@@ -50,7 +50,7 @@ pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
     }
 
     println!("paths = {:#?}", paths);
- 
+
     if options.verbose {
         println!(
             "Found {} solutions and {} projects to analyze in {}.",
@@ -79,6 +79,13 @@ pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
     if options.verbose {
         println!("{} Projects loaded and analyzed in {}", projects.len(), elapsed);
     }
+
+    // TODO: Output this message.
+    // Package analysis will not be correct for project.json projects.
+    // Upgrade them to SDK projects since project.json is no longer supported.
+
+
+
 
     // Perform all single-file analysis that can be done
     //   Projects: Everything except referenced_projects
