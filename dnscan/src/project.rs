@@ -25,8 +25,15 @@ impl Default for ProjectVersion {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum OutputType {
     Unknown,
-    Exe,
+
+    /// The output is a library (DLL).
     Library,
+
+    /// The output is a Windows EXE (e.g. a WinForms app).
+    WinExe,
+
+    /// The output is an EXE.
+    Exe,
 }
 
 impl Default for OutputType {
@@ -166,6 +173,7 @@ impl Project {
             ProjectVersion::Unknown
         };
 
+        self.output_type = self.get_output_type();
         self.xml_doc = self.has_xml_doc();
         self.tt_file = self.has_tt_file();
         self.linked_solution_info = self.has_linked_solution_info();
@@ -189,6 +197,19 @@ impl Project {
         } else if self.version == ProjectVersion::OldStyle {
             self.embedded_debugging = false;
             self.target_frameworks = self.old_get_target_frameworks();
+        }
+    }
+
+    fn get_output_type(&self) -> OutputType {
+        if self.contents.contains("<OutputType>Library</OutputType>") {
+            OutputType::Library
+        } else if self.contents.contains("<OutputType>Exe</OutputType>") {
+            OutputType::Exe
+        } else if self.contents.contains("<OutputType>WinExe</OutputType>") {
+            OutputType::WinExe
+        } else {
+            // This appears to be the default, certainly for SDK-style projects anyway.
+            OutputType::Library
         }
     }
 
@@ -603,9 +624,45 @@ mod sdk_tests {
     }
 
     #[test]
+    pub fn can_detect_web_config() {
+        let proj = analyze();
+        assert_eq!(proj.web_config, FileStatus::NotPresent);
+    }
+
+    #[test]
+    pub fn can_detect_app_config() {
+        let proj = analyze();
+        assert_eq!(proj.app_config, FileStatus::NotPresent);
+    }
+
+    #[test]
+    pub fn can_detect_app_settings_json() {
+        let proj = analyze();
+        assert_eq!(proj.app_settings_json, FileStatus::NotPresent);
+    }
+
+    #[test]
+    pub fn can_detect_package_json() {
+        let proj = analyze();
+        assert_eq!(proj.package_json, FileStatus::NotPresent);
+    }
+
+    #[test]
     pub fn can_detect_packages_config() {
         let proj = analyze();
         assert_eq!(proj.packages_config, FileStatus::NotPresent);
+    }
+
+    #[test]
+    pub fn can_detect_project_json() {
+        let proj = analyze();
+        assert_eq!(proj.project_json, FileStatus::NotPresent);
+    }
+
+    #[test]
+    pub fn can_detect_output_type() {
+        let proj = analyze();
+        assert_eq!(proj.output_type, OutputType::Library);
     }
 }
 
@@ -680,8 +737,44 @@ mod old_style_tests {
     }
 
     #[test]
+    pub fn can_detect_web_config() {
+        let proj = analyze();
+        assert_eq!(proj.web_config, FileStatus::NotPresent);
+    }
+
+    #[test]
+    pub fn can_detect_app_config() {
+        let proj = analyze();
+        assert_eq!(proj.app_config, FileStatus::InProjectFileOnly);
+    }
+
+    #[test]
+    pub fn can_detect_app_settings_json() {
+        let proj = analyze();
+        assert_eq!(proj.app_settings_json, FileStatus::NotPresent);
+    }
+
+    #[test]
+    pub fn can_detect_package_json() {
+        let proj = analyze();
+        assert_eq!(proj.package_json, FileStatus::NotPresent);
+    }
+
+    #[test]
     pub fn can_detect_packages_config() {
         let proj = analyze();
         assert_eq!(proj.packages_config, FileStatus::InProjectFileOnly);
+    }
+
+    #[test]
+    pub fn can_detect_project_json() {
+        let proj = analyze();
+        assert_eq!(proj.project_json, FileStatus::NotPresent);
+    }
+
+    #[test]
+    pub fn can_detect_output_type() {
+        let proj = analyze();
+        assert_eq!(proj.output_type, OutputType::Library);
     }
 }
