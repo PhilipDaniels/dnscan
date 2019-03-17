@@ -1,4 +1,4 @@
-use crate::find_files::{PathsToAnalyze, WEB_CONFIG, PACKAGES_CONFIG};
+use crate::find_files::{PathsToAnalyze, InterestingFile};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use regex::Regex;
@@ -97,7 +97,7 @@ pub struct Project {
 
     pub packages_config: FileStatus,
     pub project_json: FileStatus,
-    
+
     pub packages: Vec<Package>,
     pub referenced_projects: Vec<Arc<Project>>,
     pub referenced_assemblies: Vec<String>,
@@ -138,7 +138,7 @@ impl Project {
                 proj.is_valid_utf8 = true;
                 proj.analyze(pta, s);
             },
-            Err(e) => {
+            Err(_) => {
                 proj.is_valid_utf8 = false;
             }
         }
@@ -166,7 +166,7 @@ impl Project {
         self.auto_generate_binding_redirects = Self::has_auto_generate_binding_redirects(&self.contents);
         self.packages_config = Self::has_packages_config(&self.contents, &self.file, pta);
 
-        
+
         // pub project_json: bool,
         // pub packages: Vec<Package>,
         // pub referenced_projects: Vec<Arc<Project>>,
@@ -296,7 +296,7 @@ impl Project {
             static ref PKG_CONFIG_RE: Regex = Regex::new(r##"\sInclude="[Pp]ackages.[Cc]onfig"\s*?/>"##).unwrap();
         }
 
-        match (PKG_CONFIG_RE.is_match(contents), pta.project_has_other_file(proj_file_path, PACKAGES_CONFIG)) {
+        match (PKG_CONFIG_RE.is_match(contents), pta.project_has_other_file(proj_file_path, InterestingFile::PackagesConfig)) {
             (true, true) => FileStatus::InProjectFileAndOnDisk,
             (true, false) => FileStatus::InProjectFileOnly,
             (false, true) => FileStatus::OnDiskOnly,
@@ -436,6 +436,13 @@ mod general_tests {
         let result = Project::has_auto_generate_binding_redirects(r##"blah<AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>blah"##);
         assert!(result == false);
     }
+
+
+    #[test]
+    pub fn can_get_has_packages_config() {
+        //pub fn has_packages_config(contents: &str, proj_file_path: &Path, pta: &PathsToAnalyze) -> FileStatus {
+
+    }
 }
 
 #[cfg(test)]
@@ -446,9 +453,14 @@ mod sdk_tests {
         include_str!("sdk1.csproj.xml").to_owned()
     }
 
+    fn pta() -> PathsToAnalyze {
+        PathsToAnalyze::default()
+    }
+
     fn analyze() -> Project {
         let mut proj = Project::default();
-        proj.analyze(sdk_csproj());
+        let pta = pta();
+        proj.analyze(&pta, sdk_csproj());
         proj
     }
 
@@ -509,9 +521,14 @@ mod old_style_tests {
         include_str!("old1.csproj.xml").to_owned()
     }
 
+    fn pta() -> PathsToAnalyze {
+        PathsToAnalyze::default()
+    }
+
     fn analyze() -> Project {
         let mut proj = Project::default();
-        proj.analyze(old_style_csproj());
+        let pta = pta();
+        proj.analyze(&pta, old_style_csproj());
         proj
     }
 
@@ -554,7 +571,7 @@ mod old_style_tests {
     #[test]
     pub fn can_detect_referenced_assemblies() {
         let proj = analyze();
-        assert_eq!(proj.referenced_assemblies, 
+        assert_eq!(proj.referenced_assemblies,
                    vec!["PresentationCore", "PresentationFramework", "System", "System.Activities",
                         "System.Core", "System.Net.Http", "System.Xml", "System.configuration",
                         "WindowsBase"]);
