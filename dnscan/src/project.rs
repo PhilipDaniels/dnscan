@@ -117,7 +117,7 @@ pub struct Project {
     pub referenced_projects: Vec<Arc<Project>>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PackageClass {
     Unknown,
     Ours,
@@ -131,12 +131,23 @@ impl Default for PackageClass {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Package {
     pub name: String,
     pub version: String,
     pub development: bool,
     pub class: PackageClass
+}
+
+impl Package {
+    fn new(name: &str, version: &str, development: bool) -> Self {
+        Package {
+            name: name.to_owned(),
+            version: version.to_owned(),
+            development,
+            class: PackageClass::Unknown
+        }
+    }
 }
 
 const SDK_PROLOG: &str = "<Project Sdk=\"Microsoft.NET.Sdk\">";
@@ -179,27 +190,18 @@ impl Project {
         self.linked_solution_info = self.has_linked_solution_info();
         self.referenced_assemblies = self.get_referenced_assemblies();
         self.auto_generate_binding_redirects = self.has_auto_generate_binding_redirects();
-        self.test_framework = self.get_test_framework();
-
         self.web_config = self.has_file_of_interest(pta, InterestingFile::WebConfig);
         self.app_config = self.has_file_of_interest(pta, InterestingFile::AppConfig);
         self.app_settings_json = self.has_file_of_interest(pta, InterestingFile::AppSettingsJson);
         self.package_json = self.has_file_of_interest(pta, InterestingFile::PackageJson);
         self.packages_config = self.has_file_of_interest(pta, InterestingFile::PackagesConfig);
         self.project_json = self.has_file_of_interest(pta, InterestingFile::ProjectJson);
-
-        // pub packages: Vec<Package>,
-        // pub referenced_projects: Vec<Arc<Project>>,
-        // pub test_framework: String,
+        self.embedded_debugging = self.has_embedded_debugging();
+        self.target_frameworks = self.get_target_frameworks();
+        self.packages = self.get_packages();
+        self.test_framework = self.get_test_framework();
         // pub uses_specflow
-
-        if self.version == ProjectVersion::MicrosoftNetSdk {
-            self.embedded_debugging = self.has_embedded_debugging();
-            self.target_frameworks = self.sdk_get_target_frameworks();
-        } else if self.version == ProjectVersion::OldStyle {
-            self.embedded_debugging = false;
-            self.target_frameworks = self.old_get_target_frameworks();
-        }
+        // pub referenced_projects: Vec<Arc<Project>>,
     }
 
     fn get_output_type(&self) -> OutputType {
@@ -224,6 +226,35 @@ impl Project {
         // All should be matched case-insensitively.
 
         TestFramework::None
+    }
+
+    fn get_packages(&self) -> Vec<Package> {
+        lazy_static! {
+            static ref SDK_RE: Regex = Regex::new(r##"(?s)<PackageReference\s*?Include="(?P<name>.*?)"\s*?Version="(?P<version>.*?)"(?P<inner>.*?)(/>|</PackageReference>)"##).unwrap();
+        }
+
+        let mut packages = match self.version {
+            ProjectVersion::MicrosoftNetSdk => {
+                // for c in SDK_RE.captures_iter(&self.contents) {
+                //     println!("Single line Got c = {:#?}", c);
+                // }
+
+                SDK_RE.captures_iter(&self.contents)
+                    .map(|cap| Package::new(
+                        &cap["name"],
+                        &cap["version"],
+                        cap["inner"].contains("<PrivateAssets>")
+                    ))
+                    .collect()
+            },
+            ProjectVersion::OldStyle => vec![],
+            _ => vec![]
+        };
+
+        // Sort, dedup, specify class.
+        packages.sort();
+        packages.dedup();
+        packages
     }
 
     fn has_xml_doc(&self) -> XmlDoc {
@@ -256,7 +287,11 @@ impl Project {
             static ref EMBED_ALL_REGEX: Regex = Regex::new(r##"<EmbedAllSources>true</EmbedAllSources>"##).unwrap();
         }
 
-        DEBUG_TYPE_REGEX.is_match(&self.contents) && EMBED_ALL_REGEX.is_match(&self.contents)
+        if self.version == ProjectVersion::MicrosoftNetSdk {
+            DEBUG_TYPE_REGEX.is_match(&self.contents) && EMBED_ALL_REGEX.is_match(&self.contents)
+        } else {
+            false
+        }
     }
 
     fn has_linked_solution_info(&self) -> bool {
@@ -267,42 +302,35 @@ impl Project {
         SOLUTION_INFO_REGEX.is_match(&self.contents)
     }
 
-    fn sdk_get_target_frameworks(&self) -> Vec<String> {
+    fn get_target_frameworks(&self) -> Vec<String> {
         lazy_static! {
-            static ref SINGLE_TF_REGEX: Regex = Regex::new(r##"<TargetFramework>(?P<tf>.*?)</TargetFramework>"##).unwrap();
-            static ref MULTI_TF_REGEX: Regex = Regex::new(r##"<TargetFrameworks>(?P<tfs>.*?)</TargetFrameworks>"##).unwrap();
+            static ref OLD_TF_REGEX: Regex = Regex::new(r##"<TargetFrameworkVersion>(?P<tf>.*?)</TargetFrameworkVersion>"##).unwrap();
+            static ref SDK_SINGLE_TF_REGEX: Regex = Regex::new(r##"<TargetFramework>(?P<tf>.*?)</TargetFramework>"##).unwrap();
+            static ref SDK_MULTI_TF_REGEX: Regex = Regex::new(r##"<TargetFrameworks>(?P<tfs>.*?)</TargetFrameworks>"##).unwrap();
         }
 
-        // One or the other will match.
-        let single: Vec<_> = SINGLE_TF_REGEX.captures_iter(&self.contents).map(|cap| cap["tf"].to_owned()).collect();
-        if !single.is_empty() {
-            return single;
+        match self.version {
+            ProjectVersion::Unknown => vec![],
+            ProjectVersion::OldStyle => OLD_TF_REGEX.captures_iter(&self.contents).map(|cap| cap["tf"].to_owned()).collect(),
+            ProjectVersion::MicrosoftNetSdk => {
+                // One or the other will match.
+                let single: Vec<_> = SDK_SINGLE_TF_REGEX.captures_iter(&self.contents).map(|cap| cap["tf"].to_owned()).collect();
+                if !single.is_empty() {
+                    return single;
+                }
+
+                let mut result = vec![];
+
+                for cap in SDK_MULTI_TF_REGEX.captures_iter(&self.contents) {
+                    let tfs = cap["tfs"].split(";");
+                    for tf in tfs {
+                        result.push(tf.to_owned());
+                    }
+                }
+
+                result
+            }
         }
-
-        let mut result = vec![];
-
-        for cap in MULTI_TF_REGEX.captures_iter(&self.contents) {
-             let tfs = cap["tfs"].split(";");
-             for tf in tfs {
-                 result.push(tf.to_owned());
-             }
-        }
-
-        result
-
-        // TODO: This won't compile.
-        // MULTI_TF_REGEX.captures_iter(contents)
-        //     .flat_map(|cap| cap["tfs"].split(";"))
-        //     .map(|s| s.to_owned())
-        //     .collect()
-    }
-
-    fn old_get_target_frameworks(&self) -> Vec<String> {
-        lazy_static! {
-            static ref TF_REGEX: Regex = Regex::new(r##"<TargetFrameworkVersion>(?P<tf>.*?)</TargetFrameworkVersion>"##).unwrap();
-        }
-
-        TF_REGEX.captures_iter(&self.contents).map(|cap| cap["tf"].to_owned()).collect()
     }
 
     fn get_referenced_assemblies(&self) -> Vec<String> {
@@ -327,6 +355,7 @@ impl Project {
     }
 
     fn has_file_of_interest(&self, pta: &PathsToAnalyze, interesting_file: InterestingFile) -> FileStatus {
+        // TODO: An optimisation would be to scan for all of these at once rather than separately.
         lazy_static! {
             static ref WEB_CONFIG_RE: Regex = RegexBuilder::new(
                     &format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::WebConfig.as_str()))
@@ -443,9 +472,8 @@ mod general_tests {
         let result = analyze(r##"blah<EmbedAllSources>true</EmbedAllSources>blah"##);
         assert_eq!(result.has_embedded_debugging(), false);
 
-        // TODO: I think this should be failing because not detected as an SDK style project!
-        let result = analyze(r##"blah<DebugType>embedded</DebugType>blah"
-            <EmbedAllSources>true</EmbedAllSources>blah"##);
+        let result = analyze(&add_sdk_prolog(r##"blah<DebugType>embedded</DebugType>blah"
+            <EmbedAllSources>true</EmbedAllSources>blah"##));
         assert_eq!(result.has_embedded_debugging(), true);
     }
 
@@ -566,6 +594,101 @@ mod general_tests {
         proj.analyze(&pta, r##" Include="packages.config" />"##.to_owned());
 
         assert_eq!(proj.packages_config, FileStatus::InProjectFileAndOnDisk);
+    }
+
+    #[test]
+    pub fn get_packages_sdk_simple() {
+        let result = analyze(&add_sdk_prolog(r##""##));
+        assert!(result.packages.is_empty());
+
+        let result = analyze(&add_sdk_prolog(r##"blah<PackageReference Include="Unity" Version="4.0.1" />blah"##));
+        assert_eq!(result.packages, vec![Package::new("Unity", "4.0.1", false)]);
+
+        // Sort test.
+        let result = analyze(&add_sdk_prolog(
+            r##"
+            blah<PackageReference Include="Unity" Version="4.0.1" />blah
+            blah<PackageReference Include="Automapper" Version="3.1.4" />blah
+            "##
+        ));
+        assert_eq!(result.packages, vec![
+            Package::new("Automapper", "3.1.4", false),
+            Package::new("Unity", "4.0.1", false)
+            ]);
+
+        // Dedup & sort by secondary key (version).
+        let result = analyze(&add_sdk_prolog(
+            r##"
+            blah<PackageReference Include="Automapper" Version="3.1.5" />blah
+            blah<PackageReference Include="Unity" Version="4.0.1" />blah
+            blah<PackageReference Include="Automapper" Version="3.1.4" />blah
+            blah<PackageReference Include="Unity" Version="4.0.1" />blah
+            "##
+        ));
+        assert_eq!(result.packages, vec![
+            Package::new("Automapper", "3.1.4", false),
+            Package::new("Automapper", "3.1.5", false),
+            Package::new("Unity", "4.0.1", false)
+            ]);
+    }
+
+    #[test]
+    pub fn get_packages_sdk_complex() {
+        let result = analyze(&add_sdk_prolog(
+            r##"
+            blah<PackageReference Include="Unity" Version="4.0.1">
+                <PrivateAssets>
+                </PackageReference>
+            "##
+        ));
+        assert_eq!(result.packages, vec![
+            Package::new("Unity", "4.0.1", true)
+            ]);
+
+
+        let result = analyze(&add_sdk_prolog(
+            r##"
+            blah<PackageReference Include="Unity" Version="4.0.1">
+                </PackageReference>
+            "##
+        ));
+        assert_eq!(result.packages, vec![
+            Package::new("Unity", "4.0.1", false)
+            ]);
+
+
+        // This flip-flop of styles discovered problems in the regex when it
+        // was not terminating early enough.
+        let result = analyze(&add_sdk_prolog(
+            r##"
+            blah<PackageReference Include="Unity" Version="4.0.1">
+                </PackageReference>
+
+                <PackageReference Include="EntityFramework" Version="2.4.6" />
+
+                <PackageReference Include="Automapper" Version="3.1.4">
+                    <PrivateAssets>
+                </PackageReference>
+
+                <PackageReference Include="Versioning.Bamboo" Version="8.8.9" />
+            "##
+        ));
+        assert_eq!(result.packages, vec![
+            Package::new("Automapper", "3.1.4", true),
+            Package::new("EntityFramework", "2.4.6", false),
+            Package::new("Unity", "4.0.1", false),
+            Package::new("Versioning.Bamboo", "8.8.9", false)
+            ]);
+    }
+
+    #[test]
+    pub fn get_packages_old_simple() {
+
+    }
+
+    #[test]
+    pub fn get_packages_old_complex() {
+
     }
 }
 
