@@ -404,252 +404,263 @@ impl Project {
 }
 
 #[cfg(test)]
-mod general_tests {
+mod tests {
     use super::*;
-    use std::str::FromStr;
     use dnlib::file_loader::MemoryFileLoader;
 
-    fn make_sdk_project(
-        contents: &str,
-        pta: Option<PathsToAnalyze>,
-        packages_config_contents: Option<&str>
-        ) -> Project
-    {
-        let contents = add_sdk_prolog(contents);
-        let pta = pta.unwrap_or_default();
-        let file_loader = MemoryFileLoader::default();
-        let project_path = PathBuf::from("/temp/x.csproj");
+    #[derive(Default)]
+    struct ProjectBuilder {
+        csproj_contents: String,
+        project_version: ProjectVersion,
+        packages_config_contents: Option<String>,
+        paths_to_analyze: PathsToAnalyze
+    }
 
-        file_loader.files.insert(project_path.clone(), contents);
-        if packages_config_contents.is_some() {
-            let pcc = packages_config_contents.unwrap().to_owned();
-            file_loader.files.insert(PathBuf::from("/temp/packages.config"), pcc);
+    impl ProjectBuilder {
+        fn new(csproj_contents: &str) -> Self {
+            ProjectBuilder {
+                csproj_contents: csproj_contents.to_owned(),
+                .. ProjectBuilder::default()
+            }
         }
-        
-        Project::new(&project_path, &pta, &file_loader)
+
+        fn with_packages_config(mut self, packages_config_contents: &str) -> Self {
+            self.packages_config_contents = Some(packages_config_contents.to_owned());
+            self
+        }
+
+        fn with_paths(mut self, pta: PathsToAnalyze) -> Self {
+            self.paths_to_analyze = pta;
+            self
+        }
+
+        fn sdk(mut self) -> Self {
+            self.project_version = ProjectVersion::MicrosoftNetSdk;
+            self
+        }
+
+        fn old(mut self) -> Self {
+            self.project_version = ProjectVersion::OldStyle;
+            self
+        }
+
+        fn build(mut self) -> Project {
+            self.csproj_contents = match self.project_version {
+                ProjectVersion::OldStyle => Self::add_old_prolog(&self.csproj_contents),
+                ProjectVersion::MicrosoftNetSdk => Self::add_sdk_prolog(&self.csproj_contents),
+                _ => self.csproj_contents
+            };
+
+            // Always construct a pta entry for the project itself.
+            let mut file_loader = MemoryFileLoader::default();
+            let project_path = PathBuf::from("/temp/x.csproj");
+            file_loader.files.insert(project_path.clone(), self.csproj_contents);
+
+            // If there is a packages.config, add a pta entry for it and put the contents into the file loader.
+            if self.packages_config_contents.is_some() {
+                let pc_path = PathBuf::from("/temp/packages.config");
+                self.paths_to_analyze.other_files.push(pc_path.clone());
+                let pcc = self.packages_config_contents.unwrap();
+                file_loader.files.insert(pc_path, pcc);
+            }
+
+            Project::new(&project_path, &self.paths_to_analyze, &file_loader)
+        }
+
+        fn add_sdk_prolog(contents: &str) -> String {
+            format!("{}\n{}", SDK_PROLOG, contents)
+        }
+
+        fn add_old_prolog(contents: &str) -> String {
+            format!("{}\n{}", OLD_PROLOG, contents)
+        }
     }
 
-    fn add_sdk_prolog(contents: &str) -> String {
-        format!("{}\n{}", SDK_PROLOG, contents)
-    }
-
-    fn add_old_prolog(contents: &str) -> String {
-        format!("{}\n{}", OLD_PROLOG, contents)
-    }
-
-    fn analyze(csproj_contents: &str) -> Project {
-        let mut proj = Project::default();
-        proj.analyze(&PathsToAnalyze::default(), csproj_contents.to_owned());
-        proj
-    }
-
-    fn analyze_with_paths(pta: PathsToAnalyze, csproj_contents: &str) -> Project {
-        let mut proj = Project::default();
-        proj.analyze(&pta, csproj_contents.to_owned());
-        proj
-    }
 
     #[test]
     pub fn has_xml_doc_works() {
-        let result = analyze(r##""##);
-        assert_eq!(result.xml_doc, XmlDoc::None);
+        let project = ProjectBuilder::new(r##""##).build();
+        assert_eq!(project.xml_doc, XmlDoc::None);
 
-        let result = analyze(r##"blah<DocumentationFile>bin\Debug\WorkflowService.Client.xml</DocumentationFile>blah"##);
-        assert_eq!(result.xml_doc, XmlDoc::Debug);
+        let project = ProjectBuilder::new(r##"blah<DocumentationFile>bin\Debug\WorkflowService.Client.xml</DocumentationFile>blah"##).build();
+        assert_eq!(project.xml_doc, XmlDoc::Debug);
 
-        let result = analyze(r##"blah<DocumentationFile>bin\Release\WorkflowService.Client.xml</DocumentationFile>blah"##);
-        assert_eq!(result.xml_doc, XmlDoc::Release);
+        let project = ProjectBuilder::new(r##"blah<DocumentationFile>bin\Release\WorkflowService.Client.xml</DocumentationFile>blah"##).build();
+        assert_eq!(project.xml_doc, XmlDoc::Release);
 
-        let result = analyze(r##"blah<DocumentationFile>bin\Release\WorkflowService.Client.xml</DocumentationFile>
-            <DocumentationFile>bin\Debug\WorkflowService.Client.xml</DocumentationFile>blah"##);
-        assert_eq!(result.xml_doc, XmlDoc::Both);
+        let project = ProjectBuilder::new(r##"blah<DocumentationFile>bin\Release\WorkflowService.Client.xml</DocumentationFile>
+            <DocumentationFile>bin\Debug\WorkflowService.Client.xml</DocumentationFile>blah"##).build();
+        assert_eq!(project.xml_doc, XmlDoc::Both);
     }
 
     #[test]
     pub fn has_tt_file_works() {
-        let result = analyze(r##""##);
-        assert_eq!(result.tt_file, false);
+        let project = ProjectBuilder::new(r##""##).build();
+        assert!(!project.tt_file);
 
-        let result = analyze(r##"blah<None Update="NuSpecTemplate.tt">blah"##);
-        assert_eq!(result.tt_file, false);
+        let project = ProjectBuilder::new(r##"blah<None Update="NuSpecTemplate.tt">blah"##).build();
+        assert!(!project.tt_file);
 
-        let result = analyze(r##"blah<None Update="NuSpecTemplate.nuspec">blah"##);
-        assert_eq!(result.tt_file, false);
+        let project = ProjectBuilder::new(r##"blah<None Update="NuSpecTemplate.nuspec">blah"##).build();
+        assert!(!project.tt_file);
 
-        let result = analyze(r##"blah<None Update="NuSpecTemplate.nuspec">blah
-            <None Update="NuSpecTemplate.tt">blah"##);
-        assert_eq!(result.tt_file, true);
+        let project = ProjectBuilder::new(r##"blah<None Update="NuSpecTemplate.nuspec">blah
+            <None Update="NuSpecTemplate.tt">blah"##).build();
+        assert!(project.tt_file);
 
-        let result = analyze(r##"blah<None Include="NuSpecTemplate.nuspec">blah
-            <None Include="NuSpecTemplate.tt">blah"##);
-        assert_eq!(result.tt_file, true);
+        let project = ProjectBuilder::new(r##"blah<None Include="NuSpecTemplate.nuspec">blah
+            <None Include="NuSpecTemplate.tt">blah"##).build();
+        assert!(project.tt_file);
     }
 
     #[test]
     pub fn has_embedded_debugging_works() {
-        let result = analyze(r##""##);
-        assert_eq!(result.has_embedded_debugging(), false);
+        let project = ProjectBuilder::new(r##""##).build();
+        assert!(!project.embedded_debugging);
 
-        let result = analyze(r##"blah<DebugType>embedded</DebugType>blah"##);
-        assert_eq!(result.has_embedded_debugging(), false);
+        let project = ProjectBuilder::new(r##"blah<DebugType>embedded</DebugType>blah"##).build();
+        assert!(!project.embedded_debugging);
 
-        let result = analyze(r##"blah<EmbedAllSources>true</EmbedAllSources>blah"##);
-        assert_eq!(result.has_embedded_debugging(), false);
+        let project = ProjectBuilder::new(r##"blah<EmbedAllSources>true</EmbedAllSources>blah"##).build();
+        assert!(!project.embedded_debugging);
 
-        let result = analyze(&add_sdk_prolog(r##"blah<DebugType>embedded</DebugType>blah"
-            <EmbedAllSources>true</EmbedAllSources>blah"##));
-        assert_eq!(result.has_embedded_debugging(), true);
+        let project = ProjectBuilder::new(r##"blah<DebugType>embedded</DebugType>blah"
+            <EmbedAllSources>true</EmbedAllSources>blah"##).sdk().build();
+        assert!(project.embedded_debugging);
     }
 
     #[test]
     pub fn has_linked_solution_info_works() {
-        let result = analyze(r##""##);
-        assert_eq!(result.has_linked_solution_info(), false);
+        let project = ProjectBuilder::new(r##""##).build();
+        assert!(!project.linked_solution_info);
 
         // SDK style.
-        let result = analyze(r##"blah<ItemGroup>
+        let project = ProjectBuilder::new(r##"blah<ItemGroup>
             <Compile Include="..\SolutionInfo.cs" Link="Properties\SolutionInfo.cs" />blah
-            </ItemGroup>blah"##);
-        assert_eq!(result.has_linked_solution_info(), true);
+            </ItemGroup>blah"##).build();
+        assert!(project.linked_solution_info);
 
         // Old style.
-        let result = analyze(r##"blah<Compile Include="..\SolutionInfo.cs">
+        let project = ProjectBuilder::new(r##"blah<Compile Include="..\SolutionInfo.cs">
             <Link>Properties\SolutionInfo.cs</Link>blah
-            </Compile>blah"##);
-        assert_eq!(result.has_linked_solution_info(), true);
+            </Compile>blah"##).build();
+        assert!(project.linked_solution_info);
     }
 
     #[test]
     pub fn sdk_get_target_frameworks_works() {
-        let result = analyze(r##""##);
-        assert!(result.target_frameworks.is_empty());
+        let project = ProjectBuilder::new(r##""##).build();
+        assert!(project.target_frameworks.is_empty());
 
-        let result = analyze(&add_sdk_prolog(r##"blah<TargetFramework>net462</TargetFramework>blah"##));
-        assert_eq!(result.target_frameworks, vec!["net462"]);
+        let project = ProjectBuilder::new(r##"blah<TargetFramework>net462</TargetFramework>blah"##).sdk().build();
+        assert_eq!(project.target_frameworks, vec!["net462"]);
 
         // I don't believe this happens, but this is what we get.
-        let result = analyze(&add_sdk_prolog(r##"blah<TargetFramework>net462</TargetFramework>blah<TargetFramework>net472</TargetFramework>"##));
-        assert_eq!(result.target_frameworks, vec!["net462", "net472"]);
+        let project = ProjectBuilder::new(r##"blah<TargetFramework>net462</TargetFramework>blah<TargetFramework>net472</TargetFramework>"##).sdk().build();
+        assert_eq!(project.target_frameworks, vec!["net462", "net472"]);
 
-        let result = analyze(&add_sdk_prolog(r##"blah<TargetFrameworks>net462;net472</TargetFrameworks>blah"##));
-        assert_eq!(result.target_frameworks, vec!["net462", "net472"]);
+        let project = ProjectBuilder::new(r##"blah<TargetFrameworks>net462;net472</TargetFrameworks>blah"##).sdk().build();
+        assert_eq!(project.target_frameworks, vec!["net462", "net472"]);
     }
 
     #[test]
     pub fn old_get_target_frameworks_works() {
-        let result = analyze(r##""##);
-        assert!(result.target_frameworks.is_empty());
+        let project = ProjectBuilder::new(r##""##).build();
+        assert!(project.target_frameworks.is_empty());
 
-        let result = analyze(&add_old_prolog(r##"blah<TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>blah"##));
-        assert_eq!(result.target_frameworks, vec!["v4.6.2"]);
+        let project = ProjectBuilder::new(r##"blah<TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>blah"##).old().build();
+        assert_eq!(project.target_frameworks, vec!["v4.6.2"]);
 
-        let result = analyze(&add_old_prolog(r##"blah<TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>blah
-            <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>"##));
-        assert_eq!(result.target_frameworks, vec!["v4.6.2", "v4.7.2"]);
+        let project = ProjectBuilder::new(r##"blah<TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>blah
+            <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>"##).old().build();
+        assert_eq!(project.target_frameworks, vec!["v4.6.2", "v4.7.2"]);
     }
 
     #[test]
     pub fn get_referenced_assemblies_works() {
-        let result = analyze(r##""##);
-        assert!(result.referenced_assemblies.is_empty());
+        let project = ProjectBuilder::new(r##""##).build();
+        assert!(project.referenced_assemblies.is_empty());
 
-        let result = analyze(r##"blah<Reference Include="System.Windows" />blah"##);
-        assert_eq!(result.referenced_assemblies, vec!["System.Windows"]);
+        let project = ProjectBuilder::new(r##"blah<Reference Include="System.Windows" />blah"##).build();
+        assert_eq!(project.referenced_assemblies, vec!["System.Windows"]);
 
-        let result = analyze(r##"blah<Reference Include="System.Windows" />blah
-        blah<Reference Include="System.Windows" />blah"##);
-        assert_eq!(result.referenced_assemblies, vec!["System.Windows"]);
+        let project = ProjectBuilder::new(r##"blah<Reference Include="System.Windows" />blah
+            blah<Reference Include="System.Windows" />blah"##).build();
+        assert_eq!(project.referenced_assemblies, vec!["System.Windows"]);
 
-        let result = analyze(r##"blah<Reference Include="System.Windows" />blah
-        blah<Reference Include="System.Data" />blah"##);
-        assert_eq!(result.referenced_assemblies, vec!["System.Data", "System.Windows"]);
+        let project = ProjectBuilder::new(r##"blah<Reference Include="System.Windows" />blah
+            blah<Reference Include="System.Data" />blah"##).build();
+        assert_eq!(project.referenced_assemblies, vec!["System.Data", "System.Windows"]);
     }
 
     #[test]
     pub fn has_auto_generate_binding_redirects_works() {
-        let result = analyze(r##""##);
-        assert!(result.auto_generate_binding_redirects == false);
+        let project = ProjectBuilder::new(r##""##).build();
+        assert!(!project.auto_generate_binding_redirects);
 
-        let result = analyze(r##"blah<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>blah"##);
-        assert!(result.auto_generate_binding_redirects == true);
+        let project = ProjectBuilder::new(r##"blah<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>blah"##).build();
+        assert!(project.auto_generate_binding_redirects);
 
-        let result = analyze(r##"blah<AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>blah"##);
-        assert!(result.auto_generate_binding_redirects == false);
+        let project = ProjectBuilder::new(r##"blah<AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>blah"##).build();
+        assert!(!project.auto_generate_binding_redirects);
     }
-
 
     #[test]
     pub fn has_packages_config_not_present() {
-        let result = analyze_with_paths(PathsToAnalyze::default(), "");
-        assert_eq!(result.packages_config, FileStatus::NotPresent);
+        let project = ProjectBuilder::new(r##""##).build();
+        assert_eq!(project.packages_config, FileStatus::NotPresent);
     }
 
     #[test]
     pub fn has_packages_config_on_disk() {
-        let mut pta = PathsToAnalyze::default();
-        pta.other_files.push(PathBuf::from_str("/temp/packages.config").unwrap());
-
-        let mut proj = Project::default();
-        proj.file = PathBuf::from_str("/temp/foo.csproj").unwrap();
-
-        proj.analyze(&pta, "".to_owned());
-
-        assert_eq!(proj.packages_config, FileStatus::OnDiskOnly);
+        let project = ProjectBuilder::new(r##""##).with_packages_config("contents").build();
+        assert_eq!(project.packages_config, FileStatus::OnDiskOnly);
     }
 
     #[test]
     pub fn has_packages_config_in_project_file_only() {
-        let mut proj = Project::default();
-        proj.file = PathBuf::from_str("/temp/foo.csproj").unwrap();
-
-        proj.analyze(&PathsToAnalyze::default(), r##" Include="packages.config" />"##.to_owned());
-
-        assert_eq!(proj.packages_config, FileStatus::InProjectFileOnly);
+        let project = ProjectBuilder::new(r##" Include="packages.config" />"##).build();
+        assert_eq!(project.packages_config, FileStatus::InProjectFileOnly);
     }
 
     #[test]
     pub fn has_packages_config_in_project_file_and_on_disk() {
-        let mut pta = PathsToAnalyze::default();
-        pta.other_files.push(PathBuf::from_str("/temp/packages.config").unwrap());
-
-        let mut proj = Project::default();
-        proj.file = PathBuf::from_str("/temp/foo.csproj").unwrap();
-
-        proj.analyze(&pta, r##" Include="packages.config" />"##.to_owned());
-
-        assert_eq!(proj.packages_config, FileStatus::InProjectFileAndOnDisk);
+        let project = ProjectBuilder::new(r##" Include="packages.config" />"##).with_packages_config("contents").build();
+        assert_eq!(project.packages_config, FileStatus::InProjectFileAndOnDisk);
     }
 
     #[test]
-    pub fn get_packages_sdk_simple() {
-        let result = analyze(&add_sdk_prolog(r##""##));
-        assert!(result.packages.is_empty());
+    pub fn get_packages_sdk_one_line() {
+        let project = ProjectBuilder::new(r##""##).sdk().build();
+        assert!(project.packages.is_empty());
 
-        let result = analyze(&add_sdk_prolog(r##"blah<PackageReference Include="Unity" Version="4.0.1" />blah"##));
-        assert_eq!(result.packages, vec![Package::new("Unity", "4.0.1", false)]);
+        let project = ProjectBuilder::new(r##"blah<PackageReference Include="Unity" Version="4.0.1" />blah"##).sdk().build();
+        assert_eq!(project.packages, vec![Package::new("Unity", "4.0.1", false)]);
+    }
 
-        // Sort test.
-        let result = analyze(&add_sdk_prolog(
+    #[test]
+    pub fn get_packages_sdk_one_line_sorts() {
+        let project = ProjectBuilder::new(
             r##"
             blah<PackageReference Include="Unity" Version="4.0.1" />blah
             blah<PackageReference Include="Automapper" Version="3.1.4" />blah
             "##
-        ));
-        assert_eq!(result.packages, vec![
+            ).sdk().build();
+        assert_eq!(project.packages, vec![
             Package::new("Automapper", "3.1.4", false),
             Package::new("Unity", "4.0.1", false)
             ]);
 
         // Dedup & sort by secondary key (version).
-        let result = analyze(&add_sdk_prolog(
+        let project = ProjectBuilder::new(
             r##"
             blah<PackageReference Include="Automapper" Version="3.1.5" />blah
             blah<PackageReference Include="Unity" Version="4.0.1" />blah
             blah<PackageReference Include="Automapper" Version="3.1.4" />blah
             blah<PackageReference Include="Unity" Version="4.0.1" />blah
             "##
-        ));
-        assert_eq!(result.packages, vec![
+            ).sdk().build();
+        assert_eq!(project.packages, vec![
             Package::new("Automapper", "3.1.4", false),
             Package::new("Automapper", "3.1.5", false),
             Package::new("Unity", "4.0.1", false)
@@ -657,33 +668,55 @@ mod general_tests {
     }
 
     #[test]
-    pub fn get_packages_sdk_complex() {
-        let result = analyze(&add_sdk_prolog(
+    pub fn get_packages_sdk_one_line_dedups() {
+        // Dedup & sort by secondary key (i.e. the version).
+        let project = ProjectBuilder::new(
+            r##"
+            blah<PackageReference Include="Automapper" Version="3.1.5" />blah
+            blah<PackageReference Include="Unity" Version="4.0.1" />blah
+            blah<PackageReference Include="Automapper" Version="3.1.4" />blah
+            blah<PackageReference Include="Unity" Version="4.0.1" />blah
+            "##
+            ).sdk().build();
+        assert_eq!(project.packages, vec![
+            Package::new("Automapper", "3.1.4", false),
+            Package::new("Automapper", "3.1.5", false),
+            Package::new("Unity", "4.0.1", false)
+            ]);
+    }
+
+    #[test]
+    pub fn get_packages_sdk_multi_line() {
+        let project = ProjectBuilder::new(
+            r##"
+            blah<PackageReference Include="Unity" Version="4.0.1">
+                </PackageReference>
+            "##
+        ).sdk().build();
+        assert_eq!(project.packages, vec![
+            Package::new("Unity", "4.0.1", false)
+            ]);
+    }
+
+    #[test]
+    pub fn get_packages_sdk_multi_line_private_assets() {
+        let project = ProjectBuilder::new(
             r##"
             blah<PackageReference Include="Unity" Version="4.0.1">
                 <PrivateAssets>
                 </PackageReference>
             "##
-        ));
-        assert_eq!(result.packages, vec![
+        ).sdk().build();
+        assert_eq!(project.packages, vec![
             Package::new("Unity", "4.0.1", true)
             ]);
+    }
 
-
-        let result = analyze(&add_sdk_prolog(
-            r##"
-            blah<PackageReference Include="Unity" Version="4.0.1">
-                </PackageReference>
-            "##
-        ));
-        assert_eq!(result.packages, vec![
-            Package::new("Unity", "4.0.1", false)
-            ]);
-
-
+    #[test]
+    pub fn get_packages_sdk_multi_line_flip_flop() {
         // This flip-flop of styles discovered problems in the regex when it
         // was not terminating early enough.
-        let result = analyze(&add_sdk_prolog(
+        let project = ProjectBuilder::new(
             r##"
             blah<PackageReference Include="Unity" Version="4.0.1">
                 </PackageReference>
@@ -696,8 +729,8 @@ mod general_tests {
 
                 <PackageReference Include="Versioning.Bamboo" Version="8.8.9" />
             "##
-        ));
-        assert_eq!(result.packages, vec![
+        ).sdk().build();
+        assert_eq!(project.packages, vec![
             Package::new("Automapper", "3.1.4", true),
             Package::new("EntityFramework", "2.4.6", false),
             Package::new("Unity", "4.0.1", false),
@@ -705,236 +738,219 @@ mod general_tests {
             ]);
     }
 
-    #[test]
-    pub fn get_packages_old_simple() {
+    // #[test]
+    // pub fn get_packages_old_single_line() {
+    // }
 
+    // #[test]
+    // pub fn get_packages_old_multi_line() {
+    // }
+
+
+
+
+    /// These tests run against the embedded example SDK-style project.
+    /// They are an extra sanity-check that we really got it right "in the real world".
+    mod sdk_tests {
+        use super::*;
+
+        fn get_sdk_project() -> Project {
+            ProjectBuilder::new(include_str!("sdk1.csproj.xml")).sdk().build()
+        }
+
+        #[test]
+        pub fn can_detect_version() {
+            let project = get_sdk_project();
+            assert_eq!(project.version, ProjectVersion::MicrosoftNetSdk);
+        }
+
+        #[test]
+        pub fn can_detect_xml_doc() {
+            let project = get_sdk_project();
+            assert_eq!(project.xml_doc, XmlDoc::Both);
+        }
+
+        #[test]
+        pub fn can_detect_tt_file() {
+            let project = get_sdk_project();
+            assert!(project.tt_file);
+        }
+
+        #[test]
+        pub fn can_detect_embedded_debugging() {
+            let project = get_sdk_project();
+            assert!(project.embedded_debugging);
+        }
+
+        #[test]
+        pub fn can_detect_linked_solution_info() {
+            let project = get_sdk_project();
+            assert!(project.linked_solution_info);
+        }
+
+        #[test]
+        pub fn can_detect_target_framework() {
+            let project = get_sdk_project();
+            assert_eq!(project.target_frameworks, vec!["net462"]);
+        }
+
+        #[test]
+        pub fn can_detect_referenced_assemblies() {
+            let project = get_sdk_project();
+            assert_eq!(project.referenced_assemblies, vec!["System.Configuration", "System.Windows"]);
+        }
+
+        #[test]
+        pub fn can_detect_has_auto_generate_binding_redirects() {
+            let project = get_sdk_project();
+            assert!(project.auto_generate_binding_redirects);
+        }
+
+        #[test]
+        pub fn can_detect_web_config() {
+            let project = get_sdk_project();
+            assert_eq!(project.web_config, FileStatus::NotPresent);
+        }
+
+        #[test]
+        pub fn can_detect_app_config() {
+            let project = get_sdk_project();
+            assert_eq!(project.app_config, FileStatus::NotPresent);
+        }
+
+        #[test]
+        pub fn can_detect_app_settings_json() {
+            let project = get_sdk_project();
+            assert_eq!(project.app_settings_json, FileStatus::NotPresent);
+        }
+
+        #[test]
+        pub fn can_detect_package_json() {
+            let project = get_sdk_project();
+            assert_eq!(project.package_json, FileStatus::NotPresent);
+        }
+
+        #[test]
+        pub fn can_detect_packages_config() {
+            let project = get_sdk_project();
+            assert_eq!(project.packages_config, FileStatus::NotPresent);
+        }
+
+        #[test]
+        pub fn can_detect_project_json() {
+            let project = get_sdk_project();
+            assert_eq!(project.project_json, FileStatus::NotPresent);
+        }
+
+        #[test]
+        pub fn can_detect_output_type() {
+            let project = get_sdk_project();
+            assert_eq!(project.output_type, OutputType::Library);
+        }
     }
 
-    #[test]
-    pub fn get_packages_old_complex() {
 
-    }
-}
 
-#[cfg(test)]
-mod sdk_tests {
-    use super::*;
+    /// These tests run against the embedded example old-style project.
+    /// They are an extra sanity-check that we really got it right "in the real world".
+    mod old_style_tests {
+        use super::*;
 
-    fn sdk_csproj() -> String {
-        include_str!("sdk1.csproj.xml").to_owned()
-    }
+        fn get_old_project() -> Project {
+            ProjectBuilder::new(include_str!("old1.csproj.xml")).old().build()
+        }
 
-    fn pta() -> PathsToAnalyze {
-        PathsToAnalyze::default()
-    }
+        #[test]
+        pub fn can_detect_version() {
+            let project = get_old_project();
+            assert_eq!(project.version, ProjectVersion::OldStyle);
+        }
 
-    fn analyze() -> Project {
-        let mut proj = Project::default();
-        let pta = pta();
-        proj.analyze(&pta, sdk_csproj());
-        proj
-    }
+        #[test]
+        pub fn can_detect_xml_doc() {
+            let project = get_old_project();
+            assert_eq!(project.xml_doc, XmlDoc::Both);
+        }
 
-    #[test]
-    pub fn can_detect_version() {
-        let proj = analyze();
-        assert_eq!(proj.version, ProjectVersion::MicrosoftNetSdk);
-    }
+        #[test]
+        pub fn can_detect_tt_file() {
+            let project = get_old_project();
+            assert!(project.tt_file);
+        }
 
-    #[test]
-    pub fn can_detect_xml_doc() {
-        let proj = analyze();
-        assert_eq!(proj.xml_doc, XmlDoc::Both);
-    }
+        #[test]
+        pub fn embedded_debugging_is_always_false() {
+            let project = get_old_project();
+            assert!(!project.embedded_debugging);
+        }
 
-    #[test]
-    pub fn can_detect_tt_file() {
-        let proj = analyze();
-        assert_eq!(proj.tt_file, true);
-    }
+        #[test]
+        pub fn can_detect_linked_solution_info() {
+            let project = get_old_project();
+            assert!(project.linked_solution_info);
+        }
 
-    #[test]
-    pub fn can_detect_embedded_debugging() {
-        let proj = analyze();
-        assert_eq!(proj.embedded_debugging, true);
-    }
+        #[test]
+        pub fn can_detect_target_framework() {
+            let project = get_old_project();
+            assert_eq!(project.target_frameworks, vec!["v4.6.2"]);
+        }
 
-    #[test]
-    pub fn can_detect_linked_solution_info() {
-        let proj = analyze();
-        assert_eq!(proj.linked_solution_info, true);
-    }
+        #[test]
+        pub fn can_detect_referenced_assemblies() {
+            let project = get_old_project();
+            assert_eq!(project.referenced_assemblies,
+                    vec!["PresentationCore", "PresentationFramework", "System", "System.Activities",
+                            "System.Core", "System.Net.Http", "System.Xml", "System.configuration",
+                            "WindowsBase"]);
+        }
 
-    #[test]
-    pub fn can_detect_target_framework() {
-        let proj = analyze();
-        assert_eq!(proj.target_frameworks, vec!["net462"]);
-    }
+        #[test]
+        pub fn can_detect_has_auto_generate_binding_redirects() {
+            let project = get_old_project();
+            assert!(!project.auto_generate_binding_redirects);
+        }
 
-    #[test]
-    pub fn can_detect_referenced_assemblies() {
-        let proj = analyze();
-        assert_eq!(proj.referenced_assemblies, vec!["System.Configuration", "System.Windows"]);
-    }
+        #[test]
+        pub fn can_detect_web_config() {
+            let project = get_old_project();
+            assert_eq!(project.web_config, FileStatus::NotPresent);
+        }
 
-    #[test]
-    pub fn can_detect_has_auto_generate_binding_redirects() {
-        let proj = analyze();
-        assert!(proj.auto_generate_binding_redirects == true);
-    }
+        #[test]
+        pub fn can_detect_app_config() {
+            let project = get_old_project();
+            assert_eq!(project.app_config, FileStatus::InProjectFileOnly);
+        }
 
-    #[test]
-    pub fn can_detect_web_config() {
-        let proj = analyze();
-        assert_eq!(proj.web_config, FileStatus::NotPresent);
-    }
+        #[test]
+        pub fn can_detect_app_settings_json() {
+            let project = get_old_project();
+            assert_eq!(project.app_settings_json, FileStatus::NotPresent);
+        }
 
-    #[test]
-    pub fn can_detect_app_config() {
-        let proj = analyze();
-        assert_eq!(proj.app_config, FileStatus::NotPresent);
-    }
+        #[test]
+        pub fn can_detect_package_json() {
+            let project = get_old_project();
+            assert_eq!(project.package_json, FileStatus::NotPresent);
+        }
 
-    #[test]
-    pub fn can_detect_app_settings_json() {
-        let proj = analyze();
-        assert_eq!(proj.app_settings_json, FileStatus::NotPresent);
-    }
+        #[test]
+        pub fn can_detect_packages_config() {
+            let project = get_old_project();
+            assert_eq!(project.packages_config, FileStatus::InProjectFileOnly);
+        }
 
-    #[test]
-    pub fn can_detect_package_json() {
-        let proj = analyze();
-        assert_eq!(proj.package_json, FileStatus::NotPresent);
-    }
+        #[test]
+        pub fn can_detect_project_json() {
+            let project = get_old_project();
+            assert_eq!(project.project_json, FileStatus::NotPresent);
+        }
 
-    #[test]
-    pub fn can_detect_packages_config() {
-        let proj = analyze();
-        assert_eq!(proj.packages_config, FileStatus::NotPresent);
-    }
-
-    #[test]
-    pub fn can_detect_project_json() {
-        let proj = analyze();
-        assert_eq!(proj.project_json, FileStatus::NotPresent);
-    }
-
-    #[test]
-    pub fn can_detect_output_type() {
-        let proj = analyze();
-        assert_eq!(proj.output_type, OutputType::Library);
-    }
-}
-
-#[cfg(test)]
-mod old_style_tests {
-    use super::*;
-
-    fn old_style_csproj() -> String {
-        include_str!("old1.csproj.xml").to_owned()
-    }
-
-    fn pta() -> PathsToAnalyze {
-        PathsToAnalyze::default()
-    }
-
-    fn analyze() -> Project {
-        let mut proj = Project::default();
-        let pta = pta();
-        proj.analyze(&pta, old_style_csproj());
-        proj
-    }
-
-    #[test]
-    pub fn can_detect_version() {
-        let proj = analyze();
-        assert_eq!(proj.version, ProjectVersion::OldStyle);
-    }
-
-    #[test]
-    pub fn can_detect_xml_doc() {
-        let proj = analyze();
-        assert_eq!(proj.xml_doc, XmlDoc::Both);
-    }
-
-    #[test]
-    pub fn can_detect_tt_file() {
-        let proj = analyze();
-        assert_eq!(proj.tt_file, true);
-    }
-
-    #[test]
-    pub fn embedded_debugging_is_always_false() {
-        let proj = analyze();
-        assert_eq!(proj.embedded_debugging, false);
-    }
-
-    #[test]
-    pub fn can_detect_linked_solution_info() {
-        let proj = analyze();
-        assert_eq!(proj.linked_solution_info, true);
-    }
-
-    #[test]
-    pub fn can_detect_target_framework() {
-        let proj = analyze();
-        assert_eq!(proj.target_frameworks, vec!["v4.6.2"]);
-    }
-
-    #[test]
-    pub fn can_detect_referenced_assemblies() {
-        let proj = analyze();
-        assert_eq!(proj.referenced_assemblies,
-                   vec!["PresentationCore", "PresentationFramework", "System", "System.Activities",
-                        "System.Core", "System.Net.Http", "System.Xml", "System.configuration",
-                        "WindowsBase"]);
-    }
-
-    #[test]
-    pub fn can_detect_has_auto_generate_binding_redirects() {
-        let proj = analyze();
-        assert!(proj.auto_generate_binding_redirects == false);
-    }
-
-    #[test]
-    pub fn can_detect_web_config() {
-        let proj = analyze();
-        assert_eq!(proj.web_config, FileStatus::NotPresent);
-    }
-
-    #[test]
-    pub fn can_detect_app_config() {
-        let proj = analyze();
-        assert_eq!(proj.app_config, FileStatus::InProjectFileOnly);
-    }
-
-    #[test]
-    pub fn can_detect_app_settings_json() {
-        let proj = analyze();
-        assert_eq!(proj.app_settings_json, FileStatus::NotPresent);
-    }
-
-    #[test]
-    pub fn can_detect_package_json() {
-        let proj = analyze();
-        assert_eq!(proj.package_json, FileStatus::NotPresent);
-    }
-
-    #[test]
-    pub fn can_detect_packages_config() {
-        let proj = analyze();
-        assert_eq!(proj.packages_config, FileStatus::InProjectFileOnly);
-    }
-
-    #[test]
-    pub fn can_detect_project_json() {
-        let proj = analyze();
-        assert_eq!(proj.project_json, FileStatus::NotPresent);
-    }
-
-    #[test]
-    pub fn can_detect_output_type() {
-        let proj = analyze();
-        assert_eq!(proj.output_type, OutputType::Library);
+        #[test]
+        pub fn can_detect_output_type() {
+            let project = get_old_project();
+            assert_eq!(project.output_type, OutputType::Library);
+        }
     }
 }
