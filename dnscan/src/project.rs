@@ -239,34 +239,19 @@ impl Project {
 
         let mut packages = match self.version {
             ProjectVersion::MicrosoftNetSdk => {
-                // for c in SDK_RE.captures_iter(&self.contents) {
-                //     println!("Single line Got c = {:#?}", c);
-                // }
-
                 SDK_RE.captures_iter(&self.contents)
-                    .map(|cap| Package::new(
-                        &cap["name"],
-                        &cap["version"],
-                        cap["inner"].contains("<PrivateAssets>")
-                    ))
+                    .map(|cap| Package::new(&cap["name"], &cap["version"], cap["inner"].contains("<PrivateAssets>")))
                     .collect()
             },
             ProjectVersion::OldStyle => {
                 // Grab them from the actual packages.config file contents.
-                let pc_path = pta.get_other_file(&self.file, InterestingFile::PackagesConfig);
-                match pc_path {
-                    Some(path) => {
-                        let pc_contents = file_loader.read_to_string(&path).unwrap();
+                pta.get_other_file(&self.file, InterestingFile::PackagesConfig)
+                    .and_then(|pc_path| file_loader.read_to_string(pc_path).ok())
+                    .map(|pc_contents|
                         PKG_CONFIG_RE.captures_iter(&pc_contents)
-                            .map(|cap| Package::new(
-                            &cap["name"],
-                            &cap["version"],
-                            cap["inner"].contains(r##"developmentDependency="true""##)
-                    ))
-                    .collect()
-                    },
-                    None => vec![]
-                }
+                            .map(|cap| Package::new(&cap["name"],&cap["version"], cap["inner"].contains(r##"developmentDependency="true""##)))
+                            .collect()
+                    ).unwrap_or_default()
             },
             _ => vec![]
         };
