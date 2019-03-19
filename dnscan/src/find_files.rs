@@ -38,16 +38,33 @@ impl PathsToAnalyze {
     /// physical files "in the expected places". This allows us to spot orphaned
     /// files that should have been deleted as part of project migration.
     pub fn project_has_other_file(&self, project: &Path, other_file: InterestingFile) -> bool {
+        self.get_other_file(project, other_file).is_some()
+    }
+
+    /// Checks to see whether a project has another file associated with it
+    /// (i.e. that the other file actually exists on disk). This check is based on
+    /// the directory of the project and the 'other_files'; we do not use the
+    /// XML contents of the project file for this check. We are looking for actual
+    /// physical files "in the expected places". This allows us to spot orphaned
+    /// files that should have been deleted as part of project migration.
+    pub fn get_other_file(&self, project: &Path, other_file: InterestingFile) -> Option<&PathBuf> {
         if let Some(project_dir) = project.parent() {
             let other_file = other_file.as_str();
             let possible_other_files = self.get_other_files_in_dir(project_dir);
-            return possible_other_files.iter()
-                .any(|other| other.filename_as_str().to_lowercase() == other_file);
+
+            for item in possible_other_files.iter() {
+                if item.filename_as_str().to_lowercase() == other_file {
+                    return Some(item);
+                }
+            }
         }
 
-        false
+        None
     }
 
+    /// Out of the universe of all files we have discovered, returns those
+    /// that are associated with (i.e. in the same directory or a sub-directory)
+    /// as the specified directory.
     pub fn get_other_files_in_dir(&self, directory: &Path) -> Vec<&PathBuf> {
         self.other_files.iter().filter(|path| match path.parent() {
             Some(dir) => dir == directory,

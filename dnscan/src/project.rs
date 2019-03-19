@@ -201,7 +201,7 @@ impl Project {
         self.project_json = self.has_file_of_interest(pta, InterestingFile::ProjectJson);
         self.embedded_debugging = self.has_embedded_debugging();
         self.target_frameworks = self.get_target_frameworks();
-        self.packages = self.get_packages();
+        self.packages = self.get_packages(pta, file_loader);
         self.test_framework = self.get_test_framework();
         // pub uses_specflow
         // pub referenced_projects: Vec<Arc<Project>>,
@@ -231,9 +231,10 @@ impl Project {
         TestFramework::None
     }
 
-    fn get_packages(&self) -> Vec<Package> {
+    fn get_packages(&self, pta: &PathsToAnalyze, file_loader: &FileLoader) -> Vec<Package> {
         lazy_static! {
             static ref SDK_RE: Regex = Regex::new(r##"(?s)<PackageReference\s*?Include="(?P<name>.*?)"\s*?Version="(?P<version>.*?)"(?P<inner>.*?)(/>|</PackageReference>)"##).unwrap();
+            static ref PKG_CONFIG_RE: Regex = Regex::new(r##"<package\s*?id="(?P<name>.*?)"\s*?version="(?P<version>.*?)"(?P<inner>.*?)\s*?/>"##).unwrap();
         }
 
         let mut packages = match self.version {
@@ -250,7 +251,23 @@ impl Project {
                     ))
                     .collect()
             },
-            ProjectVersion::OldStyle => vec![],
+            ProjectVersion::OldStyle => {
+                // Grab them from the actual packages.config file contents.
+                let pc_path = pta.get_other_file(&self.file, InterestingFile::PackagesConfig);
+                match pc_path {
+                    Some(path) => {
+                        let pc_contents = file_loader.read_to_string(&path).unwrap();
+                        PKG_CONFIG_RE.captures_iter(&pc_contents)
+                            .map(|cap| Package::new(
+                            &cap["name"],
+                            &cap["version"],
+                            cap["inner"].contains(r##"developmentDependency="true""##)
+                    ))
+                    .collect()
+                    },
+                    None => vec![]
+                }
+            },
             _ => vec![]
         };
 
