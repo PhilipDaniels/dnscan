@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use regex::{Regex, RegexBuilder};
 use lazy_static::lazy_static;
+use dnlib::file_loader::{FileLoader};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ProjectVersion {
@@ -153,15 +154,17 @@ impl Package {
 const SDK_PROLOG: &str = "<Project Sdk=\"Microsoft.NET.Sdk\">";
 const OLD_PROLOG: &str = "<Project ToolsVersion=";
 
+
+
 impl Project {
-    pub fn new(project_file_path: &Path, pta: &PathsToAnalyze) -> Self {
+    pub fn new(project_file_path: &Path, pta: &PathsToAnalyze, file_loader: &FileLoader) -> Self {
         let mut proj = Project::default();
         proj.file = project_file_path.to_owned();
 
-        match std::fs::read_to_string(project_file_path) {
+        match file_loader.read_to_string(project_file_path) {
             Ok(s) => {
                 proj.is_valid_utf8 = true;
-                proj.analyze(pta, s);
+                proj.analyze(pta, s, file_loader);
             },
             Err(_) => {
                 proj.is_valid_utf8 = false;
@@ -173,7 +176,7 @@ impl Project {
 
     /// Factor the guts of the analysis out into a separate function so that it
     /// can be easily unit tested.
-    fn analyze(&mut self, pta: &PathsToAnalyze, contents: String) {
+    fn analyze(&mut self, pta: &PathsToAnalyze, contents: String, file_loader: &FileLoader) {
         self.contents = contents;
 
         self.version = if self.contents.contains(SDK_PROLOG) {
@@ -404,6 +407,27 @@ impl Project {
 mod general_tests {
     use super::*;
     use std::str::FromStr;
+    use dnlib::file_loader::MemoryFileLoader;
+
+    fn make_sdk_project(
+        contents: &str,
+        pta: Option<PathsToAnalyze>,
+        packages_config_contents: Option<&str>
+        ) -> Project
+    {
+        let contents = add_sdk_prolog(contents);
+        let pta = pta.unwrap_or_default();
+        let file_loader = MemoryFileLoader::default();
+        let project_path = PathBuf::from("/temp/x.csproj");
+
+        file_loader.files.insert(project_path.clone(), contents);
+        if packages_config_contents.is_some() {
+            let pcc = packages_config_contents.unwrap().to_owned();
+            file_loader.files.insert(PathBuf::from("/temp/packages.config"), pcc);
+        }
+        
+        Project::new(&project_path, &pta, &file_loader)
+    }
 
     fn add_sdk_prolog(contents: &str) -> String {
         format!("{}\n{}", SDK_PROLOG, contents)

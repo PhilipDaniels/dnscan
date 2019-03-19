@@ -10,6 +10,7 @@ use options::Options;
 use rayon::prelude::*;
 use solution::Solution;
 use project::Project;
+use dnlib::file_loader::DiskFileLoader;
 
 // TODO: Write our own wrapper around println that captures the options.verbose flag.
 
@@ -70,9 +71,10 @@ pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
         println!("{} Solutions loaded and analyzed in {}", solutions.len(), elapsed);
     }
 
+    let file_loader = DiskFileLoader::default();
     let (elapsed, projects) = measure_time(|| {
         paths.csproj_files.par_iter().map(|path| {
-            Project::new(path, &paths)
+            Project::new(path, &paths, &file_loader)
         }).collect::<Vec<_>>()
     });
 
