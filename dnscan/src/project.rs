@@ -851,6 +851,15 @@ mod tests {
             let project = get_sdk_project();
             assert_eq!(project.output_type, OutputType::Library);
         }
+
+        #[test]
+        pub fn can_detect_packages() {
+            let project = get_sdk_project();
+            assert_eq!(project.packages, vec![
+                Package::new("Unity", "4.0.1", false),
+                Package::new("Versioning.Bamboo", "3.1.44", true),
+            ]);
+        }
     }
 
 
@@ -862,6 +871,12 @@ mod tests {
 
         fn get_old_project() -> Project {
             ProjectBuilder::new(include_str!("old1.csproj.xml")).old().build()
+        }
+
+        fn get_old_project_with_packages(package_config_contents: &str) -> Project {
+            ProjectBuilder::new(include_str!("old1.csproj.xml")).old()
+                .with_packages_config(package_config_contents)
+                .build()
         }
 
         #[test]
@@ -903,10 +918,17 @@ mod tests {
         #[test]
         pub fn can_detect_referenced_assemblies() {
             let project = get_old_project();
-            assert_eq!(project.referenced_assemblies,
-                    vec!["PresentationCore", "PresentationFramework", "System", "System.Activities",
-                            "System.Core", "System.Net.Http", "System.Xml", "System.configuration",
-                            "WindowsBase"]);
+            assert_eq!(project.referenced_assemblies, vec![
+                "PresentationCore",
+                "PresentationFramework",
+                "System",
+                "System.Activities",
+                "System.Core",
+                "System.Net.Http",
+                "System.Xml",
+                "System.configuration",
+                "WindowsBase"
+            ]);
         }
 
         #[test]
@@ -955,6 +977,33 @@ mod tests {
         pub fn can_detect_output_type() {
             let project = get_old_project();
             assert_eq!(project.output_type, OutputType::Library);
+        }
+
+        #[test]
+        pub fn can_detect_packages() {
+            let project = get_old_project_with_packages(r##"
+                <package id="Clarius.TransformOnBuild" version="1.1.12" targetFramework="net462" developmentDependency="true" />
+                <package id="MyCorp.Fundamentals" version="1.2.18268.136" targetFramework="net462" />
+                <package id="Microsoft.Owin.Hosting" version="4.0.0" targetFramework="net462" />
+                <package id="Microsoft.Owin.SelfHost" version="4.0.0" targetFramework="net462" />
+                <package id="Moq" version="4.8.3" targetFramework="net462" />
+                <package id="Newtonsoft.Json" version="11.0.2" targetFramework="net462" />
+                <package id="Npgsql" version="3.2.7" targetFramework="net462" />
+                <package id="MyProject.Core" version="1.12.18297.228" targetFramework="net462" />
+                <package id="WorkflowService.Client" version="1.12.18297.23" targetFramework="net462" />
+            "##);
+
+            assert_eq!(project.packages, vec![
+                Package::new("Clarius.TransformOnBuild", "1.1.12", true),
+                Package::new("Microsoft.Owin.Hosting", "4.0.0", false),
+                Package::new("Microsoft.Owin.SelfHost", "4.0.0", false),
+                Package::new("Moq", "4.8.3", false),
+                Package::new("MyCorp.Fundamentals", "1.2.18268.136", false),
+                Package::new("MyProject.Core", "1.12.18297.228", false),
+                Package::new("Newtonsoft.Json", "11.0.2", false),
+                Package::new("Npgsql", "3.2.7", false),
+                Package::new("WorkflowService.Client", "1.12.18297.23", false),
+            ]);
         }
     }
 }
