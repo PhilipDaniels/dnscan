@@ -161,50 +161,45 @@ impl Project {
         let mut proj = Project::default();
         proj.file = project_file_path.to_owned();
 
-        match file_loader.read_to_string(project_file_path) {
-            Ok(s) => {
-                proj.is_valid_utf8 = true;
-                proj.analyze(pta, s, file_loader);
-            },
-            Err(_) => {
-                proj.is_valid_utf8 = false;
-            }
+        let csproj_contents_result = file_loader.read_to_string(project_file_path);
+        proj.is_valid_utf8 = csproj_contents_result.is_ok();
+        if !proj.is_valid_utf8 {
+            return proj;
         }
+
+        proj.contents = csproj_contents_result.unwrap();
+        proj.version = proj.get_project_version();
+        proj.output_type = proj.get_output_type();
+        proj.xml_doc = proj.has_xml_doc();
+        proj.tt_file = proj.has_tt_file();
+        proj.linked_solution_info = proj.has_linked_solution_info();
+        proj.referenced_assemblies = proj.get_referenced_assemblies();
+        proj.auto_generate_binding_redirects = proj.has_auto_generate_binding_redirects();
+        proj.web_config = proj.has_file_of_interest(pta, InterestingFile::WebConfig);
+        proj.app_config = proj.has_file_of_interest(pta, InterestingFile::AppConfig);
+        proj.app_settings_json = proj.has_file_of_interest(pta, InterestingFile::AppSettingsJson);
+        proj.package_json = proj.has_file_of_interest(pta, InterestingFile::PackageJson);
+        proj.packages_config = proj.has_file_of_interest(pta, InterestingFile::PackagesConfig);
+        proj.project_json = proj.has_file_of_interest(pta, InterestingFile::ProjectJson);
+        proj.embedded_debugging = proj.has_embedded_debugging();
+        proj.target_frameworks = proj.get_target_frameworks();
+        proj.packages = proj.get_packages(pta, file_loader);
+        proj.test_framework = proj.get_test_framework();
+
+        // pub uses_specflow
+        // pub referenced_projects: Vec<Arc<Project>>,
 
         proj
     }
 
-    /// Factor the guts of the analysis out into a separate function so that it
-    /// can be easily unit tested.
-    fn analyze(&mut self, pta: &PathsToAnalyze, contents: String, file_loader: &FileLoader) {
-        self.contents = contents;
-
-        self.version = if self.contents.contains(SDK_PROLOG) {
+    fn get_project_version(&self) -> ProjectVersion {
+        if self.contents.contains(SDK_PROLOG) {
              ProjectVersion::MicrosoftNetSdk
         } else if self.contents.contains(OLD_PROLOG) {
             ProjectVersion::OldStyle
         } else {
             ProjectVersion::Unknown
-        };
-
-        self.output_type = self.get_output_type();
-        self.xml_doc = self.has_xml_doc();
-        self.tt_file = self.has_tt_file();
-        self.linked_solution_info = self.has_linked_solution_info();
-        self.referenced_assemblies = self.get_referenced_assemblies();
-        self.auto_generate_binding_redirects = self.has_auto_generate_binding_redirects();
-        self.web_config = self.has_file_of_interest(pta, InterestingFile::WebConfig);
-        self.app_config = self.has_file_of_interest(pta, InterestingFile::AppConfig);
-        self.app_settings_json = self.has_file_of_interest(pta, InterestingFile::AppSettingsJson);
-        self.package_json = self.has_file_of_interest(pta, InterestingFile::PackageJson);
-        self.packages_config = self.has_file_of_interest(pta, InterestingFile::PackagesConfig);
-        self.project_json = self.has_file_of_interest(pta, InterestingFile::ProjectJson);
-        self.embedded_debugging = self.has_embedded_debugging();
-        self.target_frameworks = self.get_target_frameworks();
-        self.packages = self.get_packages(pta, file_loader);
-        self.test_framework = self.get_test_framework();
-        // pub uses_specflow
-        // pub referenced_projects: Vec<Arc<Project>>,
+        }
     }
 
     fn get_output_type(&self) -> OutputType {
