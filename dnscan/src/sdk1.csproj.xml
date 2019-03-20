@@ -31,7 +31,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Versioning.Bamboo" Version="3.1.44">
+    <PackageReference Include="Landmark.Versioning.Bamboo" Version="3.1.44">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>

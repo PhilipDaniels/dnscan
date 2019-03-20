@@ -142,12 +142,12 @@ pub struct Package {
 }
 
 impl Package {
-    fn new(name: &str, version: &str, development: bool) -> Self {
+    fn new(name: &str, version: &str, development: bool, class: PackageClass) -> Self {
         Package {
             name: name.to_owned(),
             version: version.to_owned(),
             development,
-            class: PackageClass::Unknown
+            class
         }
     }
 }
@@ -241,12 +241,20 @@ impl Project {
         lazy_static! {
             static ref SDK_RE: Regex = Regex::new(r##"(?s)<PackageReference\s*?Include="(?P<name>.*?)"\s*?Version="(?P<version>.*?)"(?P<inner>.*?)(/>|</PackageReference>)"##).unwrap();
             static ref PKG_CONFIG_RE: Regex = Regex::new(r##"<package\s*?id="(?P<name>.*?)"\s*?version="(?P<version>.*?)"(?P<inner>.*?)\s*?/>"##).unwrap();
+
+            static ref OUR_PKG_CLASS_RE: Regex = Regex::new(r##"Landmark\..*|ValuationHub\..*|CaseService\..*|WorkflowService\..*|WorkflowRunner\..*"##).unwrap();
+            static ref MS_PKG_CLASS_RE: Regex = Regex::new(r##"CommonServiceLocator|EntityFramework*|Microsoft\..*|Owin.*|System\..*"##).unwrap();
         }
 
         let mut packages = match self.version {
             ProjectVersion::MicrosoftNetSdk => {
                 SDK_RE.captures_iter(&self.contents)
-                    .map(|cap| Package::new(&cap["name"], &cap["version"], cap["inner"].contains("<PrivateAssets>")))
+                    .map(|cap| Package::new(
+                        &cap["name"],
+                        &cap["version"],
+                        cap["inner"].contains("<PrivateAssets>"),
+                        PackageClass::Unknown
+                        ))
                     .collect()
             },
             ProjectVersion::OldStyle => {
@@ -255,17 +263,32 @@ impl Project {
                     .and_then(|pc_path| file_loader.read_to_string(pc_path).ok())
                     .map(|pc_contents|
                         PKG_CONFIG_RE.captures_iter(&pc_contents)
-                            .map(|cap| Package::new(&cap["name"],&cap["version"], cap["inner"].contains(r##"developmentDependency="true""##)))
+                            .map(|cap| Package::new(
+                                &cap["name"],
+                                &cap["version"],
+                                cap["inner"].contains(r##"developmentDependency="true""##),
+                                PackageClass::Unknown
+                                ))
                             .collect()
                     ).unwrap_or_default()
             },
             _ => vec![]
         };
 
-        // Sort, dedup.
         packages.sort();
         packages.dedup();
-        // TODO: specify class of the packages.
+
+        // Classify.
+        for pkg in &mut packages {
+            if OUR_PKG_CLASS_RE.is_match(&pkg.name) {
+                pkg.class = PackageClass::Ours;
+            } else if MS_PKG_CLASS_RE.is_match(&pkg.name) {
+                pkg.class = PackageClass::Microsoft;
+            } else {
+                pkg.class = PackageClass::ThirdParty;
+            }
+        }
+
         packages
     }
 
@@ -644,7 +667,7 @@ mod tests {
         assert!(project.packages.is_empty());
 
         let project = ProjectBuilder::new(r##"blah<PackageReference Include="Unity" Version="4.0.1" />blah"##).sdk().build();
-        assert_eq!(project.packages, vec![Package::new("Unity", "4.0.1", false)]);
+        assert_eq!(project.packages, vec![Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)]);
     }
 
     #[test]
@@ -656,8 +679,8 @@ mod tests {
             "##
             ).sdk().build();
         assert_eq!(project.packages, vec![
-            Package::new("Automapper", "3.1.4", false),
-            Package::new("Unity", "4.0.1", false)
+            Package::new("Automapper", "3.1.4", false, PackageClass::ThirdParty),
+            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
             ]);
 
         // Dedup & sort by secondary key (version).
@@ -670,9 +693,9 @@ mod tests {
             "##
             ).sdk().build();
         assert_eq!(project.packages, vec![
-            Package::new("Automapper", "3.1.4", false),
-            Package::new("Automapper", "3.1.5", false),
-            Package::new("Unity", "4.0.1", false)
+            Package::new("Automapper", "3.1.4", false, PackageClass::ThirdParty),
+            Package::new("Automapper", "3.1.5", false, PackageClass::ThirdParty),
+            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
             ]);
     }
 
@@ -688,9 +711,9 @@ mod tests {
             "##
             ).sdk().build();
         assert_eq!(project.packages, vec![
-            Package::new("Automapper", "3.1.4", false),
-            Package::new("Automapper", "3.1.5", false),
-            Package::new("Unity", "4.0.1", false)
+            Package::new("Automapper", "3.1.4", false, PackageClass::ThirdParty),
+            Package::new("Automapper", "3.1.5", false, PackageClass::ThirdParty),
+            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
             ]);
     }
 
@@ -703,7 +726,7 @@ mod tests {
             "##
         ).sdk().build();
         assert_eq!(project.packages, vec![
-            Package::new("Unity", "4.0.1", false)
+            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
             ]);
     }
 
@@ -717,7 +740,7 @@ mod tests {
             "##
         ).sdk().build();
         assert_eq!(project.packages, vec![
-            Package::new("Unity", "4.0.1", true)
+            Package::new("Unity", "4.0.1", true, PackageClass::ThirdParty)
             ]);
     }
 
@@ -740,10 +763,10 @@ mod tests {
             "##
         ).sdk().build();
         assert_eq!(project.packages, vec![
-            Package::new("Automapper", "3.1.4", true),
-            Package::new("EntityFramework", "2.4.6", false),
-            Package::new("Unity", "4.0.1", false),
-            Package::new("Versioning.Bamboo", "8.8.9", false)
+            Package::new("Automapper", "3.1.4", true, PackageClass::ThirdParty),
+            Package::new("EntityFramework", "2.4.6", false, PackageClass::Microsoft),
+            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty),
+            Package::new("Versioning.Bamboo", "8.8.9", false, PackageClass::ThirdParty)
             ]);
     }
 
@@ -757,9 +780,9 @@ mod tests {
             <package id="Castle.Core" version="4.3.1" targetFramework="net462" />
             "##).build();
         assert_eq!(project.packages, vec![
-            Package::new("Castle.Core", "4.3.1", false),
-            Package::new("Clarius.TransformOnBuild", "1.1.12", true),
-            Package::new("Owin", "1.0", false),
+            Package::new("Castle.Core", "4.3.1", false, PackageClass::ThirdParty),
+            Package::new("Clarius.TransformOnBuild", "1.1.12", true, PackageClass::ThirdParty),
+            Package::new("Owin", "1.0", false, PackageClass::Microsoft),
         ]);
     }
 
@@ -907,8 +930,8 @@ mod tests {
         pub fn can_detect_packages() {
             let project = get_sdk_project();
             assert_eq!(project.packages, vec![
-                Package::new("Unity", "4.0.1", false),
-                Package::new("Versioning.Bamboo", "3.1.44", true),
+                Package::new("Landmark.Versioning.Bamboo", "3.1.44", true, PackageClass::Ours),
+                Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty),
             ]);
         }
     }
@@ -1045,15 +1068,15 @@ mod tests {
             "##);
 
             assert_eq!(project.packages, vec![
-                Package::new("Clarius.TransformOnBuild", "1.1.12", true),
-                Package::new("Microsoft.Owin.Hosting", "4.0.0", false),
-                Package::new("Microsoft.Owin.SelfHost", "4.0.0", false),
-                Package::new("Moq", "4.8.3", false),
-                Package::new("MyCorp.Fundamentals", "1.2.18268.136", false),
-                Package::new("MyProject.Core", "1.12.18297.228", false),
-                Package::new("Newtonsoft.Json", "11.0.2", false),
-                Package::new("Npgsql", "3.2.7", false),
-                Package::new("WorkflowService.Client", "1.12.18297.23", false),
+                Package::new("Clarius.TransformOnBuild", "1.1.12", true, PackageClass::ThirdParty),
+                Package::new("Microsoft.Owin.Hosting", "4.0.0", false, PackageClass::Microsoft),
+                Package::new("Microsoft.Owin.SelfHost", "4.0.0", false, PackageClass::Microsoft),
+                Package::new("Moq", "4.8.3", false, PackageClass::ThirdParty),
+                Package::new("MyCorp.Fundamentals", "1.2.18268.136", false, PackageClass::ThirdParty),
+                Package::new("MyProject.Core", "1.12.18297.228", false, PackageClass::ThirdParty),
+                Package::new("Newtonsoft.Json", "11.0.2", false, PackageClass::ThirdParty),
+                Package::new("Npgsql", "3.2.7", false, PackageClass::ThirdParty),
+                Package::new("WorkflowService.Client", "1.12.18297.23", false, PackageClass::Ours),
             ]);
         }
     }
