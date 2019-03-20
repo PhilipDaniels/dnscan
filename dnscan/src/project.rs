@@ -256,9 +256,10 @@ impl Project {
             _ => vec![]
         };
 
-        // Sort, dedup, specify class.
+        // Sort, dedup.
         packages.sort();
         packages.dedup();
+        // TODO: specify class of the packages.
         packages
     }
 
@@ -740,15 +741,21 @@ mod tests {
             ]);
     }
 
-    // #[test]
-    // pub fn get_packages_old_single_line() {
-    // }
-
-    // #[test]
-    // pub fn get_packages_old_multi_line() {
-    // }
-
-
+    #[test]
+    pub fn get_packages_old_including_sort_and_dedup() {
+        let project = ProjectBuilder::new(r##" Include="packages.config" />"##).old()
+            .with_packages_config(r##"
+            <package id="Clarius.TransformOnBuild" version="1.1.12" targetFramework="net462" developmentDependency="true" />
+            <package id="Castle.Core" version="4.3.1" targetFramework="net462" />
+            <package id="Owin" version="1.0" targetFramework="net462" />
+            <package id="Castle.Core" version="4.3.1" targetFramework="net462" />
+            "##).build();
+        assert_eq!(project.packages, vec![
+            Package::new("Castle.Core", "4.3.1", false),
+            Package::new("Clarius.TransformOnBuild", "1.1.12", true),
+            Package::new("Owin", "1.0", false),
+        ]);
+    }
 
 
     /// These tests run against the embedded example SDK-style project.
