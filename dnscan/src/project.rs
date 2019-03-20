@@ -246,6 +246,16 @@ impl Project {
             static ref MS_PKG_CLASS_RE: Regex = Regex::new(r##"CommonServiceLocator|EntityFramework*|Microsoft\..*|Owin.*|System\..*"##).unwrap();
         }
 
+        let classify = |pkg_name: &str| -> PackageClass {
+            if OUR_PKG_CLASS_RE.is_match(pkg_name) {
+                PackageClass::Ours
+            } else if MS_PKG_CLASS_RE.is_match(pkg_name) {
+                PackageClass::Microsoft
+            } else {
+                PackageClass::ThirdParty
+            }
+        };
+
         let mut packages = match self.version {
             ProjectVersion::MicrosoftNetSdk => {
                 SDK_RE.captures_iter(&self.contents)
@@ -253,7 +263,7 @@ impl Project {
                         &cap["name"],
                         &cap["version"],
                         cap["inner"].contains("<PrivateAssets>"),
-                        PackageClass::Unknown
+                        classify(&cap["name"])
                         ))
                     .collect()
             },
@@ -266,8 +276,8 @@ impl Project {
                             .map(|cap| Package::new(
                                 &cap["name"],
                                 &cap["version"],
-                                cap["inner"].contains(r##"developmentDependency="true""##),
-                                PackageClass::Unknown
+                                cap["inner"].contains("developmentDependency=\"true\""),
+                                classify(&cap["name"])
                                 ))
                             .collect()
                     ).unwrap_or_default()
@@ -277,18 +287,6 @@ impl Project {
 
         packages.sort();
         packages.dedup();
-
-        // Classify.
-        for pkg in &mut packages {
-            if OUR_PKG_CLASS_RE.is_match(&pkg.name) {
-                pkg.class = PackageClass::Ours;
-            } else if MS_PKG_CLASS_RE.is_match(&pkg.name) {
-                pkg.class = PackageClass::Microsoft;
-            } else {
-                pkg.class = PackageClass::ThirdParty;
-            }
-        }
-
         packages
     }
 
