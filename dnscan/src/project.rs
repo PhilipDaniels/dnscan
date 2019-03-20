@@ -105,6 +105,7 @@ pub struct Project {
     pub linked_solution_info: bool,
     pub auto_generate_binding_redirects: bool,
     pub test_framework: TestFramework,
+    pub uses_specflow: bool,
 
     pub web_config: FileStatus,
     pub app_config: FileStatus,
@@ -185,8 +186,7 @@ impl Project {
         proj.target_frameworks = proj.get_target_frameworks();
         proj.packages = proj.get_packages(pta, file_loader);
         proj.test_framework = proj.get_test_framework();
-
-        // pub uses_specflow
+        proj.uses_specflow = proj.uses_specflow();
         // pub referenced_projects: Vec<Arc<Project>>,
 
         proj
@@ -216,14 +216,25 @@ impl Project {
     }
 
     fn get_test_framework(&self) -> TestFramework {
-        // Basically, we need to get the package references and then check for
-        // libraries of a specific name:
-        //      MSTest.TestAdapter or MSTest.TestFramework = MSTest
-        //      xunit.* = XUnit
-        //      nunit.* = NUnit
-        // All should be matched case-insensitively.
+        for pkg in &self.packages {
+            let name = pkg.name.to_lowercase();
+            if name.starts_with("xunit.") {
+                return TestFramework::XUnit;
+            } else if name.starts_with("nunit.") {
+                return TestFramework::NUnit;
+            } else if name.starts_with("mstest.testframework") {
+                // I think this is right. There is also MSTest.TestAdapter but
+                // that might is for IDE integration, it might not be present.
+                return TestFramework::MSTest;
+            }
+        }
 
         TestFramework::None
+    }
+
+    fn uses_specflow(&self) -> bool {
+        self.packages.iter()
+            .any(|pkg| pkg.name.to_lowercase().contains("specflow"))
     }
 
     fn get_packages(&self, pta: &PathsToAnalyze, file_loader: &FileLoader) -> Vec<Package> {
@@ -751,6 +762,46 @@ mod tests {
             Package::new("Owin", "1.0", false),
         ]);
     }
+
+    #[test]
+    pub fn get_test_framework_mstest() {
+        let project = ProjectBuilder::new(r##"<PackageReference Include="MSTest.TestFramework" Version="4.0.1" />"##)
+            .sdk().build();
+        assert_eq!(project.test_framework, TestFramework::MSTest);
+    }
+
+    #[test]
+    pub fn get_test_framework_xunit() {
+        let project = ProjectBuilder::new(r##"<PackageReference Include="Xunit.Core" Version="4.0.1" />"##)
+            .sdk().build();
+        assert_eq!(project.test_framework, TestFramework::XUnit);
+    }
+
+    #[test]
+    pub fn get_test_framework_nunit() {
+        let project = ProjectBuilder::new(r##"<PackageReference Include="NUnit.Core" Version="4.0.1" />"##)
+            .sdk().build();
+        assert_eq!(project.test_framework, TestFramework::NUnit);
+    }
+
+    #[test]
+    pub fn get_test_framework_none() {
+        let project = ProjectBuilder::new(r##"<PackageReference Include="MSTestNotMatched" Version="4.0.1" />"##)
+            .sdk().build();
+        assert_eq!(project.test_framework, TestFramework::None);
+    }
+
+    #[test]
+    pub fn uses_specflow_works() {
+        let project = ProjectBuilder::new(r##"<PackageReference Include="NUnit.Core" Version="4.0.1" />"##)
+            .sdk().build();
+        assert!(!project.uses_specflow);
+
+        let project = ProjectBuilder::new(r##"<PackageReference Include="SpecFlow" Version="2.3.2" />"##)
+            .sdk().build();
+        assert!(project.uses_specflow);
+    }
+
 
 
     /// These tests run against the embedded example SDK-style project.
