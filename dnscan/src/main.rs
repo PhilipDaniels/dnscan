@@ -50,7 +50,9 @@ pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
         );
     }
 
-    println!("paths = {:#?}", paths);
+    if options.verbose {
+        println!("paths = {:#?}", paths);
+    }
 
     if options.verbose {
         println!(
