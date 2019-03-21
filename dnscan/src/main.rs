@@ -1,3 +1,4 @@
+mod csv_output;
 mod errors;
 mod find_files;
 mod options;
@@ -50,9 +51,9 @@ pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
         );
     }
 
-    if options.verbose {
-        println!("paths = {:#?}", paths);
-    }
+    // if options.verbose {
+    //     println!("paths = {:#?}", paths);
+    // }
 
     if options.verbose {
         println!(
@@ -84,20 +85,30 @@ pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
         println!("{} Projects loaded and analyzed in {}", projects.len(), elapsed);
     }
 
-    // TODO: Output this message.
-    // Package analysis will not be correct for project.json projects.
-    // Upgrade them to SDK projects since project.json is no longer supported.
-
-
-
-
-    // Perform all single-file analysis that can be done
-    //   Projects: Everything except referenced_projects
     // For each solution:
     //   Find all projects under its folder
     //   Add them to the linked or orphaned projects collections
     // For each linked project
     //   Determine the list of referenced_projects (they will all be in the same sln)
+
+    let (elapsed, result) = measure_time(|| {
+        csv_output::write_solutions(&solutions)
+    });
+    result?;
+
+    if options.verbose {
+        println!("Solutions.csv written in {}", elapsed);
+    }
+
+    let (elapsed, result) = measure_time(|| {
+        csv_output::write_projects(&projects)
+    });
+    result?;
+
+    if options.verbose {
+        println!("Projects.csv written in {}", elapsed);
+    }
+    
 
     Ok(())
 }

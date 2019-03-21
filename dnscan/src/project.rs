@@ -17,6 +17,16 @@ pub enum ProjectVersion {
     OldStyle,
 }
 
+impl ProjectVersion {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ProjectVersion::Unknown => "Unknown",
+            ProjectVersion::MicrosoftNetSdk => "MicrosoftNetSdk",
+            ProjectVersion::OldStyle => "OldStyle",
+        }
+    }
+}
+
 impl Default for ProjectVersion {
     fn default() -> Self {
         ProjectVersion::Unknown
@@ -43,12 +53,34 @@ impl Default for OutputType {
     }
 }
 
+impl OutputType {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            OutputType::Unknown => "Unknown",
+            OutputType::Library => "Library",
+            OutputType::WinExe => "WinExe",
+            OutputType::Exe => "Exe",
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum TestFramework {
     None,
     MSTest,
     XUnit,
     NUnit,
+}
+
+impl TestFramework {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TestFramework::None => "None",
+            TestFramework::MSTest => "MSTest",
+            TestFramework::XUnit => "XUnit",
+            TestFramework::NUnit => "NUnit",
+        }
+    }
 }
 
 impl Default for TestFramework {
@@ -66,6 +98,18 @@ pub enum XmlDoc {
     Both
 }
 
+impl XmlDoc {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            XmlDoc::Unknown => "Unknown",
+            XmlDoc::None => "None",
+            XmlDoc::Debug => "Debug",
+            XmlDoc::Release => "Release",
+            XmlDoc::Both => "Both",
+        }
+    }
+}
+
 impl Default for XmlDoc {
     fn default() -> Self {
         XmlDoc::Unknown
@@ -79,6 +123,18 @@ pub enum FileStatus {
     InProjectFileOnly,
     OnDiskOnly,
     InProjectFileAndOnDisk
+}
+
+impl FileStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            FileStatus::Unknown => "Unknown",
+            FileStatus::NotPresent => "NotPresent",
+            FileStatus::InProjectFileOnly => "InProjectFileOnly",
+            FileStatus::OnDiskOnly => "OnDiskOnly",
+            FileStatus::InProjectFileAndOnDisk => "InProjectFileAndOnDisk",
+        }
+    }
 }
 
 impl Default for FileStatus {
@@ -127,6 +183,17 @@ pub enum PackageClass {
     ThirdParty,
 }
 
+impl PackageClass {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            PackageClass::Unknown => "Unknown",
+            PackageClass::Ours => "Ours",
+            PackageClass::Microsoft => "Microsoft",
+            PackageClass::ThirdParty => "ThirdParty",
+        }
+    }
+}
+
 impl Default for PackageClass {
     fn default() -> Self {
         PackageClass::Unknown
@@ -138,8 +205,10 @@ pub struct Package {
     pub name: String,
     pub version: String,
     pub development: bool,
+    // TODO: Is preview
     pub class: PackageClass
 }
+
 
 impl Package {
     fn new(name: &str, version: &str, development: bool, class: PackageClass) -> Self {
@@ -149,6 +218,10 @@ impl Package {
             development,
             class
         }
+    }
+
+    pub fn is_preview(&self) -> bool {
+        self.version.contains("-")
     }
 }
 
