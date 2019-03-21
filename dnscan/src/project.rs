@@ -314,19 +314,25 @@ impl Project {
 
     fn get_packages(&self, pta: &PathsToAnalyze, file_loader: &FileLoader) -> Vec<Package> {
         lazy_static! {
-            static ref SDK_RE: Regex = RegexBuilder::new(r##"(?s)<PackageReference\s*?Include="(?P<name>.*?)"\s*?Version="(?P<version>.*?)"(?P<inner>.*?)(/>|</PackageReference>)"##)
-                                        .case_insensitive(true).build().unwrap();
+            static ref SDK_RE: Regex = RegexBuilder::new(r##"<PackageReference\s*?Include="(?P<name>.*?)"\s*?Version="(?P<version>.*?)"(?P<inner>.*?)(/>|</PackageReference>)"##)
+                                        .case_insensitive(true).dot_matches_new_line(true).build().unwrap();
             static ref PKG_CONFIG_RE: Regex = RegexBuilder::new(r##"<package\s*?id="(?P<name>.*?)"\s*?version="(?P<version>.*?)"(?P<inner>.*?)\s*?/>"##)
                                         .case_insensitive(true).build().unwrap();
 
-            static ref OUR_PKG_CLASS_RE: Regex = RegexBuilder::new(r##"Landmark\..*|ValuationHub\..*|CaseService\..*|WorkflowService\..*|WorkflowRunner\..*"##)
+            // This small 3rd party set of matchers essentially allows us to easily recognise a few packages
+            // that might otherwise be recognised by the MS or CORP matchers by mistake.
+            static ref THIRD_PARTY_PKG_CLASS_RE: Regex = RegexBuilder::new(r##"^System\.IO\.Abstractions.*|^Owin.Metrics"##)
                                         .case_insensitive(true).build().unwrap();
-            static ref MS_PKG_CLASS_RE: Regex = RegexBuilder::new(r##"CommonServiceLocator|EntityFramework*|Microsoft\..*|Owin.*|System\..*"##)
+            static ref OURS_PKG_CLASS_RE: Regex = RegexBuilder::new(r##"^Landmark\..*|^DataMaintenance.*|^ValuationHub\..*|^CaseService\..*|^CaseActivities\..*|^NotificationService\..*|^WorkflowService\..*|^WorkflowRunner\..|^Unity.WF*"##)
+                                        .case_insensitive(true).build().unwrap();
+            static ref MS_PKG_CLASS_RE: Regex = RegexBuilder::new(r##"^CommonServiceLocator|^NETStandard\..*|^EntityFramework*|^Microsoft\..*|^MSTest.*|^Owin.*|^System\..*|^EnterpriseLibrary.*"##)
                                         .case_insensitive(true).build().unwrap();
         }
 
         let classify = |pkg_name: &str| -> PackageClass {
-            if OUR_PKG_CLASS_RE.is_match(pkg_name) {
+            if THIRD_PARTY_PKG_CLASS_RE.is_match(pkg_name) {
+                PackageClass::ThirdParty
+            } else if OURS_PKG_CLASS_RE.is_match(pkg_name) {
                 PackageClass::Ours
             } else if MS_PKG_CLASS_RE.is_match(pkg_name) {
                 PackageClass::Microsoft
