@@ -314,11 +314,15 @@ impl Project {
 
     fn get_packages(&self, pta: &PathsToAnalyze, file_loader: &FileLoader) -> Vec<Package> {
         lazy_static! {
-            static ref SDK_RE: Regex = Regex::new(r##"(?s)<PackageReference\s*?Include="(?P<name>.*?)"\s*?Version="(?P<version>.*?)"(?P<inner>.*?)(/>|</PackageReference>)"##).unwrap();
-            static ref PKG_CONFIG_RE: Regex = Regex::new(r##"<package\s*?id="(?P<name>.*?)"\s*?version="(?P<version>.*?)"(?P<inner>.*?)\s*?/>"##).unwrap();
+            static ref SDK_RE: Regex = RegexBuilder::new(r##"(?s)<PackageReference\s*?Include="(?P<name>.*?)"\s*?Version="(?P<version>.*?)"(?P<inner>.*?)(/>|</PackageReference>)"##)
+                                        .case_insensitive(true).build().unwrap();
+            static ref PKG_CONFIG_RE: Regex = RegexBuilder::new(r##"<package\s*?id="(?P<name>.*?)"\s*?version="(?P<version>.*?)"(?P<inner>.*?)\s*?/>"##)
+                                        .case_insensitive(true).build().unwrap();
 
-            static ref OUR_PKG_CLASS_RE: Regex = Regex::new(r##"Landmark\..*|ValuationHub\..*|CaseService\..*|WorkflowService\..*|WorkflowRunner\..*"##).unwrap();
-            static ref MS_PKG_CLASS_RE: Regex = Regex::new(r##"CommonServiceLocator|EntityFramework*|Microsoft\..*|Owin.*|System\..*"##).unwrap();
+            static ref OUR_PKG_CLASS_RE: Regex = RegexBuilder::new(r##"Landmark\..*|ValuationHub\..*|CaseService\..*|WorkflowService\..*|WorkflowRunner\..*"##)
+                                        .case_insensitive(true).build().unwrap();
+            static ref MS_PKG_CLASS_RE: Regex = RegexBuilder::new(r##"CommonServiceLocator|EntityFramework*|Microsoft\..*|Owin.*|System\..*"##)
+                                        .case_insensitive(true).build().unwrap();
         }
 
         let classify = |pkg_name: &str| -> PackageClass {
