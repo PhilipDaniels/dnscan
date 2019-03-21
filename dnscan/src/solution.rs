@@ -59,7 +59,7 @@ impl Solution {
              VisualStudioVersion::VS2015
         } else if sln.contents.contains("# Visual Studio 15") {
             VisualStudioVersion::VS2017
-        } else if sln.contents.contains("# Visual Studio 16") {
+        } else if sln.contents.contains("# Visual Studio Version 16") {
             VisualStudioVersion::VS2019
         } else {
             VisualStudioVersion::Unknown
