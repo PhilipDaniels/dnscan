@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 pub trait PathExtensions {
     // Returns the final filename component as a str, or "" if it cannot be converted.
     fn filename_as_str(&self) -> &str;
+    fn parent_as_str(&self) -> &str;
     fn is_hidden_dir(&self) -> bool;
     fn is_bin_or_obj_dir(&self) -> bool;
     fn is_packages_dir(&self) -> bool;
@@ -23,6 +24,16 @@ pub trait PathExtensions {
 impl PathExtensions for Path {
     fn filename_as_str(&self) -> &str {
         match self.file_name() {
+            None => "",
+            Some(osstr) => match osstr.to_str() {
+                None => "",
+                Some(s) => s
+            }
+        }
+    }
+
+    fn parent_as_str(&self) -> &str {
+        match self.parent() {
             None => "",
             Some(osstr) => match osstr.to_str() {
                 None => "",

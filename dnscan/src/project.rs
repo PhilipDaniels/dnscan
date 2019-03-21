@@ -173,6 +173,10 @@ pub struct Project {
     pub referenced_assemblies: Vec<String>,
     pub packages: Vec<Package>,
     pub referenced_projects: Vec<Arc<Project>>,
+
+    // packages_require_consolidation
+    // redundant_packages_count
+    // redundant_projects_count
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -205,10 +209,8 @@ pub struct Package {
     pub name: String,
     pub version: String,
     pub development: bool,
-    // TODO: Is preview
     pub class: PackageClass
 }
-
 
 impl Package {
     fn new(name: &str, version: &str, development: bool, class: PackageClass) -> Self {
