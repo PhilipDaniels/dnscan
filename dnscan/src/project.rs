@@ -12,6 +12,9 @@ pub enum ProjectVersion {
     /// The type of project that begins with `<Project Sdk="Microsoft.NET.Sdk">`.
     MicrosoftNetSdk,
 
+    /// The type of project that begins with `<Project Sdk="Microsoft.NET.Sdk.Web">`.
+    MicrosoftNetSdkWeb,
+
     /// The type of project that begins with `<?xml version="1.0" encoding="utf-8"?>`
     /// and includes the next line `<Project ToolsVersion="14.0"`
     OldStyle,
@@ -22,6 +25,7 @@ impl ProjectVersion {
         match self {
             ProjectVersion::Unknown => "Unknown",
             ProjectVersion::MicrosoftNetSdk => "MicrosoftNetSdk",
+            ProjectVersion::MicrosoftNetSdkWeb => "MicrosoftNetSdkWeb",
             ProjectVersion::OldStyle => "OldStyle",
         }
     }
@@ -227,6 +231,7 @@ impl Package {
     }
 }
 
+const SDK_WEB_PROLOG: &str = "<Project Sdk=\"Microsoft.NET.Sdk.Web\">";
 const SDK_PROLOG: &str = "<Project Sdk=\"Microsoft.NET.Sdk\">";
 const OLD_PROLOG: &str = "<Project ToolsVersion=";
 
@@ -268,7 +273,9 @@ impl Project {
     }
 
     fn get_project_version(&self) -> ProjectVersion {
-        if self.contents.contains(SDK_PROLOG) {
+        if self.contents.contains(SDK_WEB_PROLOG) {
+            ProjectVersion::MicrosoftNetSdkWeb
+        } else if self.contents.contains(SDK_PROLOG) {
              ProjectVersion::MicrosoftNetSdk
         } else if self.contents.contains(OLD_PROLOG) {
             ProjectVersion::OldStyle
@@ -342,7 +349,7 @@ impl Project {
         };
 
         let mut packages = match self.version {
-            ProjectVersion::MicrosoftNetSdk => {
+            ProjectVersion::MicrosoftNetSdk | ProjectVersion::MicrosoftNetSdkWeb => {
                 SDK_RE.captures_iter(&self.contents)
                     .map(|cap| Package::new(
                         &cap["name"],
@@ -367,7 +374,7 @@ impl Project {
                             .collect()
                     ).unwrap_or_default()
             },
-            _ => vec![]
+            ProjectVersion::Unknown => vec![]
         };
 
         packages.sort();
@@ -405,10 +412,9 @@ impl Project {
             static ref EMBED_ALL_REGEX: Regex = Regex::new(r##"<EmbedAllSources>true</EmbedAllSources>"##).unwrap();
         }
 
-        if self.version == ProjectVersion::MicrosoftNetSdk {
-            DEBUG_TYPE_REGEX.is_match(&self.contents) && EMBED_ALL_REGEX.is_match(&self.contents)
-        } else {
-            false
+        match self.version {
+            ProjectVersion::MicrosoftNetSdk | ProjectVersion::MicrosoftNetSdkWeb => DEBUG_TYPE_REGEX.is_match(&self.contents) && EMBED_ALL_REGEX.is_match(&self.contents),
+            ProjectVersion::OldStyle | ProjectVersion::Unknown => false
         }
     }
 
@@ -430,7 +436,7 @@ impl Project {
         match self.version {
             ProjectVersion::Unknown => vec![],
             ProjectVersion::OldStyle => OLD_TF_REGEX.captures_iter(&self.contents).map(|cap| cap["tf"].to_owned()).collect(),
-            ProjectVersion::MicrosoftNetSdk => {
+            ProjectVersion::MicrosoftNetSdk | ProjectVersion::MicrosoftNetSdkWeb => {
                 // One or the other will match.
                 let single: Vec<_> = SDK_SINGLE_TF_REGEX.captures_iter(&self.contents).map(|cap| cap["tf"].to_owned()).collect();
                 if !single.is_empty() {
