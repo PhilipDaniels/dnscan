@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use crate::Project;
-use strum_macros::IntoStaticStr;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum VisualStudioVersion {
@@ -10,7 +9,6 @@ pub enum VisualStudioVersion {
     VS2017,
     VS2019,
 }
-
 impl VisualStudioVersion {
     pub fn as_str(self) -> &'static str {
         match self {
