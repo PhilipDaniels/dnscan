@@ -1,13 +1,13 @@
 use crate::options::Options;
 use crate::errors::AnalysisError;
-use dnlib::path_extensions::PathExtensions;
+use dnlib::prelude::*;
 use std::path::{Path, PathBuf};
 use walkdir::{DirEntry, WalkDir};
 use std::str::FromStr;
 
 /// This struct is used to collect the raw directory walking results prior to further
 /// analysis. It is basically just a list of paths of various types. No effort is made
-/// to relate the csproj files to their owning sln files, for example (that requires)
+/// to relate the csproj files to their owning sln files, for example (that requires
 /// probing inside the file contents and is left to a later stage of analysis).
 #[derive(Debug, Default)]
 pub struct PathsToAnalyze {
@@ -70,57 +70,6 @@ impl PathsToAnalyze {
             Some(dir) => dir == directory,
             None => false
         }).collect()
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InterestingFile {
-    /// The web.config file.
-    WebConfig,
-
-    /// The app.config file.
-    AppConfig,
-
-    /// The appsettings.json file.
-    AppSettingsJson,
-
-    /// The package.json file (required by npm).
-    PackageJson,
-
-    /// The packages.config file (obsolete, should be removed)
-    PackagesConfig,
-
-    /// The project.json (obsolete, should be removed)
-    ProjectJson
-}
-
-impl std::str::FromStr for InterestingFile {
-    type Err = AnalysisError;
-
-    fn from_str(s: &str) -> Result<InterestingFile, Self::Err> {
-        let s = s.to_lowercase();
-        match s.as_str() {
-            "web.config" => Ok(InterestingFile::WebConfig),
-            "app.config" => Ok(InterestingFile::AppConfig),
-            "appsettings.json" => Ok(InterestingFile::AppSettingsJson),
-            "package.json" => Ok(InterestingFile::PackageJson),
-            "packages.config" => Ok(InterestingFile::PackagesConfig),
-            "project.json" => Ok(InterestingFile::ProjectJson),
-            _ => Err(AnalysisError::InvalidInterestingFile(s)),
-        }
-    }
-}
-
-impl InterestingFile {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            InterestingFile::WebConfig => "web.config",
-            InterestingFile::AppConfig => "app.config",
-            InterestingFile::AppSettingsJson => "appsettings.json",
-            InterestingFile::PackageJson => "package.json",
-            InterestingFile::PackagesConfig => "packages.config",
-            InterestingFile::ProjectJson => "project.json"
-        }
     }
 }
 

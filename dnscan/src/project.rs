@@ -1,4 +1,4 @@
-use crate::find_files::{PathsToAnalyze, InterestingFile};
+use crate::find_files::{PathsToAnalyze};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use regex::{Regex, RegexBuilder};
@@ -381,7 +381,7 @@ mod tests {
             };
 
             // Always construct a pta entry for the project itself.
-            let mut file_loader = MemoryFileLoader::default();
+            let mut file_loader = MemoryFileLoader::new();
             let project_path = PathBuf::from("/temp/x.csproj");
             file_loader.files.insert(project_path.clone(), self.csproj_contents);
 

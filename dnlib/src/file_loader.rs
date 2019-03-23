@@ -9,8 +9,14 @@ pub trait FileLoader {
 
 /// A struct that passes FileLoader calls through to the
 /// underlying OS file system.
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct DiskFileLoader;
+
+impl DiskFileLoader {
+    pub fn new() -> Self {
+        Self
+    }
+}
 
 impl FileLoader for DiskFileLoader {
     fn read_to_string(&self, path: &Path) -> io::Result<String> {
@@ -23,6 +29,12 @@ impl FileLoader for DiskFileLoader {
 #[derive(Debug, Default, Clone)]
 pub struct MemoryFileLoader {
     pub files: HashMap<PathBuf, String>
+}
+
+impl MemoryFileLoader {
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 impl FileLoader for MemoryFileLoader {

@@ -62,7 +62,7 @@ pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
         );
     }
 
-    let file_loader = DiskFileLoader::default();
+    let file_loader = DiskFileLoader::new();
 
     let (elapsed, solutions) = measure_time(|| {
         paths.sln_files.par_iter().map(|path| {
