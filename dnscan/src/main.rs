@@ -3,15 +3,13 @@ mod errors;
 mod find_files;
 mod options;
 mod project;
-mod solution;
 
 use elapsed::{measure_time};
 use errors::AnalysisResult;
 use options::Options;
 use rayon::prelude::*;
-use solution::Solution;
 use project::Project;
-use dnlib::file_loader::DiskFileLoader;
+use dnlib::prelude::*;
 
 // TODO: Write our own wrapper around println that captures the options.verbose flag.
 
@@ -64,9 +62,11 @@ pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
         );
     }
 
+    let file_loader = DiskFileLoader::default();
+
     let (elapsed, solutions) = measure_time(|| {
         paths.sln_files.par_iter().map(|path| {
-            Solution::new(path)
+            Solution::new(path, &file_loader)
         }).collect::<Vec<_>>()
     });
 
@@ -74,7 +74,6 @@ pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
         println!("{} Solutions loaded and analyzed in {}", solutions.len(), elapsed);
     }
 
-    let file_loader = DiskFileLoader::default();
     let (elapsed, projects) = measure_time(|| {
         paths.csproj_files.par_iter().map(|path| {
             Project::new(path, &paths, &file_loader)
@@ -92,23 +91,14 @@ pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
     //   Determine the list of referenced_projects (they will all be in the same sln)
 
     let (elapsed, result) = measure_time(|| {
-        csv_output::write_solutions(&solutions)
+        csv_output::write_files(&solutions, &projects)
     });
     result?;
 
     if options.verbose {
-        println!("Solutions.csv written in {}", elapsed);
+        println!("CSV files written in {}", elapsed);
     }
 
-    let (elapsed, result) = measure_time(|| {
-        csv_output::write_projects(&projects)
-    });
-    result?;
-
-    if options.verbose {
-        println!("Projects.csv written in {}", elapsed);
-    }
-    
 
     Ok(())
 }

@@ -3,149 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use regex::{Regex, RegexBuilder};
 use lazy_static::lazy_static;
-use dnlib::file_loader::{FileLoader};
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ProjectVersion {
-    Unknown,
-
-    /// The type of project that begins with `<Project Sdk="Microsoft.NET.Sdk">`.
-    MicrosoftNetSdk,
-
-    /// The type of project that begins with `<Project Sdk="Microsoft.NET.Sdk.Web">`.
-    MicrosoftNetSdkWeb,
-
-    /// The type of project that begins with `<?xml version="1.0" encoding="utf-8"?>`
-    /// and includes the next line `<Project ToolsVersion="14.0"`
-    OldStyle,
-}
-
-impl ProjectVersion {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            ProjectVersion::Unknown => "Unknown",
-            ProjectVersion::MicrosoftNetSdk => "MicrosoftNetSdk",
-            ProjectVersion::MicrosoftNetSdkWeb => "MicrosoftNetSdkWeb",
-            ProjectVersion::OldStyle => "OldStyle",
-        }
-    }
-}
-
-impl Default for ProjectVersion {
-    fn default() -> Self {
-        ProjectVersion::Unknown
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum OutputType {
-    Unknown,
-
-    /// The output is a library (DLL).
-    Library,
-
-    /// The output is a Windows EXE (e.g. a WinForms app).
-    WinExe,
-
-    /// The output is an EXE.
-    Exe,
-}
-
-impl Default for OutputType {
-    fn default() -> Self {
-        OutputType::Unknown
-    }
-}
-
-impl OutputType {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            OutputType::Unknown => "Unknown",
-            OutputType::Library => "Library",
-            OutputType::WinExe => "WinExe",
-            OutputType::Exe => "Exe",
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum TestFramework {
-    None,
-    MSTest,
-    XUnit,
-    NUnit,
-}
-
-impl TestFramework {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            TestFramework::None => "None",
-            TestFramework::MSTest => "MSTest",
-            TestFramework::XUnit => "XUnit",
-            TestFramework::NUnit => "NUnit",
-        }
-    }
-}
-
-impl Default for TestFramework {
-    fn default() -> Self {
-        TestFramework::None
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum XmlDoc {
-    Unknown,
-    None,
-    Debug,
-    Release,
-    Both
-}
-
-impl XmlDoc {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            XmlDoc::Unknown => "Unknown",
-            XmlDoc::None => "None",
-            XmlDoc::Debug => "Debug",
-            XmlDoc::Release => "Release",
-            XmlDoc::Both => "Both",
-        }
-    }
-}
-
-impl Default for XmlDoc {
-    fn default() -> Self {
-        XmlDoc::Unknown
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum FileStatus {
-    Unknown,
-    NotPresent,
-    InProjectFileOnly,
-    OnDiskOnly,
-    InProjectFileAndOnDisk
-}
-
-impl FileStatus {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            FileStatus::Unknown => "Unknown",
-            FileStatus::NotPresent => "NotPresent",
-            FileStatus::InProjectFileOnly => "InProjectFileOnly",
-            FileStatus::OnDiskOnly => "OnDiskOnly",
-            FileStatus::InProjectFileAndOnDisk => "InProjectFileAndOnDisk",
-        }
-    }
-}
-
-impl Default for FileStatus {
-    fn default() -> Self {
-        FileStatus::Unknown
-    }
-}
+use dnlib::prelude::*;
 
 #[derive(Debug, Default)]
 pub struct Project {
@@ -153,9 +11,6 @@ pub struct Project {
     pub is_valid_utf8: bool,
     pub contents: String,
     pub version: ProjectVersion,
-    //pub last_modify_date: String
-    //pub git_branch: String,
-    //pub git_sha: String,
 
     pub output_type: OutputType,
     pub xml_doc: XmlDoc,
@@ -183,53 +38,6 @@ pub struct Project {
     // redundant_projects_count
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum PackageClass {
-    Unknown,
-    Ours,
-    Microsoft,
-    ThirdParty,
-}
-
-impl PackageClass {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            PackageClass::Unknown => "Unknown",
-            PackageClass::Ours => "Ours",
-            PackageClass::Microsoft => "Microsoft",
-            PackageClass::ThirdParty => "ThirdParty",
-        }
-    }
-}
-
-impl Default for PackageClass {
-    fn default() -> Self {
-        PackageClass::Unknown
-    }
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Package {
-    pub name: String,
-    pub version: String,
-    pub development: bool,
-    pub class: PackageClass
-}
-
-impl Package {
-    fn new(name: &str, version: &str, development: bool, class: PackageClass) -> Self {
-        Package {
-            name: name.to_owned(),
-            version: version.to_owned(),
-            development,
-            class
-        }
-    }
-
-    pub fn is_preview(&self) -> bool {
-        self.version.contains("-")
-    }
-}
 
 const SDK_WEB_PROLOG: &str = "<Project Sdk=\"Microsoft.NET.Sdk.Web\">";
 const SDK_PROLOG: &str = "<Project Sdk=\"Microsoft.NET.Sdk\">";

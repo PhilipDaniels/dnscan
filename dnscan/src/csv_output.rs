@@ -1,22 +1,26 @@
 use crate::errors::AnalysisResult;
-use crate::solution::Solution;
 use crate::project::Project;
-use dnlib::path_extensions::PathExtensions;
-use dnlib::as_str::AsStr;
+use dnlib::prelude::*;
 use csv;
 
-pub fn write_solutions(solutions: &[Solution]) -> AnalysisResult<()> {
+pub fn write_files(solutions: &[Solution], projects: &[Project]) -> AnalysisResult<()> {
+    write_solutions(solutions)?;
+    write_projects(projects)?;
+    Ok(())
+}
+
+fn write_solutions(solutions: &[Solution]) -> AnalysisResult<()> {
     let mut wtr = csv::Writer::from_path("solutions.csv")?;
     wtr.write_record(&["Version", "Directory", "File", "IsValidUTF8", "ProjectCount", "OrphanedProjectCount"])?;
 
     for sln in solutions {
         wtr.write_record(&[
             sln.version.as_str(),
-            &sln.file.parent().unwrap().to_string_lossy(),
-            &sln.file.to_string_lossy(),
-            sln.is_valid_utf8.as_str(),
-            &sln.linked_projects.len().to_string(),
-            &sln.orphaned_projects.len().to_string()
+            sln.file_info.path.directory_as_str(),
+            sln.file_info.path_as_str(),
+            sln.file_info.is_valid_utf8.as_str(),
+            "0", //&sln.linked_projects.len().to_string(),
+            "0", //&sln.orphaned_projects.len().to_string()
         ])?;
     }
 
@@ -24,7 +28,7 @@ pub fn write_solutions(solutions: &[Solution]) -> AnalysisResult<()> {
     Ok(())
 }
 
-pub fn write_projects(projects: &[Project]) -> AnalysisResult<()> {
+fn write_projects(projects: &[Project]) -> AnalysisResult<()> {
     let mut wtr = csv::Writer::from_path("projects_to_packages.csv")?;
     wtr.write_record(&[
         "Version", "Directory", "File", "IsValidUTF8",
@@ -45,7 +49,7 @@ pub fn write_projects(projects: &[Project]) -> AnalysisResult<()> {
         for pkg in &proj.packages {
             wtr.write_record(&[
                 proj.version.as_str(),
-                proj.file.parent_as_str(),
+                proj.file.directory_as_str(),
                 &proj.file.filename_as_str(),
                 proj.is_valid_utf8.as_str(),
                 proj.output_type.as_str(),

@@ -2,6 +2,7 @@ use clap::{App, Arg};
 use std::path::PathBuf;
 
 #[derive(Debug, Default)]
+/// The command line options.
 pub struct Options {
     pub verbose: bool,
     pub dir: PathBuf,
