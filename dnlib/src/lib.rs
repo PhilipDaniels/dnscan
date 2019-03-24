@@ -10,11 +10,11 @@ pub mod file_status;
 pub mod package_class;
 pub mod package;
 pub mod file_info;
-pub mod solution;
 pub mod git_info;
 pub mod interesting_file;
 pub mod dn_error;
-pub mod discovered_files;
+pub mod find_files;
+pub mod analyze_files;
 
 pub mod prelude {
     pub use crate::as_str::*;
@@ -29,11 +29,11 @@ pub mod prelude {
     pub use crate::package_class::*;
     pub use crate::package::*;
     pub use crate::file_info::*;
-    pub use crate::solution::*;
     pub use crate::git_info::*;
     pub use crate::interesting_file::*;
     pub use crate::dn_error::*;
-    pub use crate::discovered_files::*;
+    pub use crate::find_files::*;
+    pub use crate::analyze_files::*;
 }
 
 pub use prelude::*;
