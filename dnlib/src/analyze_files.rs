@@ -1,10 +1,12 @@
 use std::path::{Path, PathBuf};
+use rayon::prelude::*;
 use crate::file_loader::{FileLoader, DiskFileLoader};
 use crate::dn_error::DnLibResult;
 use crate::find_files::find_files;
 use crate::file_info::FileInfo;
 use crate::visual_studio_version::VisualStudioVersion;
 use crate::git_info::GitInfo;
+use crate::project::Project2;
 
 /// The set of all files found during analysis.
 #[derive(Debug, Default, Clone)]
@@ -42,27 +44,28 @@ impl AnalyzedFiles {
         // Now group them into our structure.
         // Load and analyze each solution and place them into folders.
         let mut files = AnalyzedFiles::default();
-        for sln in &pta.sln_files {
-            files.add_solution(sln, file_loader);
+        for sln_path in &pta.sln_files {
+            files.add_solution(sln_path, file_loader);
         }
 
-
         // For each project, grab all the 'other' files in the same directory.
-        // This is very hacky. Assumes they are all in the project directory!
-        let projects_with_others = pta.csproj_files.iter()
-            .map(|proj| {
-                let others = pta.other_files.iter().filter(|of| of.parent().unwrap() == proj.parent().unwrap()).collect::<Vec<_>>();
-                (proj, others)
+        // (This is very hacky. Assumes they are all in the project directory! Can fix by replacing
+        // the '==' with a closure).
+        // Then analyze each project.
+        let analyzed_projects = pta.csproj_files.iter()
+            .map(|proj_path| {
+                let other_paths = pta.other_files.iter()
+                    .filter(|other_path| other_path.parent().unwrap() == proj_path.parent().unwrap())
+                    .collect::<Vec<_>>();
+
+                (proj_path, other_paths)
+            })
+            .map(|(proj_path, other_paths)| {
+                Project2::new(proj_path, other_paths, file_loader)
             })
             .collect::<Vec<_>>();
 
-        // For all project paths (in parallel)
-        //   call Project::new(project_path, others: Vec<PathBuf>) - this does the analysis
-        //   call add_project to associate the project with the right solution.
-
-
-        // TODO: This needs to happen in parallel!
-        for proj in pta.csproj_files {
+        for proj in analyzed_projects {
             files.add_project(proj);
         }
 
@@ -80,11 +83,11 @@ impl AnalyzedFiles {
         }
     }
 
-    fn add_project(&mut self, path: PathBuf) {
-        match self.find_owning_solution(&path) {
+    fn add_project(&mut self, project: Project2) {
+        match self.find_owning_solution(&project.file_info.path) {
             Some((SolutionMatchType::Linked, ref mut sln)) => sln.linked_projects.push(ProjectFile::default()),
             Some((SolutionMatchType::Orphaned, ref mut sln)) => sln.orphaned_projects.push(ProjectFile::default()),
-            None => eprintln!("Could not associate project {:?} with a solution, ignoring.", path),
+            None => eprintln!("Could not associate project {:?} with a solution, ignoring.", &project.file_info.path),
         }
     }
 
