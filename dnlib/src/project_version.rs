@@ -31,3 +31,21 @@ impl AsStr for ProjectVersion {
         }
     }
 }
+
+const SDK_WEB_PROLOG: &str = "<Project Sdk=\"Microsoft.NET.Sdk.Web\">";
+const SDK_PROLOG: &str = "<Project Sdk=\"Microsoft.NET.Sdk\">";
+const OLD_PROLOG: &str = "<Project ToolsVersion=";
+
+impl ProjectVersion {
+    pub fn extract(project_file_contents: &str) -> Option<ProjectVersion> {
+        if project_file_contents.contains(SDK_WEB_PROLOG) {
+            Some(ProjectVersion::MicrosoftNetSdkWeb)
+        } else if project_file_contents.contains(SDK_PROLOG) {
+            Some(ProjectVersion::MicrosoftNetSdk)
+        } else if project_file_contents.contains(OLD_PROLOG) {
+            Some(ProjectVersion::OldStyle)
+        } else {
+            None
+        }
+    }
+}

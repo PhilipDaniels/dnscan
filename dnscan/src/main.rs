@@ -1,6 +1,5 @@
 mod csv_output;
 mod errors;
-mod find_files;
 mod options;
 mod project;
 
@@ -8,7 +7,6 @@ use elapsed::{measure_time};
 use errors::AnalysisResult;
 use options::Options;
 use rayon::prelude::*;
-use project::Project;
 use dnlib::prelude::*;
 
 // TODO: Write our own wrapper around println that captures the options.verbose flag.
@@ -38,67 +36,60 @@ pub fn run_analysis_and_print_result(options: &Options) {
 }
 
 pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
-    let (elapsed, paths) = measure_time(|| {
-        find_files::get_paths_of_interest(&options)
-    });
+    // let (elapsed, paths) = measure_time(|| {
+    //     find_files::get_paths_of_interest(&options)
+    // });
 
-    if paths.is_empty() {
-        println!(
-            "Did not find any .sln or .csproj files under {}",
-            options.dir.display()
-        );
-    }
+    // if paths.is_empty() {
+    //     println!(
+    //         "Did not find any .sln or .csproj files under {}",
+    //         options.dir.display()
+    //     );
+    // }
 
     // if options.verbose {
     //     println!("paths = {:#?}", paths);
     // }
 
-    if options.verbose {
-        println!(
-            "Found {} solutions and {} projects to analyze in {}.",
-            paths.sln_files.len(),
-            paths.csproj_files.len(),
-            elapsed
-        );
-    }
+    // if options.verbose {
+    //     println!(
+    //         "Found {} solutions and {} projects to analyze in {}.",
+    //         paths.sln_files.len(),
+    //         paths.csproj_files.len(),
+    //         elapsed
+    //     );
+    // }
 
-    let file_loader = DiskFileLoader::new();
+    // let file_loader = DiskFileLoader::new();
 
-    let (elapsed, solutions) = measure_time(|| {
-        paths.sln_files.par_iter().map(|path| {
-            Solution::new(path, &file_loader)
-        }).collect::<Vec<_>>()
-    });
+    // let (elapsed, solutions) = measure_time(|| {
+    //     paths.sln_files.par_iter().map(|path| {
+    //         Solution::new(path, &file_loader)
+    //     }).collect::<Vec<_>>()
+    // });
 
-    if options.verbose {
-        println!("{} Solutions loaded and analyzed in {}", solutions.len(), elapsed);
-    }
+    // if options.verbose {
+    //     println!("{} Solutions loaded and analyzed in {}", solutions.len(), elapsed);
+    // }
 
-    let (elapsed, projects) = measure_time(|| {
-        paths.csproj_files.par_iter().map(|path| {
-            Project::new(path, &paths, &file_loader)
-        }).collect::<Vec<_>>()
-    });
+    // let (elapsed, projects) = measure_time(|| {
+    //     paths.csproj_files.par_iter().map(|path| {
+    //         Project::new(path, &paths, &file_loader)
+    //     }).collect::<Vec<_>>()
+    // });
 
-    if options.verbose {
-        println!("{} Projects loaded and analyzed in {}", projects.len(), elapsed);
-    }
+    // if options.verbose {
+    //     println!("{} Projects loaded and analyzed in {}", projects.len(), elapsed);
+    // }
 
-    // For each solution:
-    //   Find all projects under its folder
-    //   Add them to the linked or orphaned projects collections
-    // For each linked project
-    //   Determine the list of referenced_projects (they will all be in the same sln)
+    // let (elapsed, result) = measure_time(|| {
+    //     csv_output::write_files(&solutions, &projects)
+    // });
+    // result?;
 
-    let (elapsed, result) = measure_time(|| {
-        csv_output::write_files(&solutions, &projects)
-    });
-    result?;
-
-    if options.verbose {
-        println!("CSV files written in {}", elapsed);
-    }
-
+    // if options.verbose {
+    //     println!("CSV files written in {}", elapsed);
+    // }
 
     Ok(())
 }

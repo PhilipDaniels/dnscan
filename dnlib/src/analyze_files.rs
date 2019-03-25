@@ -6,7 +6,7 @@ use crate::find_files::find_files;
 use crate::file_info::FileInfo;
 use crate::visual_studio_version::VisualStudioVersion;
 use crate::git_info::GitInfo;
-use crate::project::Project2;
+use crate::project::Project;
 
 /// The set of all files found during analysis.
 #[derive(Debug, Default, Clone)]
@@ -61,7 +61,7 @@ impl AnalyzedFiles {
                 (proj_path, other_paths)
             })
             .map(|(proj_path, other_paths)| {
-                Project2::new(proj_path, other_paths, file_loader)
+                Project::new(proj_path, other_paths, file_loader)
             })
             .collect::<Vec<_>>();
 
@@ -83,7 +83,7 @@ impl AnalyzedFiles {
         }
     }
 
-    fn add_project(&mut self, project: Project2) {
+    fn add_project(&mut self, project: Project) {
         match self.find_owning_solution(&project.file_info.path) {
             Some((SolutionMatchType::Linked, ref mut sln)) => sln.linked_projects.push(ProjectFile::default()),
             Some((SolutionMatchType::Orphaned, ref mut sln)) => sln.orphaned_projects.push(ProjectFile::default()),

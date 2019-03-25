@@ -30,3 +30,18 @@ impl AsStr for OutputType {
         }
     }
 }
+
+impl OutputType {
+    pub fn extract(project_file_contents: &str) -> OutputType {
+        if project_file_contents.contains("<OutputType>Library</OutputType>") {
+            OutputType::Library
+        } else if project_file_contents.contains("<OutputType>Exe</OutputType>") {
+            OutputType::Exe
+        } else if project_file_contents.contains("<OutputType>WinExe</OutputType>") {
+            OutputType::WinExe
+        } else {
+            // This appears to be the default, certainly for SDK-style projects anyway.
+            OutputType::Library
+        }
+    }
+}

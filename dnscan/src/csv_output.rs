@@ -1,7 +1,6 @@
-use crate::errors::AnalysisResult;
-use crate::project::Project;
-use dnlib::prelude::*;
 use csv;
+use dnlib::prelude::*;
+use crate::errors::AnalysisResult;
 
 pub fn write_files(solutions: &[Solution], projects: &[Project]) -> AnalysisResult<()> {
     write_solutions(solutions)?;
@@ -49,9 +48,9 @@ fn write_projects(projects: &[Project]) -> AnalysisResult<()> {
         for pkg in &proj.packages {
             wtr.write_record(&[
                 proj.version.as_str(),
-                proj.file.directory_as_str(),
-                &proj.file.filename_as_str(),
-                proj.is_valid_utf8.as_str(),
+                proj.file_info.directory_as_str(),
+                proj.file_info.filename_as_str(),
+                proj.file_info.is_valid_utf8.as_str(),
                 proj.output_type.as_str(),
                 proj.xml_doc.as_str(),
                 proj.tt_file.as_str(),
@@ -72,7 +71,7 @@ fn write_projects(projects: &[Project]) -> AnalysisResult<()> {
                 &pkg.version,
                 pkg.development.as_str(),
                 pkg.is_preview().as_str(),
-                &proj.file.to_string_lossy(),
+                proj.file_info.path_as_str(),
             ])?;
         }
     }

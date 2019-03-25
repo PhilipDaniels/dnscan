@@ -1,3 +1,5 @@
+use lazy_static::lazy_static;
+use regex::Regex;
 use crate::as_str::AsStr;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -31,6 +33,22 @@ impl AsStr for XmlDoc {
             XmlDoc::Debug => "Debug",
             XmlDoc::Release => "Release",
             XmlDoc::Both => "Both",
+        }
+    }
+}
+
+impl XmlDoc {
+    pub fn extract(project_file_contents: &str) -> XmlDoc {
+        lazy_static! {
+            static ref DEBUG_RE: Regex = Regex::new(r##"<DocumentationFile>bin\\[Dd]ebug\\.*?\.xml</DocumentationFile>"##).unwrap();
+            static ref RELEASE_RE: Regex = Regex::new(r##"<DocumentationFile>bin\\[Rr]elease\\.*?\.xml</DocumentationFile>"##).unwrap();
+        }
+
+        match (DEBUG_RE.is_match(project_file_contents), RELEASE_RE.is_match(project_file_contents)) {
+            (true, true) => XmlDoc::Both,
+            (true, false) => XmlDoc::Debug,
+            (false, true) => XmlDoc::Release,
+            (false, false) => XmlDoc::None,
         }
     }
 }
