@@ -9,7 +9,7 @@ use crate::git_info::GitInfo;
 use crate::project::Project;
 
 /// The set of all files found during analysis.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct AnalyzedFiles {
     pub scanned_directories: Vec<SolutionDirectory>
 }
@@ -58,9 +58,6 @@ impl AnalyzedFiles {
                     .filter(|other_path| other_path.parent().unwrap() == proj_path.parent().unwrap())
                     .collect::<Vec<_>>();
 
-                (proj_path, other_paths)
-            })
-            .map(|(proj_path, other_paths)| {
                 Project::new(proj_path, other_paths, file_loader)
             })
             .collect::<Vec<_>>();
@@ -85,8 +82,8 @@ impl AnalyzedFiles {
 
     fn add_project(&mut self, project: Project) {
         match self.find_owning_solution(&project.file_info.path) {
-            Some((SolutionMatchType::Linked, ref mut sln)) => sln.linked_projects.push(ProjectFile::default()),
-            Some((SolutionMatchType::Orphaned, ref mut sln)) => sln.orphaned_projects.push(ProjectFile::default()),
+            Some((SolutionMatchType::Linked, ref mut sln)) => sln.linked_projects.push(Project::default()),
+            Some((SolutionMatchType::Orphaned, ref mut sln)) => sln.orphaned_projects.push(Project::default()),
             None => eprintln!("Could not associate project {:?} with a solution, ignoring.", &project.file_info.path),
         }
     }
@@ -105,7 +102,7 @@ impl AnalyzedFiles {
 }
 
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 /// Represents a directory that contains 1 or more solution files.
 pub struct SolutionDirectory {
     /// The directory path, e.g. `C:\temp\my_solution`.
@@ -122,7 +119,7 @@ impl SolutionDirectory {
 }
 
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 /// Represents a sln file and any projects that are associated with it.
 pub struct Solution {
     pub file_info: FileInfo,
@@ -132,13 +129,13 @@ pub struct Solution {
     /// The set of projects that are linked to this solution. The project files
     /// must exist on disk in the same directory or a subdirectory of the solution
     /// directory, and be referenced from inside the .sln file.
-    pub linked_projects: Vec<ProjectFile>,
+    pub linked_projects: Vec<Project>,
 
     /// The set of projects that are related to this solution, in that they exist
     /// exist on disk in the same directory or a subdirectory of the solution
     /// directory, but they are not referenced from inside the .sln file.
     /// (Probably they are projects that you forgot to delete).
-    pub orphaned_projects: Vec<ProjectFile>,
+    pub orphaned_projects: Vec<Project>,
 }
 
 impl Solution {
@@ -156,33 +153,10 @@ impl Solution {
     }
 
     fn sort(&mut self) {
-        self.linked_projects.sort();
-        self.orphaned_projects.sort();
+        // self.linked_projects.sort();
+        // self.orphaned_projects.sort();
     }
 }
-
-
-
-#[derive(Debug, Default, Clone, PartialOrd, Ord, PartialEq, Eq)]
-/// Represents a single project file.
-pub struct ProjectFile {
-    /// The full path of the project file, e.g. `C:\temp\my_solution\project1\project1.csproj`.
-    pub path: PathBuf,
-
-    /// The set of other files that we scan for because we consider them interesting.
-    /// Includes such things as `web.config` and `packages.config`.
-    /// See `InterestingFiles` for the full list.
-    pub other_files: Vec<PathBuf>
-}
-
-impl ProjectFile {
-    fn sort(&mut self) {
-        self.other_files.sort();
-    }
-}
-
-
-
 
 
 #[cfg(test)]
