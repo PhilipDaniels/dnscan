@@ -93,14 +93,11 @@ impl Project {
     }
 
     fn has_embedded_debugging(&self) -> bool {
-        lazy_static! {
-            // We expect both for it to be correct.
-            static ref DEBUG_TYPE_REGEX: Regex = Regex::new(r##"<DebugType>embedded</DebugType>"##).unwrap();
-            static ref EMBED_ALL_REGEX: Regex = Regex::new(r##"<EmbedAllSources>true</EmbedAllSources>"##).unwrap();
-        }
-
         match self.version {
-            ProjectVersion::MicrosoftNetSdk | ProjectVersion::MicrosoftNetSdkWeb => DEBUG_TYPE_REGEX.is_match(&self.file_info.contents) && EMBED_ALL_REGEX.is_match(&self.file_info.contents),
+            ProjectVersion::MicrosoftNetSdk | ProjectVersion::MicrosoftNetSdkWeb => 
+                // We expect both for it to be correct.
+                self.file_info.contents.contains("<DebugType>embedded</DebugType>") &&
+                self.file_info.contents.contains("<EmbedAllSources>true</EmbedAllSources>"),
             ProjectVersion::OldStyle | ProjectVersion::Unknown => false
         }
     }
@@ -154,7 +151,7 @@ impl Project {
                 let mut result = vec![];
 
                 for cap in SDK_MULTI_TF_REGEX.captures_iter(&self.file_info.contents) {
-                    let tfs = cap["tfs"].split(";");
+                    let tfs = cap["tfs"].split(';');
                     for tf in tfs {
                         result.push(tf.to_owned());
                     }

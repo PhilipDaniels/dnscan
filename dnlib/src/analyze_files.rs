@@ -23,7 +23,7 @@ impl AnalyzedFiles {
     pub fn new<P>(path: P) -> DnLibResult<Self>
         where P: AsRef<Path>
     {
-        let file_loader = DiskFileLoader::new();
+        let file_loader = DiskFileLoader::default();
         AnalyzedFiles::inner_new(path, &file_loader)
     }
 

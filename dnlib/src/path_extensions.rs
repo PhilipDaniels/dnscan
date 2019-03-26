@@ -50,7 +50,7 @@ impl PathExtensions for Path {
     }
 
     fn is_hidden_dir(&self) -> bool {
-        self.is_dir() && self.filename_as_str().starts_with(".")
+        self.is_dir() && self.filename_as_str().starts_with('.')
     }
 
     fn is_bin_or_obj_dir(&self) -> bool {

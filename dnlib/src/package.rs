@@ -20,6 +20,6 @@ impl Package {
     }
 
     pub fn is_preview(&self) -> bool {
-        self.version.contains("-")
+        self.version.contains('-')
     }
 }
