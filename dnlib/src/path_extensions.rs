@@ -34,8 +34,8 @@ impl PathExtensions for Path {
             None => "",
             Some(osstr) => match osstr.to_str() {
                 None => "",
-                Some(s) => s
-            }
+                Some(s) => s,
+            },
         }
     }
 
@@ -44,8 +44,8 @@ impl PathExtensions for Path {
             None => "",
             Some(osstr) => match osstr.to_str() {
                 None => "",
-                Some(s) => s
-            }
+                Some(s) => s,
+            },
         }
     }
 

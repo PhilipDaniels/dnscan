@@ -1,27 +1,28 @@
-use std::path::{Path, PathBuf};
-use rayon::prelude::*;
-use crate::file_loader::{FileLoader, DiskFileLoader};
 use crate::dn_error::DnLibResult;
-use crate::find_files::find_files;
 use crate::file_info::FileInfo;
-use crate::visual_studio_version::VisualStudioVersion;
+use crate::file_loader::{DiskFileLoader, FileLoader};
+use crate::find_files::find_files;
 use crate::git_info::GitInfo;
 use crate::project::Project;
+use crate::visual_studio_version::VisualStudioVersion;
+use rayon::prelude::*;
+use std::path::{Path, PathBuf};
 
 /// The set of all files found during analysis.
 #[derive(Debug, Default)]
 pub struct AnalyzedFiles {
-    pub scanned_directories: Vec<SolutionDirectory>
+    pub scanned_directories: Vec<SolutionDirectory>,
 }
 
 pub enum SolutionMatchType {
     Linked,
-    Orphaned
+    Orphaned,
 }
 
 impl AnalyzedFiles {
     pub fn new<P>(path: P) -> DnLibResult<Self>
-        where P: AsRef<Path>
+    where
+        P: AsRef<Path>,
     {
         AnalyzedFiles::inner_new(path, DiskFileLoader::default())
     }
@@ -35,8 +36,9 @@ impl AnalyzedFiles {
 
     /// The actual guts of `new`, using a file loader so we can test it.
     fn inner_new<P, L>(path: P, file_loader: L) -> DnLibResult<Self>
-        where P: AsRef<Path>,
-              L: FileLoader
+    where
+        P: AsRef<Path>,
+        L: FileLoader,
     {
         // First find all the paths of interest.
         let pta = find_files(path)?;
@@ -52,10 +54,16 @@ impl AnalyzedFiles {
         // (This is very hacky. Assumes they are all in the project directory! Can fix by replacing
         // the '==' with a closure).
         // Then analyze each project.
-        let analyzed_projects = pta.csproj_files.iter()
+        let analyzed_projects = pta
+            .csproj_files
+            .iter()
             .map(|proj_path| {
-                let other_paths = pta.other_files.iter()
-                    .filter(|&other_path| other_path.parent().unwrap() == proj_path.parent().unwrap())
+                let other_paths = pta
+                    .other_files
+                    .iter()
+                    .filter(|&other_path| {
+                        other_path.parent().unwrap() == proj_path.parent().unwrap()
+                    })
                     .cloned()
                     .collect::<Vec<_>>();
 
@@ -83,9 +91,16 @@ impl AnalyzedFiles {
 
     fn add_project(&mut self, project: Project) {
         match self.find_owning_solution(&project.file_info.path) {
-            Some((SolutionMatchType::Linked, ref mut sln)) => sln.linked_projects.push(Project::default()),
-            Some((SolutionMatchType::Orphaned, ref mut sln)) => sln.orphaned_projects.push(Project::default()),
-            None => eprintln!("Could not associate project {:?} with a solution, ignoring.", &project.file_info.path),
+            Some((SolutionMatchType::Linked, ref mut sln)) => {
+                sln.linked_projects.push(Project::default())
+            }
+            Some((SolutionMatchType::Orphaned, ref mut sln)) => {
+                sln.orphaned_projects.push(Project::default())
+            }
+            None => eprintln!(
+                "Could not associate project {:?} with a solution, ignoring.",
+                &project.file_info.path
+            ),
         }
     }
 
@@ -94,14 +109,17 @@ impl AnalyzedFiles {
     /// If such a match cannot be found, attempt to locate the project with
     /// its closest matching solution by directory, and return an Orphaned match.
     /// If that fails, return None.
-    pub fn find_owning_solution<P>(&self, project_path: P) -> Option<(SolutionMatchType, &mut Solution)>
-        where P: AsRef<Path>
+    pub fn find_owning_solution<P>(
+        &self,
+        project_path: P,
+    ) -> Option<(SolutionMatchType, &mut Solution)>
+    where
+        P: AsRef<Path>,
     {
         let project_path = project_path.as_ref();
         None
     }
 }
-
 
 #[derive(Debug, Default)]
 /// Represents a directory that contains 1 or more solution files.
@@ -110,7 +128,7 @@ pub struct SolutionDirectory {
     pub directory: PathBuf,
 
     /// The sln files in this directory.
-    pub sln_files: Vec<Solution>
+    pub sln_files: Vec<Solution>,
 }
 
 impl SolutionDirectory {
@@ -118,7 +136,6 @@ impl SolutionDirectory {
     //     self.sln_files.sort();
     // }
 }
-
 
 #[derive(Debug, Default)]
 /// Represents a sln file and any projects that are associated with it.
@@ -141,8 +158,9 @@ pub struct Solution {
 
 impl Solution {
     pub fn new<P, L>(path: P, file_loader: &L) -> Self
-        where P: AsRef<Path>,
-              L: FileLoader
+    where
+        P: AsRef<Path>,
+        L: FileLoader,
     {
         let fi = FileInfo::new(path, file_loader);
         let ver = VisualStudioVersion::extract(&fi.contents).unwrap_or_default();
@@ -159,7 +177,6 @@ impl Solution {
         // self.orphaned_projects.sort();
     }
 }
-
 
 #[cfg(test)]
 mod tests {
