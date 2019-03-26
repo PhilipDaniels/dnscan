@@ -7,6 +7,7 @@ pub trait PathExtensions {
     fn filename_as_str(&self) -> &str;
     // Returns the directory as a str, or "" if it cannot be converted.
     fn directory_as_str(&self) -> &str;
+    fn is_same_dir<P: AsRef<Path>>(&self, other: P) -> bool;
     fn is_hidden_dir(&self) -> bool;
     fn is_bin_or_obj_dir(&self) -> bool;
     fn is_packages_dir(&self) -> bool;
@@ -47,6 +48,10 @@ impl PathExtensions for Path {
                 Some(s) => s,
             },
         }
+    }
+
+    fn is_same_dir<P: AsRef<Path>>(&self, other: P) -> bool {
+        self.parent().unwrap() == other.as_ref().parent().unwrap()
     }
 
     fn is_hidden_dir(&self) -> bool {

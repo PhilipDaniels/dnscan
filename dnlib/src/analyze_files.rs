@@ -6,6 +6,8 @@ use crate::git_info::GitInfo;
 use crate::project::Project;
 use crate::find_files::PathsToAnalyze;
 use crate::visual_studio_version::VisualStudioVersion;
+use crate::path_extensions::PathExtensions;
+
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 
@@ -50,30 +52,28 @@ impl AnalyzedFiles {
             files.add_solution(sln_path, &file_loader);
         }
 
-        // // For each project, grab all the 'other' files in the same directory.
-        // // (This is very hacky. Assumes they are all in the project directory! Can fix by replacing
-        // // the '==' with a closure).
-        // // Then analyze each project.
-        // let analyzed_projects = paths_to_analyze
-        //     .csproj_files
-        //     .iter()
-        //     .map(|proj_path| {
-        //         let other_paths = paths_to_analyze
-        //             .other_files
-        //             .iter()
-        //             .filter(|&other_path| {
-        //                 other_path.parent().unwrap() == proj_path.parent().unwrap()
-        //             })
-        //             .cloned()
-        //             .collect::<Vec<_>>();
+        // For each project, grab all the 'other' files in the same directory.
+        // (This is very hacky. Assumes they are all in the project directory! Can fix by replacing
+        // the '==' with a closure).
+        // Then analyze each project.
+        let analyzed_projects = paths_to_analyze
+            .csproj_files
+            .iter()
+            .map(|proj_path| {
+                let other_paths = paths_to_analyze
+                    .other_files
+                    .iter()
+                    .filter(|&other_path| other_path.is_same_dir(proj_path))
+                    .cloned()
+                    .collect::<Vec<_>>();
 
-        //         Project::new(proj_path, other_paths, &file_loader)
-        //     })
-        //     .collect::<Vec<_>>();
+                Project::new(proj_path, other_paths, &file_loader)
+            })
+            .collect::<Vec<_>>();
 
-        // for proj in analyzed_projects {
-        //     files.add_project(proj);
-        // }
+        for proj in analyzed_projects {
+            files.add_project(proj);
+        }
 
         files.sort();
         Ok(files)
@@ -124,13 +124,31 @@ impl AnalyzedFiles {
     /// its closest matching solution by directory, and return an Orphaned match.
     /// If that fails, return None.
     pub fn find_owning_solution<P>(
-        &self,
+        &mut self,
         project_path: P,
     ) -> Option<(SolutionMatchType, &mut Solution)>
     where
         P: AsRef<Path>,
     {
-        let project_path = project_path.as_ref();
+        {
+            for sd in &mut self.scanned_directories {
+                if let Some(mut sln) = sd.sln_files.iter_mut().find(|sln| sln.refers_to_project(&project_path)) {
+                    return Some((SolutionMatchType::Linked, sln))
+                }
+            }
+        }
+
+        {
+            // Is there a same-directory match?
+            for sd in &mut self.scanned_directories {
+                if let Some(mut sln) = sd.sln_files.iter_mut().find(|sln| sln.file_info.path.is_same_dir(&project_path)) {
+                    return Some((SolutionMatchType::Orphaned, sln))
+                }
+            }
+        }
+
+        // Default - no idea what to do, just print a warning.
+        // Should not happen in real-life, due to the nature of the directory walk.
         None
     }
 }
@@ -200,6 +218,10 @@ impl Solution {
         self.linked_projects.sort();
         self.orphaned_projects.sort();
     }
+
+    fn refers_to_project<P: AsRef<Path>>(&self, project_path: P) -> bool {
+        false
+    }
 }
 
 #[cfg(test)]
@@ -268,5 +290,20 @@ mod analyzed_files_tests {
         assert_eq!(analyzed_files.scanned_directories[1].sln_files.len(), 2);
         assert_eq!(analyzed_files.scanned_directories[1].sln_files[0].file_info.path, PathBuf::from(r"C:\temp\foo.sln"));
         assert_eq!(analyzed_files.scanned_directories[1].sln_files[1].file_info.path, PathBuf::from(r"C:\temp\foo2.sln"));
+    }
+
+    #[test]
+    pub fn for_one_orphaned_project() {
+        let analyzed_files = analyze(vec![r"C:\temp\foo.sln", r"C:\temp\p1.csproj"]);
+        println!("AF = {:#?}", analyzed_files);
+
+        assert_eq!(analyzed_files.scanned_directories.len(), 1);
+        assert_eq!(analyzed_files.scanned_directories[0].directory, PathBuf::from(r"C:\temp"));
+        assert_eq!(analyzed_files.scanned_directories[0].sln_files.len(), 1);
+        assert_eq!(analyzed_files.scanned_directories[0].sln_files[0].file_info.path, PathBuf::from(r"C:\temp\foo.sln"));
+
+        let sln_file = &analyzed_files.scanned_directories[0].sln_files[0];
+        assert_eq!(sln_file.linked_projects.len(), 0);
+        assert_eq!(sln_file.orphaned_projects.len(), 1);
     }
 }
