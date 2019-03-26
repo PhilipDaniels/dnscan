@@ -75,11 +75,8 @@ impl AnalyzedFiles {
     }
 
     fn add_solution<L: FileLoader>(&mut self, path: &PathBuf, file_loader: &L) {
-        println!("Adding sln for path = {:?}", path);
         let sln = Solution::new(path, file_loader);
-        println!("Adding sln for path = {:?}", path);
         let sln_dir = path.parent().unwrap();
-        println!("Adding sln for sln_dir = {:?}", sln_dir);
 
         // let finder = self.scanned_directories
         //     .iter_mut()
@@ -91,14 +88,12 @@ impl AnalyzedFiles {
 
         for item in &mut self.scanned_directories {
             if item.directory == sln_dir {
-                println!("Pushing sln {:#?}", sln);
                 item.sln_files.push(sln);
                 return;
             }
         }
 
         let mut sd = SolutionDirectory::new(sln_dir);
-        println!("Pushing sd {:#?} for sln_dir {:#?}", sd, sln_dir);
         sd.sln_files.push(sln); // TODO call this field 'Solutions'
         self.scanned_directories.push(sd);
     }
