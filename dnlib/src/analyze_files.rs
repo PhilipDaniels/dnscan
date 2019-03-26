@@ -17,11 +17,6 @@ pub struct AnalyzedFiles {
     pub scanned_directories: Vec<SolutionDirectory>,
 }
 
-pub enum SolutionMatchType {
-    Linked,
-    Orphaned,
-}
-
 impl AnalyzedFiles {
     pub fn new<P>(path: P) -> DnLibResult<Self>
     where
@@ -104,54 +99,43 @@ impl AnalyzedFiles {
     }
 
     fn add_project(&mut self, project: Project) {
-        match self.find_owning_solution(&project.file_info.path) {
-            Some((SolutionMatchType::Linked, ref mut sln)) => {
-                sln.linked_projects.push(Project::default())
-            }
-            Some((SolutionMatchType::Orphaned, ref mut sln)) => {
-                sln.orphaned_projects.push(Project::default())
-            }
-            None => eprintln!(
-                "Could not associate project {:?} with a solution, ignoring.",
-                &project.file_info.path
-            ),
+        if let Some(ref mut sln) = self.find_linked_solution(&project.file_info.path) {
+            sln.linked_projects.push(project);
+        } else if let Some(ref mut sln) = self.find_orphaned_solution(&project.file_info.path) {
+            sln.orphaned_projects.push(project);
+        } else {
+            eprintln!("Could not associate project {:?} with a solution, ignoring.", &project.file_info.path);
         }
     }
 
     /// Scan all known solutions trying to find one that refers to the specified
-    /// project path. If such a match is found, a Linked match is returned.
-    /// If such a match cannot be found, attempt to locate the project with
-    /// its closest matching solution by directory, and return an Orphaned match.
-    /// If that fails, return None.
-    pub fn find_owning_solution<P>(
-        &mut self,
-        project_path: P,
-    ) -> Option<(SolutionMatchType, &mut Solution)>
+    /// project path. Works as a pair with `find_orphaned_solution` - I had to
+    /// create two functions to get around the borrow checker.
+    fn find_linked_solution<P>(&mut self, project_path: P) -> Option<&mut Solution>
     where
         P: AsRef<Path>,
     {
-        {
-            for sd in &mut self.scanned_directories {
-                if let Some(mut sln) = sd.sln_files.iter_mut().find(|sln| sln.refers_to_project(&project_path)) {
-                    return Some((SolutionMatchType::Linked, sln))
-                }
-            }
+        for sd in &mut self.scanned_directories {
+            let matching_sln = sd.sln_files.iter_mut().find(|sln| sln.refers_to_project(&project_path));
+            if matching_sln.is_some() { return matching_sln; }
         }
 
-        {
-            // Is there a same-directory match?
-            for sd in &mut self.scanned_directories {
-                if let Some(mut sln) = sd.sln_files.iter_mut().find(|sln| sln.file_info.path.is_same_dir(&project_path)) {
-                    return Some((SolutionMatchType::Orphaned, sln))
-                }
-            }
+        None
+    }
+
+    fn find_orphaned_solution<P>(&mut self, project_path: P) -> Option<&mut Solution>
+    where
+        P: AsRef<Path>,
+    {
+        for sd in &mut self.scanned_directories {
+            let matching_sln = sd.sln_files.iter_mut().find(|sln| sln.file_info.path.is_same_dir(&project_path));
+            if matching_sln.is_some() { return matching_sln; }
         }
 
-        // Default - no idea what to do, just print a warning.
-        // Should not happen in real-life, due to the nature of the directory walk.
         None
     }
 }
+
 
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 /// Represents a directory that contains 1 or more solution files.
