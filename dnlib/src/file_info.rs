@@ -11,8 +11,9 @@ pub struct FileInfo {
 }
 
 impl FileInfo {
-    pub fn new<P>(path: P, file_loader: &FileLoader) -> Self
-        where P: AsRef<Path>
+    pub fn new<P, L>(path: P, file_loader: &L) -> Self
+        where P: AsRef<Path>,
+              L: FileLoader
     {
         let mut fi = FileInfo::default();
         fi.path = path.as_ref().to_owned();

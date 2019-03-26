@@ -23,8 +23,7 @@ impl AnalyzedFiles {
     pub fn new<P>(path: P) -> DnLibResult<Self>
         where P: AsRef<Path>
     {
-        let file_loader = DiskFileLoader::default();
-        AnalyzedFiles::inner_new(path, &file_loader)
+        AnalyzedFiles::inner_new(path, DiskFileLoader::default())
     }
 
     // pub fn sort(&mut self) {
@@ -35,8 +34,9 @@ impl AnalyzedFiles {
     // }
 
     /// The actual guts of `new`, using a file loader so we can test it.
-    fn inner_new<P>(path: P, file_loader:&FileLoader) -> DnLibResult<Self>
-        where P: AsRef<Path>
+    fn inner_new<P, L>(path: P, file_loader: L) -> DnLibResult<Self>
+        where P: AsRef<Path>,
+              L: FileLoader
     {
         // First find all the paths of interest.
         let pta = find_files(path)?;
@@ -45,7 +45,7 @@ impl AnalyzedFiles {
         // Load and analyze each solution and place them into folders.
         let mut files = AnalyzedFiles::default();
         for sln_path in &pta.sln_files {
-            files.add_solution(sln_path, file_loader);
+            files.add_solution(sln_path, &file_loader);
         }
 
         // For each project, grab all the 'other' files in the same directory.
@@ -59,7 +59,7 @@ impl AnalyzedFiles {
                     .cloned()
                     .collect::<Vec<_>>();
 
-                Project::new(proj_path, other_paths, file_loader)
+                Project::new(proj_path, other_paths, &file_loader)
             })
             .collect::<Vec<_>>();
 
@@ -71,7 +71,7 @@ impl AnalyzedFiles {
         Ok(files)
     }
 
-    fn add_solution(&mut self, path: &PathBuf, file_loader: &FileLoader) {
+    fn add_solution<L: FileLoader>(&mut self, path: &PathBuf, file_loader: &L) {
         let sln_dir = path.parent().unwrap();
         for item in &mut self.scanned_directories {
             if item.directory == sln_dir {
@@ -140,8 +140,9 @@ pub struct Solution {
 }
 
 impl Solution {
-    pub fn new<P>(path: P, file_loader: &FileLoader) -> Self
-        where P: AsRef<Path>
+    pub fn new<P, L>(path: P, file_loader: &L) -> Self
+        where P: AsRef<Path>,
+              L: FileLoader
     {
         let fi = FileInfo::new(path, file_loader);
         let ver = VisualStudioVersion::extract(&fi.contents).unwrap_or_default();

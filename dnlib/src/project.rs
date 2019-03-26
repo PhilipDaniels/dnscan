@@ -45,8 +45,9 @@ pub struct Project {
 }
 
 impl Project {
-    pub fn new<P>(path: P, other_files: Vec<PathBuf>, file_loader: &FileLoader) -> Self
-        where P: AsRef<Path>
+    pub fn new<P, L>(path: P, other_files: Vec<PathBuf>, file_loader: &L) -> Self
+        where P: AsRef<Path>,
+              L: FileLoader
     {
         let mut proj = Project::default();
         proj.other_files = other_files;
@@ -220,7 +221,7 @@ impl Project {
         None
     }
 
-    fn get_packages(&self, file_loader: &FileLoader) -> Vec<Package> {
+    fn get_packages<L: FileLoader>(&self, file_loader: &L) -> Vec<Package> {
         lazy_static! {
             static ref SDK_RE: Regex = RegexBuilder::new(r##"<PackageReference\s*?Include="(?P<name>.*?)"\s*?Version="(?P<version>.*?)"(?P<inner>.*?)(/>|</PackageReference>)"##)
                                         .case_insensitive(true).dot_matches_new_line(true).build().unwrap();
