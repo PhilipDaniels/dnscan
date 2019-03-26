@@ -2,7 +2,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use crate::as_str::AsStr;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum XmlDoc {
     Unknown,
 

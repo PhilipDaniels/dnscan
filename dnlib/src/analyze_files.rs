@@ -4,6 +4,7 @@ use crate::file_loader::{DiskFileLoader, FileLoader};
 use crate::find_files::find_files;
 use crate::git_info::GitInfo;
 use crate::project::Project;
+use crate::find_files::PathsToAnalyze;
 use crate::visual_studio_version::VisualStudioVersion;
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
@@ -24,69 +25,82 @@ impl AnalyzedFiles {
     where
         P: AsRef<Path>,
     {
-        AnalyzedFiles::inner_new(path, DiskFileLoader::default())
+        // First find all the paths of interest.
+        let pta = find_files(&path)?;
+        AnalyzedFiles::inner_new(path, pta, DiskFileLoader::default())
     }
 
-    // pub fn sort(&mut self) {
-    //     self.0.sort();
-    //     for sd in &mut self.0 {
-    //         sd.sort();
-    //     }
-    // }
+    pub fn sort(&mut self) {
+        self.scanned_directories.sort();
+        for sd in &mut self.scanned_directories {
+            sd.sort();
+        }
+    }
 
     /// The actual guts of `new`, using a file loader so we can test it.
-    fn inner_new<P, L>(path: P, file_loader: L) -> DnLibResult<Self>
+    fn inner_new<P, L>(path: P, paths_to_analyze: PathsToAnalyze, file_loader: L) -> DnLibResult<Self>
     where
         P: AsRef<Path>,
         L: FileLoader,
     {
-        // First find all the paths of interest.
-        let pta = find_files(path)?;
-
         // Now group them into our structure.
         // Load and analyze each solution and place them into folders.
         let mut files = AnalyzedFiles::default();
-        for sln_path in &pta.sln_files {
+        for sln_path in &paths_to_analyze.sln_files {
             files.add_solution(sln_path, &file_loader);
         }
 
-        // For each project, grab all the 'other' files in the same directory.
-        // (This is very hacky. Assumes they are all in the project directory! Can fix by replacing
-        // the '==' with a closure).
-        // Then analyze each project.
-        let analyzed_projects = pta
-            .csproj_files
-            .iter()
-            .map(|proj_path| {
-                let other_paths = pta
-                    .other_files
-                    .iter()
-                    .filter(|&other_path| {
-                        other_path.parent().unwrap() == proj_path.parent().unwrap()
-                    })
-                    .cloned()
-                    .collect::<Vec<_>>();
+        // // For each project, grab all the 'other' files in the same directory.
+        // // (This is very hacky. Assumes they are all in the project directory! Can fix by replacing
+        // // the '==' with a closure).
+        // // Then analyze each project.
+        // let analyzed_projects = paths_to_analyze
+        //     .csproj_files
+        //     .iter()
+        //     .map(|proj_path| {
+        //         let other_paths = paths_to_analyze
+        //             .other_files
+        //             .iter()
+        //             .filter(|&other_path| {
+        //                 other_path.parent().unwrap() == proj_path.parent().unwrap()
+        //             })
+        //             .cloned()
+        //             .collect::<Vec<_>>();
 
-                Project::new(proj_path, other_paths, &file_loader)
-            })
-            .collect::<Vec<_>>();
+        //         Project::new(proj_path, other_paths, &file_loader)
+        //     })
+        //     .collect::<Vec<_>>();
 
-        for proj in analyzed_projects {
-            files.add_project(proj);
-        }
+        // for proj in analyzed_projects {
+        //     files.add_project(proj);
+        // }
 
-        //files.sort();
+        files.sort();
         Ok(files)
     }
 
     fn add_solution<L: FileLoader>(&mut self, path: &PathBuf, file_loader: &L) {
+        let sln = Solution::new(path, file_loader);
         let sln_dir = path.parent().unwrap();
+
+        // let finder = self.scanned_directories
+        //     .iter_mut()
+        //     .find(|dir| dir.directory == sln_dir);
+        // let mut sdx = match finder {
+        //     Some(a) => a,
+        //     None => SolutionDirectory::new(sln_dir)
+        // };
+
         for item in &mut self.scanned_directories {
             if item.directory == sln_dir {
-                item.sln_files.push(Solution::new(path, file_loader));
+                item.sln_files.push(sln);
                 return;
             }
         }
+
+        let mut sd = SolutionDirectory::new(sln_dir);
+        sd.sln_files.push(sln); // TODO call this field 'Solutions'
+        self.scanned_directories.push(sd);
     }
 
     fn add_project(&mut self, project: Project) {
@@ -121,7 +135,7 @@ impl AnalyzedFiles {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 /// Represents a directory that contains 1 or more solution files.
 pub struct SolutionDirectory {
     /// The directory path, e.g. `C:\temp\my_solution`.
@@ -132,12 +146,22 @@ pub struct SolutionDirectory {
 }
 
 impl SolutionDirectory {
-    // fn sort(&mut self) {
-    //     self.sln_files.sort();
-    // }
+    fn new<P: AsRef<Path>>(directory: P) -> Self {
+        SolutionDirectory {
+            directory: directory.as_ref().to_owned(),
+            sln_files: vec![]
+        }
+    }
+
+    pub fn sort(&mut self) {
+        self.sln_files.sort();
+        for sf in &mut self.sln_files {
+            sf.sort();
+        }
+    }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 /// Represents a sln file and any projects that are associated with it.
 pub struct Solution {
     pub file_info: FileInfo,
@@ -173,12 +197,76 @@ impl Solution {
     }
 
     fn sort(&mut self) {
-        // self.linked_projects.sort();
-        // self.orphaned_projects.sort();
+        self.linked_projects.sort();
+        self.orphaned_projects.sort();
     }
 }
 
 #[cfg(test)]
-mod tests {
+mod analyzed_files_tests {
     use super::*;
+    use crate::file_loader::MemoryFileLoader;
+    use crate::path_extensions::PathExtensions;
+
+    // We have to use a real file system for these tests because of the directory walk (which
+    // can be fairly easily factored out) and the PathExtensions tests (which cannot).
+
+    fn analyze<P: AsRef<Path>>(paths: Vec<P>) -> AnalyzedFiles {
+        let mut pta = PathsToAnalyze::default();
+        for p in &paths {
+            let p = p.as_ref().to_owned();
+            let ext = p.extension().unwrap();
+            if ext == "sln" {
+                pta.sln_files.push(p);
+            } else if ext == "csproj" {
+                pta.csproj_files.push(p);
+            } else {
+                pta.other_files.push(p);
+            }
+        }
+
+        println!("pta = {:#?}", pta);
+        let mut file_loader = MemoryFileLoader::new();
+        AnalyzedFiles::inner_new("C:\temp", pta, file_loader).unwrap()
+    }
+
+    #[test]
+    pub fn for_one_sln_in_one_dir() {
+        let analyzed_files = analyze(vec![r"C:\temp\foo.sln"]);
+        println!("AF = {:#?}", analyzed_files);
+
+        assert_eq!(analyzed_files.scanned_directories.len(), 1);
+        assert_eq!(analyzed_files.scanned_directories[0].directory, PathBuf::from(r"C:\temp"));
+        assert_eq!(analyzed_files.scanned_directories[0].sln_files.len(), 1);
+        assert_eq!(analyzed_files.scanned_directories[0].sln_files[0].file_info.path, PathBuf::from(r"C:\temp\foo.sln"));
+    }
+
+    #[test]
+    pub fn for_two_slns_in_one_dir() {
+        let analyzed_files = analyze(vec![r"C:\temp\foo.sln", r"C:\temp\foo2.sln"]);
+        println!("AF = {:#?}", analyzed_files);
+
+        assert_eq!(analyzed_files.scanned_directories.len(), 1);
+        assert_eq!(analyzed_files.scanned_directories[0].directory, PathBuf::from(r"C:\temp"));
+        assert_eq!(analyzed_files.scanned_directories[0].sln_files.len(), 2);
+        assert_eq!(analyzed_files.scanned_directories[0].sln_files[0].file_info.path, PathBuf::from(r"C:\temp\foo.sln"));
+        assert_eq!(analyzed_files.scanned_directories[0].sln_files[1].file_info.path, PathBuf::from(r"C:\temp\foo2.sln"));
+    }
+
+    #[test]
+    pub fn for_three_slns_in_two_dirs_and_sorts_solution_directories() {
+        let analyzed_files = analyze(vec![r"C:\temp\foo.sln", r"C:\temp\foo2.sln", r"C:\blah\foo3.sln"]);
+        println!("AF = {:#?}", analyzed_files);
+
+        assert_eq!(analyzed_files.scanned_directories.len(), 2);
+
+        assert_eq!(analyzed_files.scanned_directories[0].directory, PathBuf::from(r"C:\blah"));
+        assert_eq!(analyzed_files.scanned_directories[0].sln_files.len(), 1);
+        assert_eq!(analyzed_files.scanned_directories[0].sln_files[0].file_info.path, PathBuf::from(r"C:\blah\foo3.sln"));
+
+        assert_eq!(analyzed_files.scanned_directories[1].directory, PathBuf::from(r"C:\temp"));
+        assert_eq!(analyzed_files.scanned_directories[1].sln_files.len(), 2);
+        assert_eq!(analyzed_files.scanned_directories[1].sln_files[0].file_info.path, PathBuf::from(r"C:\temp\foo.sln"));
+        assert_eq!(analyzed_files.scanned_directories[1].sln_files[1].file_info.path, PathBuf::from(r"C:\temp\foo2.sln"));
+    }
 }

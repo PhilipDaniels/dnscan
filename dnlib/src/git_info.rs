@@ -1,6 +1,6 @@
 use std::path::Path;
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 /// Represents information about the Git repository a file is in.
 pub struct GitInfo {
     //pub git_branch: String,

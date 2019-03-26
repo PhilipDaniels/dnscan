@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// The results of analyzing a project file.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Project {
     pub file_info: FileInfo,
     pub other_files: Vec<PathBuf>,

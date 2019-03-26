@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use crate::file_loader::FileLoader;
 use crate::path_extensions::PathExtensions;
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 /// Represents information about a .sln or .csproj file.
 pub struct FileInfo {
     pub path: PathBuf,

@@ -1,6 +1,6 @@
 use crate::as_str::AsStr;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OutputType {
     Unknown,
 
