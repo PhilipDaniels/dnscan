@@ -35,7 +35,7 @@ impl AnalyzedFiles {
     // }
 
     /// The actual guts of `new`, using a file loader so we can test it.
-    fn inner_new<P>(path: P, file_loader: &FileLoader) -> DnLibResult<Self>
+    fn inner_new<P>(path: P, file_loader:&FileLoader) -> DnLibResult<Self>
         where P: AsRef<Path>
     {
         // First find all the paths of interest.
@@ -55,7 +55,8 @@ impl AnalyzedFiles {
         let analyzed_projects = pta.csproj_files.iter()
             .map(|proj_path| {
                 let other_paths = pta.other_files.iter()
-                    .filter(|other_path| other_path.parent().unwrap() == proj_path.parent().unwrap())
+                    .filter(|&other_path| other_path.parent().unwrap() == proj_path.parent().unwrap())
+                    .cloned()
                     .collect::<Vec<_>>();
 
                 Project::new(proj_path, other_paths, file_loader)

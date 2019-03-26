@@ -1,7 +1,6 @@
 mod csv_output;
 mod errors;
 mod options;
-mod project;
 
 use elapsed::{measure_time};
 use errors::AnalysisResult;
