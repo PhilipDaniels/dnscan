@@ -60,12 +60,12 @@ impl Project {
         proj.version = ProjectVersion::extract(&proj.file_info.contents).unwrap_or_default();
         proj.output_type = OutputType::extract(&proj.file_info.contents);
         proj.xml_doc = XmlDoc::extract(&proj.file_info.contents);
-        proj.tt_file = proj.has_tt_file();
-        proj.embedded_debugging = proj.has_embedded_debugging();
-        proj.linked_solution_info = proj.has_linked_solution_info();
-        proj.auto_generate_binding_redirects = proj.has_auto_generate_binding_redirects();
-        proj.referenced_assemblies = proj.get_referenced_assemblies();
-        proj.target_frameworks = proj.get_target_frameworks();
+        proj.tt_file = proj.extract_tt_file();
+        proj.embedded_debugging = proj.extract_embedded_debugging();
+        proj.linked_solution_info = proj.extract_linked_solution_info();
+        proj.auto_generate_binding_redirects = proj.extract_auto_generate_binding_redirects();
+        proj.referenced_assemblies = proj.extract_referenced_assemblies();
+        proj.target_frameworks = proj.extract_target_frameworks();
         proj.web_config = proj.has_file_of_interest(InterestingFile::WebConfig);
         proj.app_config = proj.has_file_of_interest(InterestingFile::AppConfig);
         proj.app_settings_json = proj.has_file_of_interest(InterestingFile::AppSettingsJson);
@@ -82,7 +82,7 @@ impl Project {
         proj
     }
 
-    fn has_tt_file(&self) -> bool {
+    fn extract_tt_file(&self) -> bool {
         lazy_static! {
             static ref TT_REGEX: Regex =
                 Regex::new(r##"<None (Include|Update).*?\.tt">"##).unwrap();
@@ -94,7 +94,7 @@ impl Project {
             && NUSPEC_REGEX.is_match(&self.file_info.contents)
     }
 
-    fn has_embedded_debugging(&self) -> bool {
+    fn extract_embedded_debugging(&self) -> bool {
         match self.version {
             ProjectVersion::MicrosoftNetSdk | ProjectVersion::MicrosoftNetSdkWeb =>
             // We expect both for it to be correct.
@@ -111,7 +111,7 @@ impl Project {
         }
     }
 
-    fn has_linked_solution_info(&self) -> bool {
+    fn extract_linked_solution_info(&self) -> bool {
         lazy_static! {
             static ref SOLUTION_INFO_REGEX: Regex =
                 Regex::new(r##"[ <]Link.*?SolutionInfo\.cs.*?(</|/>)"##).unwrap();
@@ -120,13 +120,13 @@ impl Project {
         SOLUTION_INFO_REGEX.is_match(&self.file_info.contents)
     }
 
-    fn has_auto_generate_binding_redirects(&self) -> bool {
+    fn extract_auto_generate_binding_redirects(&self) -> bool {
         self.file_info
             .contents
             .contains("<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>")
     }
 
-    fn get_referenced_assemblies(&self) -> Vec<String> {
+    fn extract_referenced_assemblies(&self) -> Vec<String> {
         // TODO: Necessary to exclude those references that come from NuGet packages?
         // Actually the regex seems good enough, at least for the example files
         // in this project.
@@ -145,7 +145,7 @@ impl Project {
         result
     }
 
-    fn get_target_frameworks(&self) -> Vec<String> {
+    fn extract_target_frameworks(&self) -> Vec<String> {
         lazy_static! {
             static ref OLD_TF_REGEX: Regex =
                 Regex::new(r##"<TargetFrameworkVersion>(?P<tf>.*?)</TargetFrameworkVersion>"##)
@@ -361,206 +361,252 @@ impl Project {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use dnlib::file_loader::MemoryFileLoader;
+ #[cfg(test)]
+ mod tests {
+    use super::*;
+    use crate::file_loader::MemoryFileLoader;
+    use crate::project_version::{SDK_PROLOG, OLD_PROLOG, SDK_WEB_PROLOG};
 
-//     #[derive(Default)]
-//     struct ProjectBuilder {
-//         csproj_contents: String,
-//         project_version: ProjectVersion,
-//         packages_config_contents: Option<String>,
-//         paths_to_analyze: PathsToAnalyze
-//     }
+    #[derive(Default)]
+    struct ProjectBuilder {
+         csproj_contents: String,
+         project_version: ProjectVersion,
+         packages_config_contents: Option<String>,
+         other_files: Vec<PathBuf>
+     }
 
-//     impl ProjectBuilder {
-//         fn new(csproj_contents: &str) -> Self {
-//             ProjectBuilder {
-//                 csproj_contents: csproj_contents.to_owned(),
-//                 .. ProjectBuilder::default()
-//             }
-//         }
+    impl ProjectBuilder {
+        fn new(csproj_contents: &str) -> Self {
+            ProjectBuilder {
+                csproj_contents: csproj_contents.to_owned(),
+                .. ProjectBuilder::default()
+            }
+        }
 
-//         fn with_packages_config(mut self, packages_config_contents: &str) -> Self {
-//             self.packages_config_contents = Some(packages_config_contents.to_owned());
-//             self
-//         }
+        fn with_packages_config(mut self, packages_config_contents: &str) -> Self {
+            self.packages_config_contents = Some(packages_config_contents.to_owned());
+            self
+        }
 
-//         fn with_paths(mut self, pta: PathsToAnalyze) -> Self {
-//             self.paths_to_analyze = pta;
-//             self
-//         }
+        fn with_other_files(mut self, other_files: Vec<PathBuf>) -> Self {
+            self.other_files = other_files;
+            self
+        }
 
-//         fn sdk(mut self) -> Self {
-//             self.project_version = ProjectVersion::MicrosoftNetSdk;
-//             self
-//         }
+        fn web(mut self) -> Self {
+            self.project_version = ProjectVersion::MicrosoftNetSdkWeb;
+            self
+        }
 
-//         fn old(mut self) -> Self {
-//             self.project_version = ProjectVersion::OldStyle;
-//             self
-//         }
+        fn sdk(mut self) -> Self {
+            self.project_version = ProjectVersion::MicrosoftNetSdk;
+            self
+        }
 
-//         fn build(mut self) -> Project {
-//             self.csproj_contents = match self.project_version {
-//                 ProjectVersion::OldStyle => Self::add_old_prolog(&self.csproj_contents),
-//                 ProjectVersion::MicrosoftNetSdk => Self::add_sdk_prolog(&self.csproj_contents),
-//                 _ => self.csproj_contents
-//             };
+        fn old(mut self) -> Self {
+            self.project_version = ProjectVersion::OldStyle;
+            self
+        }
 
-//             // Always construct a pta entry for the project itself.
-//             let mut file_loader = MemoryFileLoader::new();
-//             let project_path = PathBuf::from("/temp/x.csproj");
-//             file_loader.files.insert(project_path.clone(), self.csproj_contents);
+        fn build(mut self) -> Project {
+            self.csproj_contents = match self.project_version {
+                ProjectVersion::OldStyle => Self::add_old_prolog(&self.csproj_contents),
+                ProjectVersion::MicrosoftNetSdk => Self::add_sdk_prolog(&self.csproj_contents),
+                ProjectVersion::MicrosoftNetSdkWeb => Self::add_web_prolog(&self.csproj_contents),
+                ProjectVersion::Unknown => self.csproj_contents
+            };
 
-//             // If there is a packages.config, add a pta entry for it and put the contents into the file loader.
-//             if self.packages_config_contents.is_some() {
-//                 let pc_path = PathBuf::from("/temp/packages.config");
-//                 self.paths_to_analyze.other_files.push(pc_path.clone());
-//                 let pcc = self.packages_config_contents.unwrap();
-//                 file_loader.files.insert(pc_path, pcc);
-//             }
+            // Always construct a pta entry for the project itself.
+            let mut file_loader = MemoryFileLoader::new();
+            let project_path = PathBuf::from("/temp/x.csproj");
+            file_loader.files.insert(project_path.clone(), self.csproj_contents);
 
-//             Project::new(&project_path, &self.paths_to_analyze, &file_loader)
-//         }
+            // If there is a packages.config, add a pta entry for it and put the contents into the file loader.
+            if self.packages_config_contents.is_some() {
+                let pc_path = PathBuf::from("/temp/packages.config");
+                self.other_files.push(pc_path.clone());
+                let pcc = self.packages_config_contents.unwrap();
+                file_loader.files.insert(pc_path, pcc);
+            }
 
-//         fn add_sdk_prolog(contents: &str) -> String {
-//             format!("{}\n{}", SDK_PROLOG, contents)
-//         }
+            Project::new(&project_path, self.other_files, &file_loader)
+        }
 
-//         fn add_old_prolog(contents: &str) -> String {
-//             format!("{}\n{}", OLD_PROLOG, contents)
-//         }
-//     }
+        fn add_sdk_prolog(contents: &str) -> String {
+            format!("{}\n{}", SDK_PROLOG, contents)
+        }
 
-//     #[test]
-//     pub fn has_xml_doc_works() {
-//         let project = ProjectBuilder::new(r##""##).build();
-//         assert_eq!(project.xml_doc, XmlDoc::None);
+        fn add_old_prolog(contents: &str) -> String {
+            format!("{}\n{}", OLD_PROLOG, contents)
+        }
 
-//         let project = ProjectBuilder::new(r##"blah<DocumentationFile>bin\Debug\WorkflowService.Client.xml</DocumentationFile>blah"##).build();
-//         assert_eq!(project.xml_doc, XmlDoc::Debug);
+        fn add_web_prolog(contents: &str) -> String {
+            format!("{}\n{}", SDK_WEB_PROLOG, contents)
+        }
+    }
 
-//         let project = ProjectBuilder::new(r##"blah<DocumentationFile>bin\Release\WorkflowService.Client.xml</DocumentationFile>blah"##).build();
-//         assert_eq!(project.xml_doc, XmlDoc::Release);
+    #[test]
+    pub fn extract_version_works() {
+        let project = ProjectBuilder::new(r##""##).build();
+        assert_eq!(project.version, ProjectVersion::Unknown);
 
-//         let project = ProjectBuilder::new(r##"blah<DocumentationFile>bin\Release\WorkflowService.Client.xml</DocumentationFile>
-//             <DocumentationFile>bin\Debug\WorkflowService.Client.xml</DocumentationFile>blah"##).build();
-//         assert_eq!(project.xml_doc, XmlDoc::Both);
-//     }
+        let project = ProjectBuilder::new(r##""##).sdk().build();
+        assert_eq!(project.version, ProjectVersion::MicrosoftNetSdk);
 
-//     #[test]
-//     pub fn has_tt_file_works() {
-//         let project = ProjectBuilder::new(r##""##).build();
-//         assert!(!project.tt_file);
+        let project = ProjectBuilder::new(r##""##).old().build();
+        assert_eq!(project.version, ProjectVersion::OldStyle);
 
-//         let project = ProjectBuilder::new(r##"blah<None Update="NuSpecTemplate.tt">blah"##).build();
-//         assert!(!project.tt_file);
+        let project = ProjectBuilder::new(r##""##).web().build();
+        assert_eq!(project.version, ProjectVersion::MicrosoftNetSdkWeb);
+    }
 
-//         let project = ProjectBuilder::new(r##"blah<None Update="NuSpecTemplate.nuspec">blah"##).build();
-//         assert!(!project.tt_file);
+    #[test]
+    pub fn extract_output_type_works() {
+        let project = ProjectBuilder::new(r##""##).build();
+        assert_eq!(project.output_type, OutputType::Library);
 
-//         let project = ProjectBuilder::new(r##"blah<None Update="NuSpecTemplate.nuspec">blah
-//             <None Update="NuSpecTemplate.tt">blah"##).build();
-//         assert!(project.tt_file);
+        let project = ProjectBuilder::new(r##"<OutputType>Library</OutputType>"##).build();
+        assert_eq!(project.output_type, OutputType::Library);
 
-//         let project = ProjectBuilder::new(r##"blah<None Include="NuSpecTemplate.nuspec">blah
-//             <None Include="NuSpecTemplate.tt">blah"##).build();
-//         assert!(project.tt_file);
-//     }
+        let project = ProjectBuilder::new(r##"<OutputType>Exe</OutputType>"##).build();
+        assert_eq!(project.output_type, OutputType::Exe);
 
-//     #[test]
-//     pub fn has_embedded_debugging_works() {
-//         let project = ProjectBuilder::new(r##""##).build();
-//         assert!(!project.embedded_debugging);
+        let project = ProjectBuilder::new(r##"<OutputType>WinExe</OutputType>"##).build();
+        assert_eq!(project.output_type, OutputType::WinExe);
+    }
 
-//         let project = ProjectBuilder::new(r##"blah<DebugType>embedded</DebugType>blah"##).build();
-//         assert!(!project.embedded_debugging);
+    #[test]
+    pub fn extract_xml_doc_works() {
+        let project = ProjectBuilder::new(r##""##).build();
+        assert_eq!(project.xml_doc, XmlDoc::None);
 
-//         let project = ProjectBuilder::new(r##"blah<EmbedAllSources>true</EmbedAllSources>blah"##).build();
-//         assert!(!project.embedded_debugging);
+        let project = ProjectBuilder::new(r##"blah<DocumentationFile>bin\Debug\WorkflowService.Client.xml</DocumentationFile>blah"##).build();
+        assert_eq!(project.xml_doc, XmlDoc::Debug);
 
-//         let project = ProjectBuilder::new(r##"blah<DebugType>embedded</DebugType>blah"
-//             <EmbedAllSources>true</EmbedAllSources>blah"##).sdk().build();
-//         assert!(project.embedded_debugging);
-//     }
+        let project = ProjectBuilder::new(r##"blah<DocumentationFile>bin\Release\WorkflowService.Client.xml</DocumentationFile>blah"##).build();
+        assert_eq!(project.xml_doc, XmlDoc::Release);
 
-//     #[test]
-//     pub fn has_linked_solution_info_works() {
-//         let project = ProjectBuilder::new(r##""##).build();
-//         assert!(!project.linked_solution_info);
+        let project = ProjectBuilder::new(r##"blah<DocumentationFile>bin\Release\WorkflowService.Client.xml</DocumentationFile>
+            <DocumentationFile>bin\Debug\WorkflowService.Client.xml</DocumentationFile>blah"##).build();
+        assert_eq!(project.xml_doc, XmlDoc::Both);
+    }
 
-//         // SDK style.
-//         let project = ProjectBuilder::new(r##"blah<ItemGroup>
-//             <Compile Include="..\SolutionInfo.cs" Link="Properties\SolutionInfo.cs" />blah
-//             </ItemGroup>blah"##).build();
-//         assert!(project.linked_solution_info);
+    #[test]
+    pub fn extract_tt_file_works() {
+        let project = ProjectBuilder::new(r##""##).build();
+        assert!(!project.tt_file);
 
-//         // Old style.
-//         let project = ProjectBuilder::new(r##"blah<Compile Include="..\SolutionInfo.cs">
-//             <Link>Properties\SolutionInfo.cs</Link>blah
-//             </Compile>blah"##).build();
-//         assert!(project.linked_solution_info);
-//     }
+        let project = ProjectBuilder::new(r##"blah<None Update="NuSpecTemplate.tt">blah"##).build();
+        assert!(!project.tt_file);
 
-//     #[test]
-//     pub fn sdk_get_target_frameworks_works() {
-//         let project = ProjectBuilder::new(r##""##).build();
-//         assert!(project.target_frameworks.is_empty());
+        let project = ProjectBuilder::new(r##"blah<None Update="NuSpecTemplate.nuspec">blah"##).build();
+        assert!(!project.tt_file);
 
-//         let project = ProjectBuilder::new(r##"blah<TargetFramework>net462</TargetFramework>blah"##).sdk().build();
-//         assert_eq!(project.target_frameworks, vec!["net462"]);
+        let project = ProjectBuilder::new(r##"blah<None Update="NuSpecTemplate.nuspec">blah
+            <None Update="NuSpecTemplate.tt">blah"##).build();
+        assert!(project.tt_file);
 
-//         // I don't believe this happens, but this is what we get.
-//         let project = ProjectBuilder::new(r##"blah<TargetFramework>net462</TargetFramework>blah<TargetFramework>net472</TargetFramework>"##).sdk().build();
-//         assert_eq!(project.target_frameworks, vec!["net462", "net472"]);
+        let project = ProjectBuilder::new(r##"blah<None Include="NuSpecTemplate.nuspec">blah
+            <None Include="NuSpecTemplate.tt">blah"##).build();
+        assert!(project.tt_file);
+    }
 
-//         let project = ProjectBuilder::new(r##"blah<TargetFrameworks>net462;net472</TargetFrameworks>blah"##).sdk().build();
-//         assert_eq!(project.target_frameworks, vec!["net462", "net472"]);
-//     }
+    #[test]
+    pub fn extract_embedded_debugging_works() {
+        let project = ProjectBuilder::new(r##""##).build();
+        assert!(!project.embedded_debugging);
 
-//     #[test]
-//     pub fn old_get_target_frameworks_works() {
-//         let project = ProjectBuilder::new(r##""##).build();
-//         assert!(project.target_frameworks.is_empty());
+        let project = ProjectBuilder::new(r##"blah<DebugType>embedded</DebugType>blah"##).build();
+        assert!(!project.embedded_debugging);
 
-//         let project = ProjectBuilder::new(r##"blah<TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>blah"##).old().build();
-//         assert_eq!(project.target_frameworks, vec!["v4.6.2"]);
+        let project = ProjectBuilder::new(r##"blah<EmbedAllSources>true</EmbedAllSources>blah"##).build();
+        assert!(!project.embedded_debugging);
 
-//         let project = ProjectBuilder::new(r##"blah<TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>blah
-//             <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>"##).old().build();
-//         assert_eq!(project.target_frameworks, vec!["v4.6.2", "v4.7.2"]);
-//     }
+        let project = ProjectBuilder::new(r##"blah<DebugType>embedded</DebugType>blah"
+            <EmbedAllSources>true</EmbedAllSources>blah"##).sdk().build();
+        assert!(project.embedded_debugging);
+    }
 
-//     #[test]
-//     pub fn get_referenced_assemblies_works() {
-//         let project = ProjectBuilder::new(r##""##).build();
-//         assert!(project.referenced_assemblies.is_empty());
+    #[test]
+    pub fn extract_linked_solution_info_works() {
+        let project = ProjectBuilder::new(r##""##).build();
+        assert!(!project.linked_solution_info);
 
-//         let project = ProjectBuilder::new(r##"blah<Reference Include="System.Windows" />blah"##).build();
-//         assert_eq!(project.referenced_assemblies, vec!["System.Windows"]);
+        // SDK style.
+        let project = ProjectBuilder::new(r##"blah<ItemGroup>
+            <Compile Include="..\SolutionInfo.cs" Link="Properties\SolutionInfo.cs" />blah
+            </ItemGroup>blah"##).build();
+        assert!(project.linked_solution_info);
 
-//         let project = ProjectBuilder::new(r##"blah<Reference Include="System.Windows" />blah
-//             blah<Reference Include="System.Windows" />blah"##).build();
-//         assert_eq!(project.referenced_assemblies, vec!["System.Windows"]);
+        // Old style.
+        let project = ProjectBuilder::new(r##"blah<Compile Include="..\SolutionInfo.cs">
+            <Link>Properties\SolutionInfo.cs</Link>blah
+            </Compile>blah"##).build();
+        assert!(project.linked_solution_info);
+    }
 
-//         let project = ProjectBuilder::new(r##"blah<Reference Include="System.Windows" />blah
-//             blah<Reference Include="System.Data" />blah"##).build();
-//         assert_eq!(project.referenced_assemblies, vec!["System.Data", "System.Windows"]);
-//     }
+    #[test]
+    pub fn extract_auto_generate_binding_redirects_works() {
+        let project = ProjectBuilder::new(r##""##).build();
+        assert!(!project.auto_generate_binding_redirects);
 
-//     #[test]
-//     pub fn has_auto_generate_binding_redirects_works() {
-//         let project = ProjectBuilder::new(r##""##).build();
-//         assert!(!project.auto_generate_binding_redirects);
+        let project = ProjectBuilder::new(r##"blah<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>blah"##).build();
+        assert!(project.auto_generate_binding_redirects);
 
-//         let project = ProjectBuilder::new(r##"blah<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>blah"##).build();
-//         assert!(project.auto_generate_binding_redirects);
+        let project = ProjectBuilder::new(r##"blah<AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>blah"##).build();
+        assert!(!project.auto_generate_binding_redirects);
+    }
 
-//         let project = ProjectBuilder::new(r##"blah<AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>blah"##).build();
-//         assert!(!project.auto_generate_binding_redirects);
-//     }
+    #[test]
+    pub fn extract_referenced_assemblies_works() {
+        let project = ProjectBuilder::new(r##""##).build();
+        assert!(project.referenced_assemblies.is_empty());
+
+        let project = ProjectBuilder::new(r##"blah<Reference Include="System.Windows" />blah"##).build();
+        assert_eq!(project.referenced_assemblies, vec!["System.Windows"]);
+
+        let project = ProjectBuilder::new(r##"blah<Reference Include="System.Windows" />blah
+            blah<Reference Include="System.Windows" />blah"##).build();
+        assert_eq!(project.referenced_assemblies, vec!["System.Windows"]);
+
+        let project = ProjectBuilder::new(r##"blah<Reference Include="System.Windows" />blah
+            blah<Reference Include="System.Data" />blah"##).build();
+        assert_eq!(project.referenced_assemblies, vec!["System.Data", "System.Windows"]);
+    }
+
+    #[test]
+    pub fn sdk_extract_target_frameworks_works() {
+        let project = ProjectBuilder::new(r##""##).build();
+        assert!(project.target_frameworks.is_empty());
+
+        let project = ProjectBuilder::new(r##"blah<TargetFramework>net462</TargetFramework>blah"##).sdk().build();
+        assert_eq!(project.target_frameworks, vec!["net462"]);
+
+        // I don't believe this happens, but this is what we get.
+        let project = ProjectBuilder::new(r##"blah<TargetFramework>net462</TargetFramework>blah<TargetFramework>net472</TargetFramework>"##).sdk().build();
+        assert_eq!(project.target_frameworks, vec!["net462", "net472"]);
+
+        let project = ProjectBuilder::new(r##"blah<TargetFrameworks>net462;net472</TargetFrameworks>blah"##).sdk().build();
+        assert_eq!(project.target_frameworks, vec!["net462", "net472"]);
+    }
+
+    #[test]
+    pub fn old_extract_target_frameworks_works() {
+        let project = ProjectBuilder::new(r##""##).build();
+        assert!(project.target_frameworks.is_empty());
+
+        let project = ProjectBuilder::new(r##"blah<TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>blah"##).old().build();
+        assert_eq!(project.target_frameworks, vec!["v4.6.2"]);
+
+        let project = ProjectBuilder::new(r##"blah<TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>blah
+            <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>"##).old().build();
+        assert_eq!(project.target_frameworks, vec!["v4.6.2", "v4.7.2"]);
+    }
+
+    // TODO: Need to check other files
+    // Keep going through the struct in order
+
+
 
 //     #[test]
 //     pub fn has_packages_config_not_present() {
@@ -1001,4 +1047,4 @@ impl Project {
 //             ]);
 //         }
 //     }
-// }
+}

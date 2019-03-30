@@ -32,9 +32,9 @@ impl AsStr for ProjectVersion {
     }
 }
 
-const SDK_WEB_PROLOG: &str = "<Project Sdk=\"Microsoft.NET.Sdk.Web\">";
-const SDK_PROLOG: &str = "<Project Sdk=\"Microsoft.NET.Sdk\">";
-const OLD_PROLOG: &str = "<Project ToolsVersion=";
+pub(crate) const SDK_WEB_PROLOG: &str = "<Project Sdk=\"Microsoft.NET.Sdk.Web\">";
+pub(crate) const SDK_PROLOG: &str = "<Project Sdk=\"Microsoft.NET.Sdk\">";
+pub(crate) const OLD_PROLOG: &str = "<Project ToolsVersion=";
 
 impl ProjectVersion {
     pub fn extract(project_file_contents: &str) -> Option<ProjectVersion> {
