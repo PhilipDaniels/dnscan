@@ -8,6 +8,8 @@ use crate::find_files::PathsToAnalyze;
 use crate::visual_studio_version::VisualStudioVersion;
 use crate::path_extensions::PathExtensions;
 
+use lazy_static::lazy_static;
+use regex::{Regex, RegexBuilder};
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 
@@ -78,14 +80,6 @@ impl AnalyzedFiles {
         let sln = Solution::new(path, file_loader);
         let sln_dir = path.parent().unwrap();
 
-        // let finder = self.scanned_directories
-        //     .iter_mut()
-        //     .find(|dir| dir.directory == sln_dir);
-        // let mut sdx = match finder {
-        //     Some(a) => a,
-        //     None => SolutionDirectory::new(sln_dir)
-        // };
-
         for item in &mut self.solution_directories {
             if item.directory == sln_dir {
                 item.solutions.push(sln);
@@ -94,7 +88,7 @@ impl AnalyzedFiles {
         }
 
         let mut sd = SolutionDirectory::new(sln_dir);
-        sd.solutions.push(sln); // TODO call this field 'Solutions'
+        sd.solutions.push(sln);
         self.solution_directories.push(sd);
     }
 
@@ -173,13 +167,20 @@ pub struct Solution {
     /// The set of projects that are linked to this solution. The project files
     /// must exist on disk in the same directory or a subdirectory of the solution
     /// directory, and be referenced from inside the .sln file.
+    /// This field is populated from the directory walk, not the solution contents.
     pub linked_projects: Vec<Project>,
 
     /// The set of projects that are related to this solution, in that they exist
     /// exist on disk in the same directory or a subdirectory of the solution
     /// directory, but they are not referenced from inside the .sln file.
     /// (Probably they are projects that you forgot to delete).
+    /// This field is populated from the directory walk, not the solution contents.
     pub orphaned_projects: Vec<Project>,
+
+    /// The set of projects that is mentioned inside the sln file.
+    /// This is populated by reading the solution file and normalizing
+    /// the extracted paths.
+    mentioned_projects: Vec<PathBuf>
 }
 
 impl Solution {
@@ -190,10 +191,12 @@ impl Solution {
     {
         let fi = FileInfo::new(path, file_loader);
         let ver = VisualStudioVersion::extract(&fi.contents).unwrap_or_default();
+        let mp = Self::extract_mentioned_projects(&fi.path, &fi.contents);
 
         Solution {
             file_info: fi,
             version: ver,
+            mentioned_projects: mp,
             ..Default::default()
         }
     }
@@ -203,8 +206,28 @@ impl Solution {
         self.orphaned_projects.sort();
     }
 
+    fn extract_mentioned_projects<P: AsRef<Path>>(path: P, contents: &str) -> Vec<PathBuf> {
+        lazy_static! {
+            static ref PROJECT_RE: Regex = RegexBuilder::new(r##""(?P<projpath>.*?\.csproj)""##)
+                                         .case_insensitive(true).build().unwrap();
+        }
+
+        let mut project_paths = PROJECT_RE
+            .captures_iter(contents)
+            .map(|cap| {
+                let mut path = path.as_ref().parent().unwrap().to_owned();
+                path.push(cap["projpath"].to_owned());
+                path
+            })
+            .collect::<Vec<_>>();
+
+        project_paths.sort();
+        project_paths.dedup();
+        project_paths
+    }
+
     fn refers_to_project<P: AsRef<Path>>(&self, project_path: P) -> bool {
-        false
+        self.mentioned_projects.iter().any(|mp| mp == project_path.as_ref())
     }
 }
 
@@ -216,7 +239,23 @@ mod analyzed_files_tests {
 
     // We have to use a real file system for these tests because of the directory walk (which
     // can be fairly easily factored out) and the PathExtensions tests (which cannot).
+    // `tp` = translate path - makes tests work on Windows and Linux.
+    #[cfg(windows)]
+    fn tp(path: &str) -> PathBuf {
+        PathBuf::from(path)
+    }
 
+    #[cfg(not(windows))]
+    fn tp(mut path: &str) -> PathBuf {
+        if path.starts_with(r"C:\") {
+            path = &path[3..];
+        }
+
+        let path = path.replace('\\', "/");
+        PathBuf::from(path)
+    }
+
+    /// This function can be used when we are just dealing with paths and their relationships.
     fn analyze<P: AsRef<Path>>(paths: Vec<P>) -> AnalyzedFiles {
         let mut pta = PathsToAnalyze::default();
         for p in &paths {
@@ -232,24 +271,32 @@ mod analyzed_files_tests {
         }
 
         println!("pta = {:#?}", pta);
-        let mut file_loader = MemoryFileLoader::new();
+        let file_loader = MemoryFileLoader::new();
         AnalyzedFiles::inner_new("C:\temp", pta, file_loader).unwrap()
     }
 
-    // `tp` = translate path - makes tests work on Windows and Linux.
-    #[cfg(windows)]
-    fn tp(path: &str) -> PathBuf {
-        PathBuf::from(path)
-    }
+    /// This function can be used when the tests need the files to have some contents.
+    fn analyze2<P: AsRef<Path>>(paths: Vec<(P, &str)>) -> AnalyzedFiles {
+        let mut pta = PathsToAnalyze::default();
+        let mut file_loader = MemoryFileLoader::new();
 
-    #[cfg(not(windows))]
-    fn tp(mut path: &str) -> PathBuf {
-        if path.starts_with(r"C:\") {
-            path = &path[3..];
+        for p in &paths {
+            let contents = p.1.to_owned();
+            let p = p.0.as_ref().to_owned();
+            file_loader.files.insert(p.clone(), contents);
+
+            let ext = p.extension().unwrap();
+            if ext == "sln" {
+                pta.sln_files.push(p);
+            } else if ext == "csproj" {
+                pta.csproj_files.push(p);
+            } else {
+                pta.other_files.push(p);
+            }
         }
 
-        let path = path.replace('\\', "/");
-        PathBuf::from(path)
+        println!("pta = {:#?}", pta);
+        AnalyzedFiles::inner_new("C:\temp", pta, file_loader).unwrap()
     }
 
     #[test]
@@ -350,5 +397,69 @@ mod analyzed_files_tests {
         assert_eq!(sln_file.orphaned_projects[0].file_info.path, tp(r"C:\temp\sub\p2.csproj"));
     }
 
-    // TODO: Need tests for csprojs that are mentioned in the solutions.
+    #[test]
+    pub fn for_one_mentioned_project() {
+        let analyzed_files = analyze2(vec![
+            (tp(r"C:\temp\foo.sln"), r##""p1.csproj""##),
+            (tp(r"C:\temp\p1.csproj"), ""),
+        ]);
+        println!("AF = {:#?}", analyzed_files);
+
+        assert_eq!(analyzed_files.solution_directories.len(), 1);
+        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
+        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
+        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
+
+        let sln_file = &analyzed_files.solution_directories[0].solutions[0];
+        assert_eq!(sln_file.orphaned_projects.len(), 0);
+        assert_eq!(sln_file.linked_projects.len(), 1);
+        assert_eq!(sln_file.linked_projects[0].file_info.path, tp(r"C:\temp\p1.csproj"));
+    }
+
+    #[test]
+    pub fn for_two_mentioned_projects() {
+        let analyzed_files = analyze2(vec![
+            (tp(r"C:\temp\foo.sln"), r##""p1.csproj"
+                                         "p2.csproj"
+                                     "##),
+            (tp(r"C:\temp\p1.csproj"), ""),
+            (tp(r"C:\temp\p2.csproj"), ""),
+        ]);
+        println!("AF = {:#?}", analyzed_files);
+
+        assert_eq!(analyzed_files.solution_directories.len(), 1);
+        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
+        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
+        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
+
+        let sln_file = &analyzed_files.solution_directories[0].solutions[0];
+        assert_eq!(sln_file.orphaned_projects.len(), 0);
+        assert_eq!(sln_file.linked_projects.len(), 2);
+        assert_eq!(sln_file.linked_projects[0].file_info.path, tp(r"C:\temp\p1.csproj"));
+        assert_eq!(sln_file.linked_projects[1].file_info.path, tp(r"C:\temp\p2.csproj"));
+    }
+
+    #[cfg(not(Windows))]
+    #[test]
+    pub fn for_two_mentioned_projects_on_linux() {
+        let analyzed_files = analyze2(vec![
+            (r"/temp/foo.sln", r##""p1.csproj"
+                                   "sub/sub/p2.csproj"
+                               "##),
+            (r"/temp/p1.csproj", ""),
+            (r"/temp/sub/sub/p2.csproj", ""),
+        ]);
+        println!("AF = {:#?}", analyzed_files);
+
+        assert_eq!(analyzed_files.solution_directories.len(), 1);
+        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"/temp"));
+        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
+        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"/temp\foo.sln"));
+
+        let sln_file = &analyzed_files.solution_directories[0].solutions[0];
+        assert_eq!(sln_file.orphaned_projects.len(), 0);
+        assert_eq!(sln_file.linked_projects.len(), 2);
+        assert_eq!(sln_file.linked_projects[0].file_info.path, tp(r"/temp/p1.csproj"));
+        assert_eq!(sln_file.linked_projects[1].file_info.path, tp(r"/temp/sub/sub/p2.csproj"));
+    }
 }
