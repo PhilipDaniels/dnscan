@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 /// The set of all files found during analysis.
 #[derive(Debug, Default)]
 pub struct AnalyzedFiles {
-    pub scanned_directories: Vec<SolutionDirectory>,
+    pub solution_directories: Vec<SolutionDirectory>,
 }
 
 impl AnalyzedFiles {
@@ -28,8 +28,8 @@ impl AnalyzedFiles {
     }
 
     pub fn sort(&mut self) {
-        self.scanned_directories.sort();
-        for sd in &mut self.scanned_directories {
+        self.solution_directories.sort();
+        for sd in &mut self.solution_directories {
             sd.sort();
         }
     }
@@ -86,16 +86,16 @@ impl AnalyzedFiles {
         //     None => SolutionDirectory::new(sln_dir)
         // };
 
-        for item in &mut self.scanned_directories {
+        for item in &mut self.solution_directories {
             if item.directory == sln_dir {
-                item.sln_files.push(sln);
+                item.solutions.push(sln);
                 return;
             }
         }
 
         let mut sd = SolutionDirectory::new(sln_dir);
-        sd.sln_files.push(sln); // TODO call this field 'Solutions'
-        self.scanned_directories.push(sd);
+        sd.solutions.push(sln); // TODO call this field 'Solutions'
+        self.solution_directories.push(sd);
     }
 
     fn add_project(&mut self, project: Project) {
@@ -115,8 +115,8 @@ impl AnalyzedFiles {
     where
         P: AsRef<Path>,
     {
-        for sd in &mut self.scanned_directories {
-            let matching_sln = sd.sln_files.iter_mut().find(|sln| sln.refers_to_project(&project_path));
+        for sd in &mut self.solution_directories {
+            let matching_sln = sd.solutions.iter_mut().find(|sln| sln.refers_to_project(&project_path));
             if matching_sln.is_some() { return matching_sln; }
         }
 
@@ -127,8 +127,8 @@ impl AnalyzedFiles {
     where
         P: AsRef<Path>,
     {
-        for sd in &mut self.scanned_directories {
-            let matching_sln = sd.sln_files.iter_mut().find(|sln| sln.file_info.path.is_same_dir(&project_path));
+        for sd in &mut self.solution_directories {
+            let matching_sln = sd.solutions.iter_mut().find(|sln| sln.file_info.path.is_same_dir(&project_path));
             if matching_sln.is_some() { return matching_sln; }
         }
 
@@ -144,20 +144,20 @@ pub struct SolutionDirectory {
     pub directory: PathBuf,
 
     /// The sln files in this directory.
-    pub sln_files: Vec<Solution>,
+    pub solutions: Vec<Solution>,
 }
 
 impl SolutionDirectory {
     fn new<P: AsRef<Path>>(sln_directory: P) -> Self {
         SolutionDirectory {
             directory: sln_directory.as_ref().to_owned(),
-            sln_files: vec![]
+            solutions: vec![]
         }
     }
 
     pub fn sort(&mut self) {
-        self.sln_files.sort();
-        for sf in &mut self.sln_files {
+        self.solutions.sort();
+        for sf in &mut self.solutions {
             sf.sort();
         }
     }
@@ -259,10 +259,10 @@ mod analyzed_files_tests {
         ]);
         println!("AF = {:#?}", analyzed_files);
 
-        assert_eq!(analyzed_files.scanned_directories.len(), 1);
-        assert_eq!(analyzed_files.scanned_directories[0].directory, tp(r"C:\temp"));
-        assert_eq!(analyzed_files.scanned_directories[0].sln_files.len(), 1);
-        assert_eq!(analyzed_files.scanned_directories[0].sln_files[0].file_info.path, tp(r"C:\temp\foo.sln"));
+        assert_eq!(analyzed_files.solution_directories.len(), 1);
+        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
+        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
+        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
     }
 
     #[test]
@@ -273,11 +273,11 @@ mod analyzed_files_tests {
         ]);
         println!("AF = {:#?}", analyzed_files);
 
-        assert_eq!(analyzed_files.scanned_directories.len(), 1);
-        assert_eq!(analyzed_files.scanned_directories[0].directory, tp(r"C:\temp"));
-        assert_eq!(analyzed_files.scanned_directories[0].sln_files.len(), 2);
-        assert_eq!(analyzed_files.scanned_directories[0].sln_files[0].file_info.path, tp(r"C:\temp\foo.sln"));
-        assert_eq!(analyzed_files.scanned_directories[0].sln_files[1].file_info.path, tp(r"C:\temp\foo2.sln"));
+        assert_eq!(analyzed_files.solution_directories.len(), 1);
+        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
+        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 2);
+        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
+        assert_eq!(analyzed_files.solution_directories[0].solutions[1].file_info.path, tp(r"C:\temp\foo2.sln"));
     }
 
     #[test]
@@ -289,16 +289,16 @@ mod analyzed_files_tests {
         ]);
         println!("AF = {:#?}", analyzed_files);
 
-        assert_eq!(analyzed_files.scanned_directories.len(), 2);
+        assert_eq!(analyzed_files.solution_directories.len(), 2);
 
-        assert_eq!(analyzed_files.scanned_directories[0].directory, tp(r"C:\blah"));
-        assert_eq!(analyzed_files.scanned_directories[0].sln_files.len(), 1);
-        assert_eq!(analyzed_files.scanned_directories[0].sln_files[0].file_info.path, tp(r"C:\blah\foo3.sln"));
+        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\blah"));
+        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
+        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\blah\foo3.sln"));
 
-        assert_eq!(analyzed_files.scanned_directories[1].directory, tp(r"C:\temp"));
-        assert_eq!(analyzed_files.scanned_directories[1].sln_files.len(), 2);
-        assert_eq!(analyzed_files.scanned_directories[1].sln_files[0].file_info.path, tp(r"C:\temp\foo.sln"));
-        assert_eq!(analyzed_files.scanned_directories[1].sln_files[1].file_info.path, tp(r"C:\temp\foo2.sln"));
+        assert_eq!(analyzed_files.solution_directories[1].directory, tp(r"C:\temp"));
+        assert_eq!(analyzed_files.solution_directories[1].solutions.len(), 2);
+        assert_eq!(analyzed_files.solution_directories[1].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
+        assert_eq!(analyzed_files.solution_directories[1].solutions[1].file_info.path, tp(r"C:\temp\foo2.sln"));
     }
 
     #[test]
@@ -309,14 +309,46 @@ mod analyzed_files_tests {
         ]);
         println!("AF = {:#?}", analyzed_files);
 
-        assert_eq!(analyzed_files.scanned_directories.len(), 1);
-        assert_eq!(analyzed_files.scanned_directories[0].directory, tp(r"C:\temp"));
-        assert_eq!(analyzed_files.scanned_directories[0].sln_files.len(), 1);
-        assert_eq!(analyzed_files.scanned_directories[0].sln_files[0].file_info.path, tp(r"C:\temp\foo.sln"));
+        assert_eq!(analyzed_files.solution_directories.len(), 1);
+        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
+        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
+        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
 
-        let sln_file = &analyzed_files.scanned_directories[0].sln_files[0];
+        let sln_file = &analyzed_files.solution_directories[0].solutions[0];
         assert_eq!(sln_file.linked_projects.len(), 0);
         assert_eq!(sln_file.orphaned_projects.len(), 1);
         assert_eq!(sln_file.orphaned_projects[0].file_info.path, tp(r"C:\temp\p1.csproj"));
     }
+
+    #[test]
+    pub fn for_multiple_orphaned_projects_including_sub_dirs() {
+        let analyzed_files = analyze(vec![
+            tp(r"C:\temp\foo.sln"),
+            tp(r"C:\temp\p1.csproj"),
+            tp(r"C:\temp\sub\sub.sln"),
+            tp(r"C:\temp\sub\p2.csproj")
+        ]);
+        println!("AF = {:#?}", analyzed_files);
+
+        assert_eq!(analyzed_files.solution_directories.len(), 2);
+        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
+        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
+        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
+
+        let sln_file = &analyzed_files.solution_directories[0].solutions[0];
+        assert_eq!(sln_file.linked_projects.len(), 0);
+        assert_eq!(sln_file.orphaned_projects.len(), 1);
+        assert_eq!(sln_file.orphaned_projects[0].file_info.path, tp(r"C:\temp\p1.csproj"));
+
+        assert_eq!(analyzed_files.solution_directories[1].directory, tp(r"C:\temp\sub"));
+        assert_eq!(analyzed_files.solution_directories[1].solutions.len(), 1);
+        assert_eq!(analyzed_files.solution_directories[1].solutions[0].file_info.path, tp(r"C:\temp\sub\sub.sln"));
+
+        let sln_file = &analyzed_files.solution_directories[1].solutions[0];
+        assert_eq!(sln_file.linked_projects.len(), 0);
+        assert_eq!(sln_file.orphaned_projects.len(), 1);
+        assert_eq!(sln_file.orphaned_projects[0].file_info.path, tp(r"C:\temp\sub\p2.csproj"));
+    }
+
+    // TODO: Need tests for csprojs that are mentioned in the solutions.
 }
