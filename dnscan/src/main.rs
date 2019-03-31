@@ -45,10 +45,11 @@ pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
     }
 
     if options.verbose {
-        println!("Analysis = {:#?}", analysis);
-
-        println!("Found {} solutions and {} projects to analyze in {}.",
-            analysis.num_solutions(), analysis.num_projects(), elapsed);
+        println!("Found {} solutions, {} linked projects and {} orphaned projects in {}.",
+            analysis.num_solutions(),
+            analysis.num_linked_projects(),
+            analysis.num_orphaned_projects(),
+            elapsed);
     }
 
     let (elapsed, result) = measure_time(|| {

@@ -35,20 +35,26 @@ impl AnalyzedFiles {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.solution_directories.is_empty()
+    }
+
     pub fn num_solutions(&self) -> usize {
         self.solution_directories.iter()
             .map(|sln_dir| sln_dir.num_solutions())
             .sum()
     }
 
-    pub fn num_projects(&self) -> usize {
+    pub fn num_linked_projects(&self) -> usize {
         self.solution_directories.iter()
-            .map(|sln_dir| sln_dir.num_projects())
+            .map(|sln_dir| sln_dir.num_linked_projects())
             .sum()
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.solution_directories.is_empty()
+    pub fn num_orphaned_projects(&self) -> usize {
+        self.solution_directories.iter()
+            .map(|sln_dir| sln_dir.num_orphaned_projects())
+            .sum()
     }
 
     /// The actual guts of `new`, using a file loader so we can test it.
@@ -57,7 +63,7 @@ impl AnalyzedFiles {
         P: AsRef<Path>,
         L: FileLoader,
     {
-        println!("PTA = {:#?}", paths_to_analyze);
+        // println!("PTA = {:#?}", paths_to_analyze);
 
         // Group the files from the disk walk into our structure.
         // Load and analyze each solution and place them into folders.
@@ -194,9 +200,15 @@ impl SolutionDirectory {
         self.solutions.len()
     }
 
-    pub fn num_projects(&self) -> usize {
+    pub fn num_linked_projects(&self) -> usize {
         self.solutions.iter()
-            .map(|sln| sln.num_projects())
+            .map(|sln| sln.num_linked_projects())
+            .sum()
+    }
+
+    pub fn num_orphaned_projects(&self) -> usize {
+        self.solutions.iter()
+            .map(|sln| sln.num_orphaned_projects())
             .sum()
     }
 }
@@ -235,7 +247,8 @@ impl Solution {
     {
         let fi = FileInfo::new(path, file_loader);
         let ver = VisualStudioVersion::extract(&fi.contents).unwrap_or_default();
-        let mp = Self::extract_mentioned_projects(&fi.path, &fi.contents);
+        let sln_dir = fi.path.parent().unwrap().to_owned();
+        let mp = Self::extract_mentioned_projects(sln_dir, &fi.contents);
 
         Solution {
             file_info: fi,
@@ -250,8 +263,12 @@ impl Solution {
         self.orphaned_projects.sort();
     }
 
-    fn num_projects(&self) -> usize {
-        self.linked_projects.len() + self.orphaned_projects.len()
+    fn num_linked_projects(&self) -> usize {
+        self.linked_projects.len()
+    }
+
+    fn num_orphaned_projects(&self) -> usize {
+        self.orphaned_projects.len()
     }
 
     /// Extracts the projects from the contents of the solution file. Note that there is
@@ -259,7 +276,7 @@ impl Solution {
     /// of the system that the solution was created on (e.g. Windows) and not the
     /// format of the system the program is running on (e.g. Linux).
     /// See also `refers_to_project` where this surfaces.
-    fn extract_mentioned_projects<P: AsRef<Path>>(path: P, contents: &str) -> Vec<PathBuf> {
+    fn extract_mentioned_projects(sln_dir: PathBuf, contents: &str) -> Vec<PathBuf> {
         lazy_static! {
             static ref PROJECT_RE: Regex = RegexBuilder::new(r##""(?P<projpath>[^"]+csproj)"##)
                                          .case_insensitive(true).build().unwrap();
@@ -268,8 +285,9 @@ impl Solution {
         let mut project_paths = PROJECT_RE
             .captures_iter(contents)
             .map(|cap| {
-                let mut path = path.as_ref().parent().unwrap().to_owned();
-                path.push(cap["projpath"].to_owned());
+                let mut path = sln_dir.clone();
+                let x = Self::norm_mentioned_path(&cap["projpath"]);
+                path.push(x);
                 path
             })
             .collect::<Vec<_>>();
@@ -283,7 +301,48 @@ impl Solution {
         let project_path = project_path.as_ref();
         self.mentioned_projects.iter().any(|mp| mp == project_path)
     }
+
+    /// Convert this extracted path to a form that matches what is in use on
+    /// the operating system the program is running on. Mentioned paths are
+    /// always of the form "Dir\Foo.csproj" (in other words, even on Linux
+    /// they use Windows-style slashes)
+    #[cfg(windows)]
+    fn norm_mentioned_path(mp: &str) -> String {
+        mp.to_owned()
+    }
+
+    #[cfg(not(windows))]
+    fn norm_mentioned_path(mp: &str) -> String {
+        mp.replace('\\', "/").to_owned()
+    }
 }
+
+
+/*
+Supporting info on the path norming problem in extract_mentioned_projects:
+(ignoring escaping of \ chars)
+
+
+So we have in the sln file
+raw mp (Windows) : "app1\app1.csproj"
+raw mp (Linux)   : "app1\app1.csproj"
+
+when this is appended to the sln_dir we get:
+full mp (Linux)   : "/home/phil/diagnostics/app1\app1.csproj"
+full mp (Windows) : C:\bb\diagnostics\app1\app1.csproj"
+
+While the paths from the disk walk are:
+wd (Linux)   : "/home/phil/diagnostics/app1/app1.csproj"
+wd (Windows) : "C:\bb\diagnostics\app1\app1.csproj"
+
+Which causes a problem because the paths from the disk walk do not
+match the mentioned paths if you run on a different OS.
+
+
+Solution
+We just need to normalize the raw mp's to the same format as that used by the disk walk,
+i.e. the program we are running on.
+*/
 
 #[cfg(test)]
 mod analyzed_files_tests {
