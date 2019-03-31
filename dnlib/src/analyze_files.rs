@@ -280,11 +280,11 @@ impl Solution {
         self.orphaned_projects.sort();
     }
 
-    fn num_linked_projects(&self) -> usize {
+    pub fn num_linked_projects(&self) -> usize {
         self.linked_projects.len()
     }
 
-    fn num_orphaned_projects(&self) -> usize {
+    pub fn num_orphaned_projects(&self) -> usize {
         self.orphaned_projects.len()
     }
 

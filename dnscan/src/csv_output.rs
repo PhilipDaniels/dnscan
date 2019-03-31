@@ -3,24 +3,28 @@ use dnlib::prelude::*;
 use crate::errors::AnalysisResult;
 
 pub fn write_files(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
-    // write_solutions(solutions)?;
+    write_solutions(analysis)?;
     // write_projects(projects)?;
     Ok(())
 }
 
-fn write_solutions(solutions: &[Solution]) -> AnalysisResult<()> {
+fn write_solutions(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
     let mut wtr = csv::Writer::from_path("solutions.csv")?;
-    wtr.write_record(&["Version", "Directory", "File", "IsValidUTF8", "ProjectCount", "OrphanedProjectCount"])?;
 
-    for sln in solutions {
-        wtr.write_record(&[
-            sln.version.as_str(),
-            sln.file_info.path.directory_as_str(),
-            sln.file_info.path_as_str(),
-            sln.file_info.is_valid_utf8.as_str(),
-            "0", //&sln.linked_projects.len().to_string(),
-            "0", //&sln.orphaned_projects.len().to_string()
-        ])?;
+    wtr.write_record(&["Directory", "Path", "File", "IsValidUTF8", "Version", "LinkedProjects", "OrphanedProjects"])?;
+
+    for sd in &analysis.solution_directories {
+        for sln in &sd.solutions {
+            wtr.write_record(&[
+                sd.directory.as_str(),
+                sln.file_info.path_as_str(),
+                sln.file_info.filename_as_str(),
+                sln.file_info.is_valid_utf8.as_str(),
+                sln.version.as_str(),
+                &sln.num_linked_projects().to_string(),
+                &sln.num_orphaned_projects().to_string(),
+            ])?;
+        }
     }
 
     wtr.flush()?;
