@@ -89,46 +89,31 @@ impl Project {
 
     fn extract_tt_file(&self) -> bool {
         lazy_static! {
-            static ref TT_REGEX: Regex =
-                Regex::new(r##"<None (Include|Update).*?\.tt">"##).unwrap();
-            static ref NUSPEC_REGEX: Regex =
-                Regex::new(r##"<None (Include|Update).*?\.nuspec">"##).unwrap();
+            static ref TT_REGEX: Regex = Regex::new(r##"<None (Include|Update).*?\.tt">"##).unwrap();
+            static ref NUSPEC_REGEX: Regex = Regex::new(r##"<None (Include|Update).*?\.nuspec">"##).unwrap();
         }
 
-        TT_REGEX.is_match(&self.file_info.contents)
-            && NUSPEC_REGEX.is_match(&self.file_info.contents)
+        TT_REGEX.is_match(&self.file_info.contents) && NUSPEC_REGEX.is_match(&self.file_info.contents)
     }
 
     fn extract_embedded_debugging(&self) -> bool {
         match self.version {
-            ProjectVersion::MicrosoftNetSdk | ProjectVersion::MicrosoftNetSdkWeb =>
             // We expect both for it to be correct.
-            {
-                self.file_info
-                    .contents
-                    .contains("<DebugType>embedded</DebugType>")
-                    && self
-                        .file_info
-                        .contents
-                        .contains("<EmbedAllSources>true</EmbedAllSources>")
-            }
+            ProjectVersion::MicrosoftNetSdk | ProjectVersion::MicrosoftNetSdkWeb => self.file_info.contents.contains("<DebugType>embedded</DebugType>") && self.file_info.contents.contains("<EmbedAllSources>true</EmbedAllSources>"),
             ProjectVersion::OldStyle | ProjectVersion::Unknown => false,
         }
     }
 
     fn extract_linked_solution_info(&self) -> bool {
         lazy_static! {
-            static ref SOLUTION_INFO_REGEX: Regex =
-                Regex::new(r##"[ <]Link.*?SolutionInfo\.cs.*?(</|/>)"##).unwrap();
+            static ref SOLUTION_INFO_REGEX: Regex = Regex::new(r##"[ <]Link.*?SolutionInfo\.cs.*?(</|/>)"##).unwrap();
         }
 
         SOLUTION_INFO_REGEX.is_match(&self.file_info.contents)
     }
 
     fn extract_auto_generate_binding_redirects(&self) -> bool {
-        self.file_info
-            .contents
-            .contains("<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>")
+        self.file_info.contents.contains("<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>")
     }
 
     fn extract_referenced_assemblies(&self) -> Vec<String> {
@@ -136,12 +121,10 @@ impl Project {
         // Actually the regex seems good enough, at least for the example files
         // in this project.
         lazy_static! {
-            static ref ASM_REF_REGEX: Regex =
-                Regex::new(r##"<Reference Include="(?P<name>.*?)"\s*?/>"##).unwrap();
+            static ref ASM_REF_REGEX: Regex = Regex::new(r##"<Reference Include="(?P<name>.*?)"\s*?/>"##).unwrap();
         }
 
-        let mut result = ASM_REF_REGEX
-            .captures_iter(&self.file_info.contents)
+        let mut result = ASM_REF_REGEX.captures_iter(&self.file_info.contents)
             .map(|cap| cap["name"].to_owned())
             .collect::<Vec<_>>();
 
@@ -152,27 +135,22 @@ impl Project {
 
     fn extract_target_frameworks(&self) -> Vec<String> {
         lazy_static! {
-            static ref OLD_TF_REGEX: Regex =
-                Regex::new(r##"<TargetFrameworkVersion>(?P<tf>.*?)</TargetFrameworkVersion>"##)
-                    .unwrap();
-            static ref SDK_SINGLE_TF_REGEX: Regex =
-                Regex::new(r##"<TargetFramework>(?P<tf>.*?)</TargetFramework>"##).unwrap();
-            static ref SDK_MULTI_TF_REGEX: Regex =
-                Regex::new(r##"<TargetFrameworks>(?P<tfs>.*?)</TargetFrameworks>"##).unwrap();
+            static ref OLD_TF_REGEX: Regex = Regex::new(r##"<TargetFrameworkVersion>(?P<tf>.*?)</TargetFrameworkVersion>"##).unwrap();
+            static ref SDK_SINGLE_TF_REGEX: Regex = Regex::new(r##"<TargetFramework>(?P<tf>.*?)</TargetFramework>"##).unwrap();
+            static ref SDK_MULTI_TF_REGEX: Regex = Regex::new(r##"<TargetFrameworks>(?P<tfs>.*?)</TargetFrameworks>"##).unwrap();
         }
 
         match self.version {
             ProjectVersion::Unknown => vec![],
-            ProjectVersion::OldStyle => OLD_TF_REGEX
-                .captures_iter(&self.file_info.contents)
+            ProjectVersion::OldStyle => OLD_TF_REGEX.captures_iter(&self.file_info.contents)
                 .map(|cap| cap["tf"].to_owned())
                 .collect(),
             ProjectVersion::MicrosoftNetSdk | ProjectVersion::MicrosoftNetSdkWeb => {
                 // One or the other will match.
-                let single: Vec<_> = SDK_SINGLE_TF_REGEX
-                    .captures_iter(&self.file_info.contents)
+                let single: Vec<_> = SDK_SINGLE_TF_REGEX.captures_iter(&self.file_info.contents)
                     .map(|cap| cap["tf"].to_owned())
                     .collect();
+
                 if !single.is_empty() {
                     return single;
                 }
@@ -194,48 +172,23 @@ impl Project {
     fn has_file_of_interest(&self, interesting_file: InterestingFile) -> FileStatus {
         // TODO: An optimisation would be to scan for all of these at once rather than separately.
         lazy_static! {
-            static ref WEB_CONFIG_RE: Regex = RegexBuilder::new(&format!(
-                "\\sInclude=\"{}\"\\s*?/>",
-                InterestingFile::WebConfig.as_str()
-            ))
-            .case_insensitive(true)
-            .build()
-            .unwrap();
-            static ref APP_CONFIG_RE: Regex = RegexBuilder::new(&format!(
-                "\\sInclude=\"{}\"\\s*?/>",
-                InterestingFile::AppConfig.as_str()
-            ))
-            .case_insensitive(true)
-            .build()
-            .unwrap();
-            static ref APP_SETTINGS_JSON_RE: Regex = RegexBuilder::new(&format!(
-                "\\sInclude=\"{}\"\\s*?/>",
-                InterestingFile::AppSettingsJson.as_str()
-            ))
-            .case_insensitive(true)
-            .build()
-            .unwrap();
-            static ref PACKAGE_JSON_RE: Regex = RegexBuilder::new(&format!(
-                "\\sInclude=\"{}\"\\s*?/>",
-                InterestingFile::PackageJson.as_str()
-            ))
-            .case_insensitive(true)
-            .build()
-            .unwrap();
-            static ref PACKAGES_CONFIG_RE: Regex = RegexBuilder::new(&format!(
-                "\\sInclude=\"{}\"\\s*?/>",
-                InterestingFile::PackagesConfig.as_str()
-            ))
-            .case_insensitive(true)
-            .build()
-            .unwrap();
-            static ref PROJECT_JSON_RE: Regex = RegexBuilder::new(&format!(
-                "\\sInclude=\"{}\"\\s*?/>",
-                InterestingFile::ProjectJson.as_str()
-            ))
-            .case_insensitive(true)
-            .build()
-            .unwrap();
+            static ref WEB_CONFIG_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::WebConfig.as_str()))
+                .case_insensitive(true).build().unwrap();
+
+            static ref APP_CONFIG_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::AppConfig.as_str()))
+                .case_insensitive(true).build().unwrap();
+
+            static ref APP_SETTINGS_JSON_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::AppSettingsJson.as_str()))
+                .case_insensitive(true).build().unwrap();
+
+            static ref PACKAGE_JSON_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::PackageJson.as_str()))
+                .case_insensitive(true).build().unwrap();
+
+            static ref PACKAGES_CONFIG_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::PackagesConfig.as_str()))
+                .case_insensitive(true).build().unwrap();
+
+            static ref PROJECT_JSON_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::ProjectJson.as_str()))
+                .case_insensitive(true).build().unwrap();
         }
 
         let re: &Regex = match interesting_file {
@@ -247,10 +200,7 @@ impl Project {
             InterestingFile::ProjectJson => &PROJECT_JSON_RE,
         };
 
-        match (
-            re.is_match(&self.file_info.contents),
-            self.get_other_file(interesting_file).is_some(),
-        ) {
+        match (re.is_match(&self.file_info.contents), self.get_other_file(interesting_file).is_some()) {
             (true, true) => FileStatus::InProjectFileAndOnDisk,
             (true, false) => FileStatus::InProjectFileOnly,
             (false, true) => FileStatus::OnDiskOnly,
@@ -279,18 +229,21 @@ impl Project {
     fn extract_packages<L: FileLoader>(&self, file_loader: &L) -> Vec<Package> {
         lazy_static! {
             static ref SDK_RE: Regex = RegexBuilder::new(r##"<PackageReference\s*?Include="(?P<name>.*?)"\s*?Version="(?P<version>.*?)"(?P<inner>.*?)(/>|</PackageReference>)"##)
-                                        .case_insensitive(true).dot_matches_new_line(true).build().unwrap();
+                .case_insensitive(true).dot_matches_new_line(true).build().unwrap();
+
             static ref PKG_CONFIG_RE: Regex = RegexBuilder::new(r##"<package\s*?id="(?P<name>.*?)"\s*?version="(?P<version>.*?)"(?P<inner>.*?)\s*?/>"##)
-                                        .case_insensitive(true).build().unwrap();
+                .case_insensitive(true).build().unwrap();
 
             // This small 3rd party set of matchers essentially allows us to easily recognise a few packages
             // that might otherwise be recognised by the MS or CORP matchers by mistake.
             static ref THIRD_PARTY_PKG_CLASS_RE: Regex = RegexBuilder::new(r##"^System\.IO\.Abstractions.*|^Owin.Metrics"##)
-                                        .case_insensitive(true).build().unwrap();
+                .case_insensitive(true).build().unwrap();
+
             static ref OURS_PKG_CLASS_RE: Regex = RegexBuilder::new(r##"^Landmark\..*|^DataMaintenance.*|^ValuationHub\..*|^CaseService\..*|^CaseActivities\..*|^NotificationService\..*|^WorkflowService\..*|^WorkflowRunner\..|^Unity.WF*"##)
-                                        .case_insensitive(true).build().unwrap();
+                .case_insensitive(true).build().unwrap();
+
             static ref MS_PKG_CLASS_RE: Regex = RegexBuilder::new(r##"^CommonServiceLocator|^NETStandard\..*|^EntityFramework*|^Microsoft\..*|^MSTest.*|^Owin.*|^System\..*|^EnterpriseLibrary.*"##)
-                                        .case_insensitive(true).build().unwrap();
+                .case_insensitive(true).build().unwrap();
         }
 
         let classify = |pkg_name: &str| -> PackageClass {
@@ -306,8 +259,7 @@ impl Project {
         };
 
         let mut packages = match self.version {
-            ProjectVersion::MicrosoftNetSdk | ProjectVersion::MicrosoftNetSdkWeb => SDK_RE
-                .captures_iter(&self.file_info.contents)
+            ProjectVersion::MicrosoftNetSdk | ProjectVersion::MicrosoftNetSdkWeb => SDK_RE.captures_iter(&self.file_info.contents)
                 .map(|cap| {
                     Package::new(
                         &cap["name"],
@@ -321,9 +273,7 @@ impl Project {
                 // Grab them from the actual packages.config file contents.
                 self.get_other_file(InterestingFile::PackagesConfig)
                     .and_then(|pc_path| file_loader.read_to_string(pc_path).ok())
-                    .map(|pc_contents| {
-                        PKG_CONFIG_RE
-                            .captures_iter(&pc_contents)
+                    .map(|pc_contents| { PKG_CONFIG_RE.captures_iter(&pc_contents)
                             .map(|cap| {
                                 Package::new(
                                     &cap["name"],
@@ -362,9 +312,7 @@ impl Project {
     }
 
     fn extract_uses_specflow(&self) -> bool {
-        self.packages
-            .iter()
-            .any(|pkg| pkg.name.to_lowercase().contains("specflow"))
+        self.packages.iter().any(|pkg| pkg.name.to_lowercase().contains("specflow"))
     }
 }
 

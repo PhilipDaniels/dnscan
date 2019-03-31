@@ -96,8 +96,7 @@ impl AnalyzedFiles {
     //     }).collect::<Vec<_>>()
     // });
 
-        let analyzed_projects = paths_to_analyze.csproj_files
-            .iter()
+        let analyzed_projects = paths_to_analyze.csproj_files.iter()
             .map(|proj_path| {
                 let other_paths = paths_to_analyze.other_files.iter()
                     .filter(|&other_path| other_path.is_same_dir(proj_path))
@@ -297,11 +296,10 @@ impl Solution {
     fn extract_mentioned_projects(sln_dir: PathBuf, contents: &str) -> Vec<PathBuf> {
         lazy_static! {
             static ref PROJECT_RE: Regex = RegexBuilder::new(r##""(?P<projpath>[^"]+csproj)"##)
-                                         .case_insensitive(true).build().unwrap();
+                .case_insensitive(true).build().unwrap();
         }
 
-        let mut project_paths = PROJECT_RE
-            .captures_iter(contents)
+        let mut project_paths = PROJECT_RE.captures_iter(contents)
             .map(|cap| {
                 let mut path = sln_dir.clone();
                 let x = Self::norm_mentioned_path(&cap["projpath"]);

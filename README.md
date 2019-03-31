@@ -16,7 +16,6 @@ cargo run --bin dnscan [-v]
 ## TODO
 
 - Should really get rid of tp and have separate sets of tests for Windows and Linux
-  - Actually we now have a major problem running on Linux due to paths not matching
 - Config file for package classification regexes
 - Figure out how to run Rayon with 1 thread for debugging.
 - Tests for mentioned projects are completely inadequate.
