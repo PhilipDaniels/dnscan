@@ -43,10 +43,7 @@ pub struct Project {
     // TODO: Filled in later.
     pub referenced_projects: Vec<Arc<Project>>,
 
-    // TODO
-    // packages_require_consolidation
-    // redundant_packages_count
-    // redundant_projects_count
+    // TODO: packages_require_consolidation, redundant_packages_count, redundant_projects_count
 }
 
 impl Project {
@@ -228,11 +225,41 @@ impl Project {
 
     fn extract_packages<L: FileLoader>(&self, file_loader: &L) -> Vec<Package> {
         lazy_static! {
-            static ref SDK_RE: Regex = RegexBuilder::new(r##"<PackageReference\s*?Include="(?P<name>.*?)"\s*?Version="(?P<version>.*?)"(?P<inner>.*?)(/>|</PackageReference>)"##)
+            // It is rather difficult and incomprehensible to do this in a single regex. All these variants have been seen.
+            //
+            // <PackageReference Include="MoreFluentAssertions" Version="1.2.3" />
+            // <PackageReference Include="Microsoft.EntityFrameworkCore">
+            //     <Version>2.1.4</Version>
+            // </PackageReference>
+            // <PackageReference Include="Landmark.Versioning.Bamboo" Version="3.3.19078.47">
+            //     <PrivateAssets>all</PrivateAssets>
+            //     <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+            // </PackageReference>
+            // <PackageReference Include="FluentAssertions">
+            //       <Version>5.6.0</Version>
+            // </PackageReference>
+            // <PackageReference Include="MoreFluentAssertions" Version="1.2.3" />
+            // <PackageReference Include="Landmark.Versioning.Bamboo" Version="3.3.19078.47">
+            //     <PrivateAssets>all</PrivateAssets>
+            //     <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+            // </PackageReference>
+            // <PackageReference Include="JsonNet.PrivateSettersContractResolvers.Source" Version="0.1.0">
+            //     <PrivateAssets>all</PrivateAssets>
+            //     <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+            // </PackageReference>
+             //
+            // So the idea is to pull out the PackageReference and to its closing tag, getting the package name in the first regex,
+            // then to look in the 'rest' to get the version number in a second step.
+
+            static ref SDK_RE: Regex = RegexBuilder::new(r##"<PackageReference\s+Include="(?P<name>[^"]+)"(?P<rest>.+?)(/>|</PackageReference>)"##)
                 .case_insensitive(true).dot_matches_new_line(true).build().unwrap();
+
+            static ref SDK_VERSION_RE: Regex = RegexBuilder::new(r##"(Version="(?P<version>[^"]+)"|<Version>(?P<version2>[^<]+)</Version>)"##)
+                .case_insensitive(true).build().unwrap();
 
             static ref PKG_CONFIG_RE: Regex = RegexBuilder::new(r##"<package\s*?id="(?P<name>.*?)"\s*?version="(?P<version>.*?)"(?P<inner>.*?)\s*?/>"##)
                 .case_insensitive(true).build().unwrap();
+
 
             // This small 3rd party set of matchers essentially allows us to easily recognise a few packages
             // that might otherwise be recognised by the MS or CORP matchers by mistake.
@@ -261,11 +288,19 @@ impl Project {
         let mut packages = match self.version {
             ProjectVersion::MicrosoftNetSdk | ProjectVersion::MicrosoftNetSdkWeb => SDK_RE.captures_iter(&self.file_info.contents)
                 .map(|cap| {
+                    let pkg_name = &cap["name"];
+                    let rest = &cap["rest"];
+                    let version_captures = SDK_VERSION_RE.captures(rest).unwrap();
+                    let version = version_captures.name("version")
+                            .or(version_captures.name("version2"))
+                            .unwrap()
+                            .as_str();
+
                     Package::new(
-                        &cap["name"],
-                        &cap["version"],
-                        cap["inner"].contains("<PrivateAssets>"),
-                        classify(&cap["name"]),
+                        pkg_name,
+                        version,
+                        rest.contains("<PrivateAssets>"),
+                        classify(pkg_name),
                     )
                 })
                 .collect(),

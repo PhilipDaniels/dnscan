@@ -15,17 +15,20 @@ cargo run --bin dnscan [-v]
 
 ## TODO
 
-- Should really get rid of tp and have separate sets of tests for Windows and Linux
+- Should really get rid of tp and have separate sets of tests for Windows and Linux?
 - Config file for package classification regexes
+- Tests for pkg version variations
+- Make project analysis run in parallel again
 - Figure out how to run Rayon with 1 thread for debugging.
 - Tests for mentioned projects are completely inadequate.
-- Convert to use Unicase where possible. See if it makes a speed difference.
+- Convert to use Unicase where possible.
 - Better settings for rustfmt
 - Git info extraction
-- Deal with
-
-```
-<PackageReference Include="Microsoft.EntityFrameworkCore">
-    <Version>2.1.4</Version>
-</PackageReference>
-```
+- Build a REST API ('serve mode') for getting at the data
+  - Consider some sort of 'reporting data structure'
+- A web site built on the REST API
+- Implement Fix mode
+  - Remove redundant project references
+  - Remove redundant NuGet package references
+  - Scan source for redundant NuGet packages
+  - Remove redundant Assembly references
