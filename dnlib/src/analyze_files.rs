@@ -137,6 +137,8 @@ impl AnalyzedFiles {
             sln.linked_projects.push(project);
         } else if let Some(ref mut sln) = self.find_orphaned_solution(&project.file_info.path) {
             sln.orphaned_projects.push(project);
+        } else if let Some(ref mut sln) = self.find_orphaned_solution_in_parent_dir(&project.file_info.path) {
+            sln.orphaned_projects.push(project);
         } else {
             eprintln!("Could not associate project {:?} with a solution, ignoring.", &project.file_info.path);
         }
@@ -144,7 +146,8 @@ impl AnalyzedFiles {
 
     /// Scan all known solutions trying to find one that refers to the specified
     /// project path. Works as a pair with `find_orphaned_solution` - I had to
-    /// create two functions to get around the borrow checker.
+    /// create three functions to get around the borrow checker.
+    /// TODO: Merge this into 1 function.
     fn find_linked_solution<P>(&mut self, project_path: P) -> Option<&mut Solution>
     where
         P: AsRef<Path>,
@@ -161,8 +164,23 @@ impl AnalyzedFiles {
     where
         P: AsRef<Path>,
     {
+        // Try and associate orphaned projects with any solutions that are in the same directory.
         for sd in &mut self.solution_directories {
             let matching_sln = sd.solutions.iter_mut().find(|sln| sln.file_info.path.is_same_dir(&project_path));
+            if matching_sln.is_some() { return matching_sln; }
+        }
+
+        None
+    }
+
+    fn find_orphaned_solution_in_parent_dir<P>(&mut self, project_path: P) -> Option<&mut Solution>
+    where
+        P: AsRef<Path>,
+    {
+        // Try and associate orphaned projects with any solutions that are in the parent directory.
+        let parent_dir = project_path.as_ref().parent().unwrap();
+        for sd in &mut self.solution_directories {
+            let matching_sln = sd.solutions.iter_mut().find(|sln| sln.file_info.path.is_same_dir(&parent_dir));
             if matching_sln.is_some() { return matching_sln; }
         }
 
@@ -299,7 +317,7 @@ impl Solution {
 
     fn refers_to_project<P: AsRef<Path>>(&self, project_path: P) -> bool {
         let project_path = project_path.as_ref();
-        self.mentioned_projects.iter().any(|mp| mp == project_path)
+        self.mentioned_projects.iter().any(|mp| mp.eq_ignoring_case(project_path))
     }
 
     /// Convert this extracted path to a form that matches what is in use on
