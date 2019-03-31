@@ -11,6 +11,7 @@ lazy_static = "1.3.0"
 rayon = "1.0.3"
 regex = "1"
 elapsed = "0.1.2"
+unicase = "2.3"
 
 [dev-dependencies]
 tempfile = "3.0"
