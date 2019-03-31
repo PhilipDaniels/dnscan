@@ -16,9 +16,9 @@ cargo run --bin dnscan [-v]
 ## TODO
 
 - Should really get rid of tp and have separate sets of tests for Windows and Linux
-- Restore all project tests
 - Config file for package classification regexes
 - Convert to use Unicase where possible. See if it makes a speed difference.
+- Better settings for rustfmt
 - Deal with
 
 ```

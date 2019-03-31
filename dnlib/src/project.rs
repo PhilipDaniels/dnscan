@@ -24,21 +24,26 @@ pub struct Project {
     pub output_type: OutputType,
     pub xml_doc: XmlDoc,
     pub tt_file: bool,
-    pub target_frameworks: Vec<String>,
     pub embedded_debugging: bool,
     pub linked_solution_info: bool,
     pub auto_generate_binding_redirects: bool,
-    pub test_framework: TestFramework,
-    pub uses_specflow: bool,
+    pub referenced_assemblies: Vec<String>,
+    pub target_frameworks: Vec<String>,
     pub web_config: FileStatus,
     pub app_config: FileStatus,
     pub app_settings_json: FileStatus,
     pub package_json: FileStatus,
     pub packages_config: FileStatus,
     pub project_json: FileStatus,
-    pub referenced_assemblies: Vec<String>,
+
     pub packages: Vec<Package>,
+    pub test_framework: TestFramework,
+    pub uses_specflow: bool,
+
+    // TODO: Filled in later.
     pub referenced_projects: Vec<Arc<Project>>,
+
+    // TODO
     // packages_require_consolidation
     // redundant_packages_count
     // redundant_projects_count
@@ -75,9 +80,9 @@ impl Project {
 
         // The things after here are dependent on having first determined the packages
         // that the project uses.
-        proj.packages = proj.get_packages(file_loader);
-        proj.test_framework = proj.get_test_framework();
-        proj.uses_specflow = proj.uses_specflow();
+        proj.packages = proj.extract_packages(file_loader);
+        proj.test_framework = proj.extract_test_framework();
+        proj.uses_specflow = proj.extract_uses_specflow();
 
         proj
     }
@@ -253,6 +258,8 @@ impl Project {
         }
     }
 
+    // TODO: Do we still need this?
+
     /// Checks to see whether a project has another file associated with it
     /// (i.e. that the other file actually exists on disk). This check is based on
     /// the directory of the project and the 'other_files'; we do not use the
@@ -269,7 +276,7 @@ impl Project {
         None
     }
 
-    fn get_packages<L: FileLoader>(&self, file_loader: &L) -> Vec<Package> {
+    fn extract_packages<L: FileLoader>(&self, file_loader: &L) -> Vec<Package> {
         lazy_static! {
             static ref SDK_RE: Regex = RegexBuilder::new(r##"<PackageReference\s*?Include="(?P<name>.*?)"\s*?Version="(?P<version>.*?)"(?P<inner>.*?)(/>|</PackageReference>)"##)
                                         .case_insensitive(true).dot_matches_new_line(true).build().unwrap();
@@ -337,7 +344,7 @@ impl Project {
         packages
     }
 
-    fn get_test_framework(&self) -> TestFramework {
+    fn extract_test_framework(&self) -> TestFramework {
         for pkg in &self.packages {
             let name = pkg.name.to_lowercase();
             if name.starts_with("xunit.") {
@@ -354,7 +361,7 @@ impl Project {
         TestFramework::None
     }
 
-    fn uses_specflow(&self) -> bool {
+    fn extract_uses_specflow(&self) -> bool {
         self.packages
             .iter()
             .any(|pkg| pkg.name.to_lowercase().contains("specflow"))
@@ -603,448 +610,444 @@ impl Project {
         assert_eq!(project.target_frameworks, vec!["v4.6.2", "v4.7.2"]);
     }
 
-    // TODO: Need to check other files
-    // Keep going through the struct in order
+    #[test]
+    pub fn has_packages_config_not_present() {
+        let project = ProjectBuilder::new(r##""##).build();
+        assert_eq!(project.packages_config, FileStatus::NotPresent);
+    }
+
+    #[test]
+    pub fn has_packages_config_on_disk() {
+        let project = ProjectBuilder::new(r##""##).with_packages_config("contents").build();
+        assert_eq!(project.packages_config, FileStatus::OnDiskOnly);
+    }
+
+    #[test]
+    pub fn has_packages_config_in_project_file_only() {
+        let project = ProjectBuilder::new(r##" Include="packages.config" />"##).build();
+        assert_eq!(project.packages_config, FileStatus::InProjectFileOnly);
+    }
+
+    #[test]
+    pub fn has_packages_config_in_project_file_and_on_disk() {
+        let project = ProjectBuilder::new(r##" Include="packages.config" />"##).with_packages_config("contents").build();
+        assert_eq!(project.packages_config, FileStatus::InProjectFileAndOnDisk);
+    }
+
+    #[test]
+    pub fn extract_packages_sdk_one_line() {
+        let project = ProjectBuilder::new(r##""##).sdk().build();
+        assert!(project.packages.is_empty());
+
+        let project = ProjectBuilder::new(r##"blah<PackageReference Include="Unity" Version="4.0.1" />blah"##).sdk().build();
+        assert_eq!(project.packages, vec![Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)]);
+    }
+
+    #[test]
+    pub fn extract_packages_sdk_one_line_sorts() {
+        let project = ProjectBuilder::new(
+            r##"
+            blah<PackageReference Include="Unity" Version="4.0.1" />blah
+            blah<PackageReference Include="Automapper" Version="3.1.4" />blah
+            "##
+            ).sdk().build();
+        assert_eq!(project.packages, vec![
+            Package::new("Automapper", "3.1.4", false, PackageClass::ThirdParty),
+            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
+            ]);
+
+        // Dedup & sort by secondary key (version).
+        let project = ProjectBuilder::new(
+            r##"
+            blah<PackageReference Include="Automapper" Version="3.1.5" />blah
+            blah<PackageReference Include="Unity" Version="4.0.1" />blah
+            blah<PackageReference Include="Automapper" Version="3.1.4" />blah
+            blah<PackageReference Include="Unity" Version="4.0.1" />blah
+            "##
+            ).sdk().build();
+        assert_eq!(project.packages, vec![
+            Package::new("Automapper", "3.1.4", false, PackageClass::ThirdParty),
+            Package::new("Automapper", "3.1.5", false, PackageClass::ThirdParty),
+            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
+            ]);
+    }
+
+    #[test]
+    pub fn extract_packages_sdk_one_line_dedups() {
+        // Dedup & sort by secondary key (i.e. the version).
+        let project = ProjectBuilder::new(
+            r##"
+            blah<PackageReference Include="Automapper" Version="3.1.5" />blah
+            blah<PackageReference Include="Unity" Version="4.0.1" />blah
+            blah<PackageReference Include="Automapper" Version="3.1.4" />blah
+            blah<PackageReference Include="Unity" Version="4.0.1" />blah
+            "##
+            ).sdk().build();
+        assert_eq!(project.packages, vec![
+            Package::new("Automapper", "3.1.4", false, PackageClass::ThirdParty),
+            Package::new("Automapper", "3.1.5", false, PackageClass::ThirdParty),
+            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
+            ]);
+    }
+
+    #[test]
+    pub fn extract_packages_sdk_multi_line() {
+        let project = ProjectBuilder::new(
+            r##"
+            blah<PackageReference Include="Unity" Version="4.0.1">
+                </PackageReference>
+            "##
+        ).sdk().build();
+        assert_eq!(project.packages, vec![
+            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
+            ]);
+    }
+
+    #[test]
+    pub fn extract_packages_sdk_multi_line_private_assets() {
+        let project = ProjectBuilder::new(
+            r##"
+            blah<PackageReference Include="Unity" Version="4.0.1">
+                <PrivateAssets>
+                </PackageReference>
+            "##
+        ).sdk().build();
+        assert_eq!(project.packages, vec![
+            Package::new("Unity", "4.0.1", true, PackageClass::ThirdParty)
+            ]);
+    }
+
+    #[test]
+    pub fn extract_packages_sdk_multi_line_flip_flop() {
+        // This flip-flop of styles discovered problems in the regex when it
+        // was not terminating early enough.
+        let project = ProjectBuilder::new(
+            r##"
+            blah<PackageReference Include="Unity" Version="4.0.1">
+                </PackageReference>
+
+                <PackageReference Include="EntityFramework" Version="2.4.6" />
+
+                <PackageReference Include="Automapper" Version="3.1.4">
+                    <PrivateAssets>
+                </PackageReference>
+
+                <PackageReference Include="Versioning.Bamboo" Version="8.8.9" />
+            "##
+        ).sdk().build();
+        assert_eq!(project.packages, vec![
+            Package::new("Automapper", "3.1.4", true, PackageClass::ThirdParty),
+            Package::new("EntityFramework", "2.4.6", false, PackageClass::Microsoft),
+            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty),
+            Package::new("Versioning.Bamboo", "8.8.9", false, PackageClass::ThirdParty)
+            ]);
+    }
+
+    #[test]
+    pub fn extract_packages_old_including_sort_and_dedup() {
+        let project = ProjectBuilder::new(r##" Include="packages.config" />"##).old()
+            .with_packages_config(r##"
+            <package id="Clarius.TransformOnBuild" version="1.1.12" targetFramework="net462" developmentDependency="true" />
+            <package id="Castle.Core" version="4.3.1" targetFramework="net462" />
+            <package id="Owin" version="1.0" targetFramework="net462" />
+            <package id="Castle.Core" version="4.3.1" targetFramework="net462" />
+            "##).build();
+        assert_eq!(project.packages, vec![
+            Package::new("Castle.Core", "4.3.1", false, PackageClass::ThirdParty),
+            Package::new("Clarius.TransformOnBuild", "1.1.12", true, PackageClass::ThirdParty),
+            Package::new("Owin", "1.0", false, PackageClass::Microsoft),
+        ]);
+    }
+
+    #[test]
+    pub fn extract_test_framework_mstest() {
+        let project = ProjectBuilder::new(r##"<PackageReference Include="MSTest.TestFramework" Version="4.0.1" />"##)
+            .sdk().build();
+        assert_eq!(project.test_framework, TestFramework::MSTest);
+    }
+
+    #[test]
+    pub fn extract_test_framework_xunit() {
+        let project = ProjectBuilder::new(r##"<PackageReference Include="Xunit.Core" Version="4.0.1" />"##)
+            .sdk().build();
+        assert_eq!(project.test_framework, TestFramework::XUnit);
+    }
+
+    #[test]
+    pub fn extract_test_framework_nunit() {
+        let project = ProjectBuilder::new(r##"<PackageReference Include="NUnit.Core" Version="4.0.1" />"##)
+            .sdk().build();
+        assert_eq!(project.test_framework, TestFramework::NUnit);
+    }
+
+    #[test]
+    pub fn extract_test_framework_none() {
+        let project = ProjectBuilder::new(r##"<PackageReference Include="MSTestNotMatched" Version="4.0.1" />"##)
+            .sdk().build();
+        assert_eq!(project.test_framework, TestFramework::None);
+    }
+
+    #[test]
+    pub fn extract_uses_specflow_works() {
+        let project = ProjectBuilder::new(r##"<PackageReference Include="NUnit.Core" Version="4.0.1" />"##)
+            .sdk().build();
+        assert!(!project.uses_specflow);
+
+        let project = ProjectBuilder::new(r##"<PackageReference Include="SpecFlow" Version="2.3.2" />"##)
+            .sdk().build();
+        assert!(project.uses_specflow);
+    }
 
 
+    /// These tests run against the embedded example SDK-style project.
+    /// They are an extra sanity-check that we really got it right "in the real world".
+    mod sdk_tests {
+        use super::*;
 
-//     #[test]
-//     pub fn has_packages_config_not_present() {
-//         let project = ProjectBuilder::new(r##""##).build();
-//         assert_eq!(project.packages_config, FileStatus::NotPresent);
-//     }
+        fn get_sdk_project() -> Project {
+            ProjectBuilder::new(include_str!("sdk1.csproj.xml")).sdk().build()
+        }
 
-//     #[test]
-//     pub fn has_packages_config_on_disk() {
-//         let project = ProjectBuilder::new(r##""##).with_packages_config("contents").build();
-//         assert_eq!(project.packages_config, FileStatus::OnDiskOnly);
-//     }
+        #[test]
+        pub fn can_detect_version() {
+            let project = get_sdk_project();
+            assert_eq!(project.version, ProjectVersion::MicrosoftNetSdk);
+        }
 
-//     #[test]
-//     pub fn has_packages_config_in_project_file_only() {
-//         let project = ProjectBuilder::new(r##" Include="packages.config" />"##).build();
-//         assert_eq!(project.packages_config, FileStatus::InProjectFileOnly);
-//     }
+        #[test]
+        pub fn can_detect_xml_doc() {
+            let project = get_sdk_project();
+            assert_eq!(project.xml_doc, XmlDoc::Both);
+        }
 
-//     #[test]
-//     pub fn has_packages_config_in_project_file_and_on_disk() {
-//         let project = ProjectBuilder::new(r##" Include="packages.config" />"##).with_packages_config("contents").build();
-//         assert_eq!(project.packages_config, FileStatus::InProjectFileAndOnDisk);
-//     }
+        #[test]
+        pub fn can_detect_tt_file() {
+            let project = get_sdk_project();
+            assert!(project.tt_file);
+        }
 
-//     #[test]
-//     pub fn get_packages_sdk_one_line() {
-//         let project = ProjectBuilder::new(r##""##).sdk().build();
-//         assert!(project.packages.is_empty());
+        #[test]
+        pub fn can_detect_embedded_debugging() {
+            let project = get_sdk_project();
+            assert!(project.embedded_debugging);
+        }
 
-//         let project = ProjectBuilder::new(r##"blah<PackageReference Include="Unity" Version="4.0.1" />blah"##).sdk().build();
-//         assert_eq!(project.packages, vec![Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)]);
-//     }
+        #[test]
+        pub fn can_detect_linked_solution_info() {
+            let project = get_sdk_project();
+            assert!(project.linked_solution_info);
+        }
 
-//     #[test]
-//     pub fn get_packages_sdk_one_line_sorts() {
-//         let project = ProjectBuilder::new(
-//             r##"
-//             blah<PackageReference Include="Unity" Version="4.0.1" />blah
-//             blah<PackageReference Include="Automapper" Version="3.1.4" />blah
-//             "##
-//             ).sdk().build();
-//         assert_eq!(project.packages, vec![
-//             Package::new("Automapper", "3.1.4", false, PackageClass::ThirdParty),
-//             Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
-//             ]);
+        #[test]
+        pub fn can_detect_target_framework() {
+            let project = get_sdk_project();
+            assert_eq!(project.target_frameworks, vec!["net462"]);
+        }
 
-//         // Dedup & sort by secondary key (version).
-//         let project = ProjectBuilder::new(
-//             r##"
-//             blah<PackageReference Include="Automapper" Version="3.1.5" />blah
-//             blah<PackageReference Include="Unity" Version="4.0.1" />blah
-//             blah<PackageReference Include="Automapper" Version="3.1.4" />blah
-//             blah<PackageReference Include="Unity" Version="4.0.1" />blah
-//             "##
-//             ).sdk().build();
-//         assert_eq!(project.packages, vec![
-//             Package::new("Automapper", "3.1.4", false, PackageClass::ThirdParty),
-//             Package::new("Automapper", "3.1.5", false, PackageClass::ThirdParty),
-//             Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
-//             ]);
-//     }
+        #[test]
+        pub fn can_detect_referenced_assemblies() {
+            let project = get_sdk_project();
+            assert_eq!(project.referenced_assemblies, vec!["System.Configuration", "System.Windows"]);
+        }
 
-//     #[test]
-//     pub fn get_packages_sdk_one_line_dedups() {
-//         // Dedup & sort by secondary key (i.e. the version).
-//         let project = ProjectBuilder::new(
-//             r##"
-//             blah<PackageReference Include="Automapper" Version="3.1.5" />blah
-//             blah<PackageReference Include="Unity" Version="4.0.1" />blah
-//             blah<PackageReference Include="Automapper" Version="3.1.4" />blah
-//             blah<PackageReference Include="Unity" Version="4.0.1" />blah
-//             "##
-//             ).sdk().build();
-//         assert_eq!(project.packages, vec![
-//             Package::new("Automapper", "3.1.4", false, PackageClass::ThirdParty),
-//             Package::new("Automapper", "3.1.5", false, PackageClass::ThirdParty),
-//             Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
-//             ]);
-//     }
+        #[test]
+        pub fn can_detect_has_auto_generate_binding_redirects() {
+            let project = get_sdk_project();
+            assert!(project.auto_generate_binding_redirects);
+        }
 
-//     #[test]
-//     pub fn get_packages_sdk_multi_line() {
-//         let project = ProjectBuilder::new(
-//             r##"
-//             blah<PackageReference Include="Unity" Version="4.0.1">
-//                 </PackageReference>
-//             "##
-//         ).sdk().build();
-//         assert_eq!(project.packages, vec![
-//             Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
-//             ]);
-//     }
+        #[test]
+        pub fn can_detect_web_config() {
+            let project = get_sdk_project();
+            assert_eq!(project.web_config, FileStatus::NotPresent);
+        }
 
-//     #[test]
-//     pub fn get_packages_sdk_multi_line_private_assets() {
-//         let project = ProjectBuilder::new(
-//             r##"
-//             blah<PackageReference Include="Unity" Version="4.0.1">
-//                 <PrivateAssets>
-//                 </PackageReference>
-//             "##
-//         ).sdk().build();
-//         assert_eq!(project.packages, vec![
-//             Package::new("Unity", "4.0.1", true, PackageClass::ThirdParty)
-//             ]);
-//     }
+        #[test]
+        pub fn can_detect_app_config() {
+            let project = get_sdk_project();
+            assert_eq!(project.app_config, FileStatus::NotPresent);
+        }
 
-//     #[test]
-//     pub fn get_packages_sdk_multi_line_flip_flop() {
-//         // This flip-flop of styles discovered problems in the regex when it
-//         // was not terminating early enough.
-//         let project = ProjectBuilder::new(
-//             r##"
-//             blah<PackageReference Include="Unity" Version="4.0.1">
-//                 </PackageReference>
+        #[test]
+        pub fn can_detect_app_settings_json() {
+            let project = get_sdk_project();
+            assert_eq!(project.app_settings_json, FileStatus::NotPresent);
+        }
 
-//                 <PackageReference Include="EntityFramework" Version="2.4.6" />
+        #[test]
+        pub fn can_detect_package_json() {
+            let project = get_sdk_project();
+            assert_eq!(project.package_json, FileStatus::NotPresent);
+        }
 
-//                 <PackageReference Include="Automapper" Version="3.1.4">
-//                     <PrivateAssets>
-//                 </PackageReference>
+        #[test]
+        pub fn can_detect_packages_config() {
+            let project = get_sdk_project();
+            assert_eq!(project.packages_config, FileStatus::NotPresent);
+        }
 
-//                 <PackageReference Include="Versioning.Bamboo" Version="8.8.9" />
-//             "##
-//         ).sdk().build();
-//         assert_eq!(project.packages, vec![
-//             Package::new("Automapper", "3.1.4", true, PackageClass::ThirdParty),
-//             Package::new("EntityFramework", "2.4.6", false, PackageClass::Microsoft),
-//             Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty),
-//             Package::new("Versioning.Bamboo", "8.8.9", false, PackageClass::ThirdParty)
-//             ]);
-//     }
+        #[test]
+        pub fn can_detect_project_json() {
+            let project = get_sdk_project();
+            assert_eq!(project.project_json, FileStatus::NotPresent);
+        }
 
-//     #[test]
-//     pub fn get_packages_old_including_sort_and_dedup() {
-//         let project = ProjectBuilder::new(r##" Include="packages.config" />"##).old()
-//             .with_packages_config(r##"
-//             <package id="Clarius.TransformOnBuild" version="1.1.12" targetFramework="net462" developmentDependency="true" />
-//             <package id="Castle.Core" version="4.3.1" targetFramework="net462" />
-//             <package id="Owin" version="1.0" targetFramework="net462" />
-//             <package id="Castle.Core" version="4.3.1" targetFramework="net462" />
-//             "##).build();
-//         assert_eq!(project.packages, vec![
-//             Package::new("Castle.Core", "4.3.1", false, PackageClass::ThirdParty),
-//             Package::new("Clarius.TransformOnBuild", "1.1.12", true, PackageClass::ThirdParty),
-//             Package::new("Owin", "1.0", false, PackageClass::Microsoft),
-//         ]);
-//     }
+        #[test]
+        pub fn can_detect_output_type() {
+            let project = get_sdk_project();
+            assert_eq!(project.output_type, OutputType::Library);
+        }
 
-//     #[test]
-//     pub fn get_test_framework_mstest() {
-//         let project = ProjectBuilder::new(r##"<PackageReference Include="MSTest.TestFramework" Version="4.0.1" />"##)
-//             .sdk().build();
-//         assert_eq!(project.test_framework, TestFramework::MSTest);
-//     }
+        #[test]
+        pub fn can_detect_packages() {
+            let project = get_sdk_project();
+            assert_eq!(project.packages, vec![
+                Package::new("Landmark.Versioning.Bamboo", "3.1.44", true, PackageClass::Ours),
+                Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty),
+            ]);
+        }
+    }
 
-//     #[test]
-//     pub fn get_test_framework_xunit() {
-//         let project = ProjectBuilder::new(r##"<PackageReference Include="Xunit.Core" Version="4.0.1" />"##)
-//             .sdk().build();
-//         assert_eq!(project.test_framework, TestFramework::XUnit);
-//     }
+    /// These tests run against the embedded example old-style project.
+    /// They are an extra sanity-check that we really got it right "in the real world".
+    mod old_style_tests {
+        use super::*;
 
-//     #[test]
-//     pub fn get_test_framework_nunit() {
-//         let project = ProjectBuilder::new(r##"<PackageReference Include="NUnit.Core" Version="4.0.1" />"##)
-//             .sdk().build();
-//         assert_eq!(project.test_framework, TestFramework::NUnit);
-//     }
+        fn get_old_project() -> Project {
+            ProjectBuilder::new(include_str!("old1.csproj.xml")).old().build()
+        }
 
-//     #[test]
-//     pub fn get_test_framework_none() {
-//         let project = ProjectBuilder::new(r##"<PackageReference Include="MSTestNotMatched" Version="4.0.1" />"##)
-//             .sdk().build();
-//         assert_eq!(project.test_framework, TestFramework::None);
-//     }
+        fn get_old_project_with_packages(package_config_contents: &str) -> Project {
+            ProjectBuilder::new(include_str!("old1.csproj.xml")).old()
+                .with_packages_config(package_config_contents)
+                .build()
+        }
 
-//     #[test]
-//     pub fn uses_specflow_works() {
-//         let project = ProjectBuilder::new(r##"<PackageReference Include="NUnit.Core" Version="4.0.1" />"##)
-//             .sdk().build();
-//         assert!(!project.uses_specflow);
+        #[test]
+        pub fn can_detect_version() {
+            let project = get_old_project();
+            assert_eq!(project.version, ProjectVersion::OldStyle);
+        }
 
-//         let project = ProjectBuilder::new(r##"<PackageReference Include="SpecFlow" Version="2.3.2" />"##)
-//             .sdk().build();
-//         assert!(project.uses_specflow);
-//     }
+        #[test]
+        pub fn can_detect_xml_doc() {
+            let project = get_old_project();
+            assert_eq!(project.xml_doc, XmlDoc::Both);
+        }
 
-//     /// These tests run against the embedded example SDK-style project.
-//     /// They are an extra sanity-check that we really got it right "in the real world".
-//     mod sdk_tests {
-//         use super::*;
+        #[test]
+        pub fn can_detect_tt_file() {
+            let project = get_old_project();
+            assert!(project.tt_file);
+        }
 
-//         fn get_sdk_project() -> Project {
-//             ProjectBuilder::new(include_str!("sdk1.csproj.xml")).sdk().build()
-//         }
+        #[test]
+        pub fn embedded_debugging_is_always_false() {
+            let project = get_old_project();
+            assert!(!project.embedded_debugging);
+        }
 
-//         #[test]
-//         pub fn can_detect_version() {
-//             let project = get_sdk_project();
-//             assert_eq!(project.version, ProjectVersion::MicrosoftNetSdk);
-//         }
+        #[test]
+        pub fn can_detect_linked_solution_info() {
+            let project = get_old_project();
+            assert!(project.linked_solution_info);
+        }
 
-//         #[test]
-//         pub fn can_detect_xml_doc() {
-//             let project = get_sdk_project();
-//             assert_eq!(project.xml_doc, XmlDoc::Both);
-//         }
+        #[test]
+        pub fn can_detect_target_framework() {
+            let project = get_old_project();
+            assert_eq!(project.target_frameworks, vec!["v4.6.2"]);
+        }
 
-//         #[test]
-//         pub fn can_detect_tt_file() {
-//             let project = get_sdk_project();
-//             assert!(project.tt_file);
-//         }
+        #[test]
+        pub fn can_detect_referenced_assemblies() {
+            let project = get_old_project();
+            assert_eq!(project.referenced_assemblies, vec![
+                "PresentationCore",
+                "PresentationFramework",
+                "System",
+                "System.Activities",
+                "System.Core",
+                "System.Net.Http",
+                "System.Xml",
+                "System.configuration",
+                "WindowsBase"
+            ]);
+        }
 
-//         #[test]
-//         pub fn can_detect_embedded_debugging() {
-//             let project = get_sdk_project();
-//             assert!(project.embedded_debugging);
-//         }
+        #[test]
+        pub fn can_detect_has_auto_generate_binding_redirects() {
+            let project = get_old_project();
+            assert!(!project.auto_generate_binding_redirects);
+        }
 
-//         #[test]
-//         pub fn can_detect_linked_solution_info() {
-//             let project = get_sdk_project();
-//             assert!(project.linked_solution_info);
-//         }
+        #[test]
+        pub fn can_detect_web_config() {
+            let project = get_old_project();
+            assert_eq!(project.web_config, FileStatus::NotPresent);
+        }
 
-//         #[test]
-//         pub fn can_detect_target_framework() {
-//             let project = get_sdk_project();
-//             assert_eq!(project.target_frameworks, vec!["net462"]);
-//         }
+        #[test]
+        pub fn can_detect_app_config() {
+            let project = get_old_project();
+            assert_eq!(project.app_config, FileStatus::InProjectFileOnly);
+        }
 
-//         #[test]
-//         pub fn can_detect_referenced_assemblies() {
-//             let project = get_sdk_project();
-//             assert_eq!(project.referenced_assemblies, vec!["System.Configuration", "System.Windows"]);
-//         }
+        #[test]
+        pub fn can_detect_app_settings_json() {
+            let project = get_old_project();
+            assert_eq!(project.app_settings_json, FileStatus::NotPresent);
+        }
 
-//         #[test]
-//         pub fn can_detect_has_auto_generate_binding_redirects() {
-//             let project = get_sdk_project();
-//             assert!(project.auto_generate_binding_redirects);
-//         }
+        #[test]
+        pub fn can_detect_package_json() {
+            let project = get_old_project();
+            assert_eq!(project.package_json, FileStatus::NotPresent);
+        }
 
-//         #[test]
-//         pub fn can_detect_web_config() {
-//             let project = get_sdk_project();
-//             assert_eq!(project.web_config, FileStatus::NotPresent);
-//         }
+        #[test]
+        pub fn can_detect_packages_config() {
+            let project = get_old_project();
+            assert_eq!(project.packages_config, FileStatus::InProjectFileOnly);
+        }
 
-//         #[test]
-//         pub fn can_detect_app_config() {
-//             let project = get_sdk_project();
-//             assert_eq!(project.app_config, FileStatus::NotPresent);
-//         }
+        #[test]
+        pub fn can_detect_project_json() {
+            let project = get_old_project();
+            assert_eq!(project.project_json, FileStatus::NotPresent);
+        }
 
-//         #[test]
-//         pub fn can_detect_app_settings_json() {
-//             let project = get_sdk_project();
-//             assert_eq!(project.app_settings_json, FileStatus::NotPresent);
-//         }
+        #[test]
+        pub fn can_detect_output_type() {
+            let project = get_old_project();
+            assert_eq!(project.output_type, OutputType::Library);
+        }
 
-//         #[test]
-//         pub fn can_detect_package_json() {
-//             let project = get_sdk_project();
-//             assert_eq!(project.package_json, FileStatus::NotPresent);
-//         }
+        #[test]
+        pub fn can_detect_packages() {
+            let project = get_old_project_with_packages(r##"
+                <package id="Clarius.TransformOnBuild" version="1.1.12" targetFramework="net462" developmentDependency="true" />
+                <package id="MyCorp.Fundamentals" version="1.2.18268.136" targetFramework="net462" />
+                <package id="Microsoft.Owin.Hosting" version="4.0.0" targetFramework="net462" />
+                <package id="Microsoft.Owin.SelfHost" version="4.0.0" targetFramework="net462" />
+                <package id="Moq" version="4.8.3" targetFramework="net462" />
+                <package id="Newtonsoft.Json" version="11.0.2" targetFramework="net462" />
+                <package id="Npgsql" version="3.2.7" targetFramework="net462" />
+                <package id="MyProject.Core" version="1.12.18297.228" targetFramework="net462" />
+                <package id="WorkflowService.Client" version="1.12.18297.23" targetFramework="net462" />
+            "##);
 
-//         #[test]
-//         pub fn can_detect_packages_config() {
-//             let project = get_sdk_project();
-//             assert_eq!(project.packages_config, FileStatus::NotPresent);
-//         }
-
-//         #[test]
-//         pub fn can_detect_project_json() {
-//             let project = get_sdk_project();
-//             assert_eq!(project.project_json, FileStatus::NotPresent);
-//         }
-
-//         #[test]
-//         pub fn can_detect_output_type() {
-//             let project = get_sdk_project();
-//             assert_eq!(project.output_type, OutputType::Library);
-//         }
-
-//         #[test]
-//         pub fn can_detect_packages() {
-//             let project = get_sdk_project();
-//             assert_eq!(project.packages, vec![
-//                 Package::new("Landmark.Versioning.Bamboo", "3.1.44", true, PackageClass::Ours),
-//                 Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty),
-//             ]);
-//         }
-//     }
-
-//     /// These tests run against the embedded example old-style project.
-//     /// They are an extra sanity-check that we really got it right "in the real world".
-//     mod old_style_tests {
-//         use super::*;
-
-//         fn get_old_project() -> Project {
-//             ProjectBuilder::new(include_str!("old1.csproj.xml")).old().build()
-//         }
-
-//         fn get_old_project_with_packages(package_config_contents: &str) -> Project {
-//             ProjectBuilder::new(include_str!("old1.csproj.xml")).old()
-//                 .with_packages_config(package_config_contents)
-//                 .build()
-//         }
-
-//         #[test]
-//         pub fn can_detect_version() {
-//             let project = get_old_project();
-//             assert_eq!(project.version, ProjectVersion::OldStyle);
-//         }
-
-//         #[test]
-//         pub fn can_detect_xml_doc() {
-//             let project = get_old_project();
-//             assert_eq!(project.xml_doc, XmlDoc::Both);
-//         }
-
-//         #[test]
-//         pub fn can_detect_tt_file() {
-//             let project = get_old_project();
-//             assert!(project.tt_file);
-//         }
-
-//         #[test]
-//         pub fn embedded_debugging_is_always_false() {
-//             let project = get_old_project();
-//             assert!(!project.embedded_debugging);
-//         }
-
-//         #[test]
-//         pub fn can_detect_linked_solution_info() {
-//             let project = get_old_project();
-//             assert!(project.linked_solution_info);
-//         }
-
-//         #[test]
-//         pub fn can_detect_target_framework() {
-//             let project = get_old_project();
-//             assert_eq!(project.target_frameworks, vec!["v4.6.2"]);
-//         }
-
-//         #[test]
-//         pub fn can_detect_referenced_assemblies() {
-//             let project = get_old_project();
-//             assert_eq!(project.referenced_assemblies, vec![
-//                 "PresentationCore",
-//                 "PresentationFramework",
-//                 "System",
-//                 "System.Activities",
-//                 "System.Core",
-//                 "System.Net.Http",
-//                 "System.Xml",
-//                 "System.configuration",
-//                 "WindowsBase"
-//             ]);
-//         }
-
-//         #[test]
-//         pub fn can_detect_has_auto_generate_binding_redirects() {
-//             let project = get_old_project();
-//             assert!(!project.auto_generate_binding_redirects);
-//         }
-
-//         #[test]
-//         pub fn can_detect_web_config() {
-//             let project = get_old_project();
-//             assert_eq!(project.web_config, FileStatus::NotPresent);
-//         }
-
-//         #[test]
-//         pub fn can_detect_app_config() {
-//             let project = get_old_project();
-//             assert_eq!(project.app_config, FileStatus::InProjectFileOnly);
-//         }
-
-//         #[test]
-//         pub fn can_detect_app_settings_json() {
-//             let project = get_old_project();
-//             assert_eq!(project.app_settings_json, FileStatus::NotPresent);
-//         }
-
-//         #[test]
-//         pub fn can_detect_package_json() {
-//             let project = get_old_project();
-//             assert_eq!(project.package_json, FileStatus::NotPresent);
-//         }
-
-//         #[test]
-//         pub fn can_detect_packages_config() {
-//             let project = get_old_project();
-//             assert_eq!(project.packages_config, FileStatus::InProjectFileOnly);
-//         }
-
-//         #[test]
-//         pub fn can_detect_project_json() {
-//             let project = get_old_project();
-//             assert_eq!(project.project_json, FileStatus::NotPresent);
-//         }
-
-//         #[test]
-//         pub fn can_detect_output_type() {
-//             let project = get_old_project();
-//             assert_eq!(project.output_type, OutputType::Library);
-//         }
-
-//         #[test]
-//         pub fn can_detect_packages() {
-//             let project = get_old_project_with_packages(r##"
-//                 <package id="Clarius.TransformOnBuild" version="1.1.12" targetFramework="net462" developmentDependency="true" />
-//                 <package id="MyCorp.Fundamentals" version="1.2.18268.136" targetFramework="net462" />
-//                 <package id="Microsoft.Owin.Hosting" version="4.0.0" targetFramework="net462" />
-//                 <package id="Microsoft.Owin.SelfHost" version="4.0.0" targetFramework="net462" />
-//                 <package id="Moq" version="4.8.3" targetFramework="net462" />
-//                 <package id="Newtonsoft.Json" version="11.0.2" targetFramework="net462" />
-//                 <package id="Npgsql" version="3.2.7" targetFramework="net462" />
-//                 <package id="MyProject.Core" version="1.12.18297.228" targetFramework="net462" />
-//                 <package id="WorkflowService.Client" version="1.12.18297.23" targetFramework="net462" />
-//             "##);
-
-//             assert_eq!(project.packages, vec![
-//                 Package::new("Clarius.TransformOnBuild", "1.1.12", true, PackageClass::ThirdParty),
-//                 Package::new("Microsoft.Owin.Hosting", "4.0.0", false, PackageClass::Microsoft),
-//                 Package::new("Microsoft.Owin.SelfHost", "4.0.0", false, PackageClass::Microsoft),
-//                 Package::new("Moq", "4.8.3", false, PackageClass::ThirdParty),
-//                 Package::new("MyCorp.Fundamentals", "1.2.18268.136", false, PackageClass::ThirdParty),
-//                 Package::new("MyProject.Core", "1.12.18297.228", false, PackageClass::ThirdParty),
-//                 Package::new("Newtonsoft.Json", "11.0.2", false, PackageClass::ThirdParty),
-//                 Package::new("Npgsql", "3.2.7", false, PackageClass::ThirdParty),
-//                 Package::new("WorkflowService.Client", "1.12.18297.23", false, PackageClass::Ours),
-//             ]);
-//         }
-//     }
+            assert_eq!(project.packages, vec![
+                Package::new("Clarius.TransformOnBuild", "1.1.12", true, PackageClass::ThirdParty),
+                Package::new("Microsoft.Owin.Hosting", "4.0.0", false, PackageClass::Microsoft),
+                Package::new("Microsoft.Owin.SelfHost", "4.0.0", false, PackageClass::Microsoft),
+                Package::new("Moq", "4.8.3", false, PackageClass::ThirdParty),
+                Package::new("MyCorp.Fundamentals", "1.2.18268.136", false, PackageClass::ThirdParty),
+                Package::new("MyProject.Core", "1.12.18297.228", false, PackageClass::ThirdParty),
+                Package::new("Newtonsoft.Json", "11.0.2", false, PackageClass::ThirdParty),
+                Package::new("Npgsql", "3.2.7", false, PackageClass::ThirdParty),
+                Package::new("WorkflowService.Client", "1.12.18297.23", false, PackageClass::Ours),
+            ]);
+        }
+    }
 }
