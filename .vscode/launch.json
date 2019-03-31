@@ -1,0 +1,101 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'dnlib'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=dnlib"
+                ],
+                "filter": {
+                    "name": "dnlib",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'dnclean'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=dnclean",
+                    "--package=dnclean"
+                ],
+                "filter": {
+                    "name": "dnclean",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'dnclean'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=dnclean",
+                    "--package=dnclean"
+                ],
+                "filter": {
+                    "name": "dnclean",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'dnscan'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=dnscan",
+                    "--package=dnscan"
+                ],
+                "filter": {
+                    "name": "dnscan",
+                    "kind": "bin"
+                }
+            },
+            "args": ["/home/phil/slow/From Work2/lmcmn-diagnostics"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'dnscan'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=dnscan",
+                    "--package=dnscan"
+                ],
+                "filter": {
+                    "name": "dnscan",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

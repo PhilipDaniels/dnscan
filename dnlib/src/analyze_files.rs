@@ -24,7 +24,6 @@ impl AnalyzedFiles {
     where
         P: AsRef<Path>,
     {
-        // First find all the paths of interest.
         let pta = find_files(&path)?;
         AnalyzedFiles::inner_new(path, pta, DiskFileLoader::default())
     }
@@ -58,7 +57,9 @@ impl AnalyzedFiles {
         P: AsRef<Path>,
         L: FileLoader,
     {
-        // Now group them into our structure.
+        println!("PTA = {:#?}", paths_to_analyze);
+
+        // Group the files from the disk walk into our structure.
         // Load and analyze each solution and place them into folders.
         let mut files = AnalyzedFiles::default();
         for sln_path in &paths_to_analyze.sln_files {
@@ -253,9 +254,14 @@ impl Solution {
         self.linked_projects.len() + self.orphaned_projects.len()
     }
 
+    /// Extracts the projects from the contents of the solution file. Note that there is
+    /// a potential problem here, in that the paths constructed will be in the format
+    /// of the system that the solution was created on (e.g. Windows) and not the
+    /// format of the system the program is running on (e.g. Linux).
+    /// See also `refers_to_project` where this surfaces.
     fn extract_mentioned_projects<P: AsRef<Path>>(path: P, contents: &str) -> Vec<PathBuf> {
         lazy_static! {
-            static ref PROJECT_RE: Regex = RegexBuilder::new(r##""(?P<projpath>.*?\.csproj)""##)
+            static ref PROJECT_RE: Regex = RegexBuilder::new(r##""(?P<projpath>[^"]+csproj)"##)
                                          .case_insensitive(true).build().unwrap();
         }
 
@@ -274,7 +280,8 @@ impl Solution {
     }
 
     fn refers_to_project<P: AsRef<Path>>(&self, project_path: P) -> bool {
-        self.mentioned_projects.iter().any(|mp| mp == project_path.as_ref())
+        let project_path = project_path.as_ref();
+        self.mentioned_projects.iter().any(|mp| mp == project_path)
     }
 }
 
@@ -282,7 +289,6 @@ impl Solution {
 mod analyzed_files_tests {
     use super::*;
     use crate::file_loader::MemoryFileLoader;
-    use crate::path_extensions::PathExtensions;
 
     // We have to use a real file system for these tests because of the directory walk (which
     // can be fairly easily factored out) and the PathExtensions tests (which cannot).
