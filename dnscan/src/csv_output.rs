@@ -2,9 +2,9 @@ use csv;
 use dnlib::prelude::*;
 use crate::errors::AnalysisResult;
 
-pub fn write_files(solutions: &[Solution], projects: &[Project]) -> AnalysisResult<()> {
-    write_solutions(solutions)?;
-    write_projects(projects)?;
+pub fn write_files(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
+    // write_solutions(solutions)?;
+    // write_projects(projects)?;
     Ok(())
 }
 

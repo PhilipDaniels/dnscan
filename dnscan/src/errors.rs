@@ -6,11 +6,11 @@ use csv;
 #[derive(Debug)]
 pub enum AnalysisError {
     // Errors from external libraries...
+    DnLib(dnlib::DnLibError),
     Io(io::Error),
     Csv(csv::Error),
 
     // Errors raised by us...
-    InvalidInterestingFile(String),
     //Regular(ErrorKind),
     //Custom(String)
 }
@@ -18,8 +18,8 @@ pub enum AnalysisError {
 impl Error for AnalysisError {
     fn description(&self) -> &str {
         match *self {
+            AnalysisError::DnLib(ref err) => err.description(),
             AnalysisError::Io(ref err) => err.description(),
-            AnalysisError::InvalidInterestingFile(ref s) => s.as_str(),
             AnalysisError::Csv(ref err) => err.description(),
         }
     }
@@ -28,10 +28,16 @@ impl Error for AnalysisError {
 impl fmt::Display for AnalysisError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            AnalysisError::DnLib(ref err) => err.fmt(f),
             AnalysisError::Io(ref err) => err.fmt(f),
-            AnalysisError::InvalidInterestingFile(ref s) => write!(f, "{}", s),
             AnalysisError::Csv(ref err) => err.fmt(f),
         }
+    }
+}
+
+impl From<dnlib::DnLibError> for AnalysisError {
+    fn from(err: dnlib::DnLibError) -> AnalysisError {
+        AnalysisError::DnLib(err)
     }
 }
 

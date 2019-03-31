@@ -36,6 +36,22 @@ impl AnalyzedFiles {
         }
     }
 
+    pub fn num_solutions(&self) -> usize {
+        self.solution_directories.iter()
+            .map(|sln_dir| sln_dir.num_solutions())
+            .sum()
+    }
+
+    pub fn num_projects(&self) -> usize {
+        self.solution_directories.iter()
+            .map(|sln_dir| sln_dir.num_projects())
+            .sum()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.solution_directories.is_empty()
+    }
+
     /// The actual guts of `new`, using a file loader so we can test it.
     fn inner_new<P, L>(path: P, paths_to_analyze: PathsToAnalyze, file_loader: L) -> DnLibResult<Self>
     where
@@ -53,13 +69,30 @@ impl AnalyzedFiles {
         // (This is very hacky. Assumes they are all in the project directory! Can fix by replacing
         // the '==' with a closure).
         // Then analyze each project.
-        let analyzed_projects = paths_to_analyze
-            .csproj_files
+        // TODO: This needs to be in parallel.
+
+    // let file_loader = DiskFileLoader::new();
+
+    // let (elapsed, solutions) = measure_time(|| {
+    //     paths.sln_files.par_iter().map(|path| {
+    //         Solution::new(path, &file_loader)
+    //     }).collect::<Vec<_>>()
+    // });
+
+    // if options.verbose {
+    //     println!("{} Solutions loaded and analyzed in {}", solutions.len(), elapsed);
+    // }
+
+    // let (elapsed, projects) = measure_time(|| {
+    //     paths.csproj_files.par_iter().map(|path| {
+    //         Project::new(path, &paths, &file_loader)
+    //     }).collect::<Vec<_>>()
+    // });
+
+        let analyzed_projects = paths_to_analyze.csproj_files
             .iter()
             .map(|proj_path| {
-                let other_paths = paths_to_analyze
-                    .other_files
-                    .iter()
+                let other_paths = paths_to_analyze.other_files.iter()
                     .filter(|&other_path| other_path.is_same_dir(proj_path))
                     .cloned()
                     .collect::<Vec<_>>();
@@ -155,6 +188,16 @@ impl SolutionDirectory {
             sf.sort();
         }
     }
+
+    pub fn num_solutions(&self) -> usize {
+        self.solutions.len()
+    }
+
+    pub fn num_projects(&self) -> usize {
+        self.solutions.iter()
+            .map(|sln| sln.num_projects())
+            .sum()
+    }
 }
 
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -204,6 +247,10 @@ impl Solution {
     fn sort(&mut self) {
         self.linked_projects.sort();
         self.orphaned_projects.sort();
+    }
+
+    fn num_projects(&self) -> usize {
+        self.linked_projects.len() + self.orphaned_projects.len()
     }
 
     fn extract_mentioned_projects<P: AsRef<Path>>(path: P, contents: &str) -> Vec<PathBuf> {
