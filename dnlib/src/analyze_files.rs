@@ -26,7 +26,7 @@ impl AnalyzedFiles {
         P: AsRef<Path>,
     {
         let pta = find_files(&path)?;
-        AnalyzedFiles::inner_new(path, configuration, pta, DiskFileLoader::default())
+        AnalyzedFiles::inner_new(configuration, pta, DiskFileLoader::default())
     }
 
     pub fn sort(&mut self) {
@@ -59,9 +59,8 @@ impl AnalyzedFiles {
     }
 
     /// The actual guts of `new`, using a file loader so we can test it.
-    fn inner_new<P, L>(path: P, configuration: &Configuration, paths_to_analyze: PathsToAnalyze, file_loader: L) -> DnLibResult<Self>
+    fn inner_new<L>(configuration: &Configuration, paths_to_analyze: PathsToAnalyze, file_loader: L) -> DnLibResult<Self>
     where
-        P: AsRef<Path>,
         L: FileLoader,
     {
         // println!("PTA = {:#?}", paths_to_analyze);
@@ -402,7 +401,7 @@ mod analyzed_files_tests {
         println!("pta = {:#?}", pta);
         let file_loader = MemoryFileLoader::new();
         let config = Configuration::default();
-        AnalyzedFiles::inner_new("C:\temp", &config, pta, file_loader).unwrap()
+        AnalyzedFiles::inner_new(&config, pta, file_loader).unwrap()
     }
 
     /// This function can be used when the tests need the files to have some contents.
@@ -427,7 +426,7 @@ mod analyzed_files_tests {
 
         println!("pta = {:#?}", pta);
         let config = Configuration::default();
-        AnalyzedFiles::inner_new("C:\temp", &config, pta, file_loader).unwrap()
+        AnalyzedFiles::inner_new(&config, pta, file_loader).unwrap()
     }
 
     #[test]
