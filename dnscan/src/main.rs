@@ -17,14 +17,18 @@ fn main() {
         std::process::exit(0);
     }
 
-    let dir = options.dir.unwrap();
-    if !dir.exists() {
-        eprintln!("The directory {:?} does not exist.", options.dir);
-        std::process::exit(1);
+    match options.dir.as_ref() {
+        Some(d) => if !d.exists() || !d.is_dir() {
+            eprintln!("The directory {:?} does not exist or is a file.", d);
+            std::process::exit(1);
+        },
+        None => {
+            eprintln!("Please specify a DIR to scan");
+            std::process::exit(1);
+        }
     }
 
-    let configuration = Configuration::new(&dir);
-
+    let configuration = Configuration::new(options.dir.as_ref().unwrap());
 
     // let (elapsed, _) = measure_time(|| run_analysis_and_print_result(&options));
     // if options.verbose {
@@ -42,9 +46,11 @@ pub fn run_analysis_and_print_result(options: &Options) {
     }
 }
 
-pub fn run_analysis(dir: &Path) -> AnalysisResult<()> {
+pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
+    let dir = options.dir.as_ref().unwrap();
+
     let (elapsed, analysis) = measure_time(|| {
-        AnalyzedFiles::new(dir)
+        AnalyzedFiles::new(&dir)
      });
 
     let analysis = analysis?;
