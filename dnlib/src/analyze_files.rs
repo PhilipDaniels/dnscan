@@ -7,6 +7,7 @@ use crate::project::Project;
 use crate::find_files::PathsToAnalyze;
 use crate::visual_studio_version::VisualStudioVersion;
 use crate::path_extensions::PathExtensions;
+use crate::configuration::Configuration;
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
@@ -20,7 +21,7 @@ pub struct AnalyzedFiles {
 }
 
 impl AnalyzedFiles {
-    pub fn new<P>(path: P) -> DnLibResult<Self>
+    pub fn new<P>(path: P, configuration: &Configuration) -> DnLibResult<Self>
     where
         P: AsRef<Path>,
     {

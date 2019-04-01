@@ -1,7 +1,6 @@
 use std::path::Path;
-use std::io;
-use std::fs;
-use std::env;
+use std::{io, fs, env};
+
 use regex::Regex;
 use serde::{Serialize, Deserialize};
 use serde_json;
@@ -25,6 +24,7 @@ impl PackageGroup {
     }
 }
 
+/// Represents the contents of our configuration file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Configuration {
     pub package_groups: Vec<PackageGroup>
@@ -52,17 +52,17 @@ impl Configuration {
         const CONFIG_FILE: &str = ".dnscan.json";
 
         // Look for a config file in the path to scan.
-        let mut path = directory_to_scan.as_ref().to_owned();
-        path.push(CONFIG_FILE);
-        if let Some(cfg) = Self::load_from_file(&path) {
+        let mut dir_to_scan = directory_to_scan.as_ref().to_owned();
+        dir_to_scan.push(CONFIG_FILE);
+        if let Some(cfg) = Self::load_from_file(&dir_to_scan) {
             return cfg;
         }
-        
+
         // If not found, look for a file in the same directory as the exe.
         if let Ok(exe_path) = env::current_exe() {
-            let mut path = exe_path.parent().unwrap().to_owned();
-            path.push(CONFIG_FILE);
-            if let Some(cfg) = Self::load_from_file(&path) {
+            let mut exe_dir = exe_path.parent().unwrap().to_owned();
+            exe_dir.push(CONFIG_FILE);
+            if let Some(cfg) = Self::load_from_file(&exe_dir) {
                 return cfg;
             }
         }
@@ -70,7 +70,7 @@ impl Configuration {
         // If not found, look for a file in the home dir.
         if let Some(mut home_dir) = dirs::home_dir() {
             home_dir.push(CONFIG_FILE);
-            if let Some(cfg) = Self::load_from_file(&path) {
+            if let Some(cfg) = Self::load_from_file(&home_dir) {
                 return cfg;
             }
         }
@@ -99,52 +99,7 @@ impl Configuration {
                 Err(e) => { eprintln!("Could not parse JSON {:?}", e); None },
             },
             Err(ref e) if e.kind() == io::ErrorKind::NotFound => None,
-            Err(e) => panic!("Error opening config file {:?}", e) 
+            Err(e) => panic!("Error opening config file {:?}", e)
         }
     }
 }
-
-    // if args.dump_config {
-    //     let profiles = ProfileSet::default();
-    //     let json = serde_json::to_string_pretty(&profiles)?;
-    //     println!("{}", json);
-    //     return Ok(());
-    // }
-
-    // let profiles = match dirs::home_dir() {
-    //     Some(mut path) => {
-    //         path.push(".lpf.json");
-    //         match File::open(path) {
-    //             Ok(f) => serde_json::from_reader(f)?,
-    //             Err(ref e) if e.kind() == io::ErrorKind::NotFound => ProfileSet::default(),
-    //             Err(e) => panic!("Error opening ~/.lpf.json: {:?}", e)
-    //         }
-    //     },
-    //     None => {
-    //         eprintln!("Cannot locate home directory, using default configuration.");
-    //         ProfileSet::default()
-    //     }
-    // };
-
-    // let configuration = get_config(&profiles, &args);
-    // let inputs = Inputs::new_from_config(&configuration);
-
-
-
-// How to load from a config file: ~/.dnscan.json
-// ./dnscan.json
-
-
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    pub fn package_group_new() {
-        let pg = PackageGroup::new("Microsoft", "^Microsoft");
-    }
-}
-
-

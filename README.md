@@ -22,6 +22,7 @@ cargo run --bin dnscan [-v]
 - Figure out how to run Rayon with 1 thread for debugging.
 - Tests for mentioned projects are completely inadequate.
 - Convert to use Unicase where possible.
+- Remove 2 vecs of Projects?
 - Better settings for rustfmt
 - Git info extraction
 - Build a REST API ('serve mode') for getting at the data

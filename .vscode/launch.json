@@ -75,7 +75,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["/home/phil/slow/From Work2/lmcmn-diagnostics"],
+            "args": ["/home/phil/slow/From Work2/"],
             "cwd": "${workspaceFolder}"
         },
         {

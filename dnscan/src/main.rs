@@ -1,5 +1,3 @@
-use std::io::Write;
-
 mod csv_output;
 mod errors;
 mod options;
@@ -30,14 +28,14 @@ fn main() {
 
     let configuration = Configuration::new(options.dir.as_ref().unwrap());
 
-    // let (elapsed, _) = measure_time(|| run_analysis_and_print_result(&options));
-    // if options.verbose {
-    //     println!("Total Time = {}", elapsed);
-    // }
+    let (elapsed, _) = measure_time(|| run_analysis_and_print_result(&options, &configuration));
+    if options.verbose {
+        println!("Total Time = {}", elapsed);
+    }
 }
 
-pub fn run_analysis_and_print_result(options: &Options) {
-    match run_analysis(options) {
+pub fn run_analysis_and_print_result(options: &Options, configuration: &Configuration) {
+    match run_analysis(options, configuration) {
         Ok(_) => if options.verbose { println!("Analysis completed without errors") },
         Err(e) => {
             eprintln!("Error occurred {:#?}", e);
@@ -46,11 +44,11 @@ pub fn run_analysis_and_print_result(options: &Options) {
     }
 }
 
-pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
+pub fn run_analysis(options: &Options, configuration: &Configuration) -> AnalysisResult<()> {
     let dir = options.dir.as_ref().unwrap();
 
     let (elapsed, analysis) = measure_time(|| {
-        AnalyzedFiles::new(&dir)
+        AnalyzedFiles::new(&dir, configuration)
      });
 
     let analysis = analysis?;
@@ -61,13 +59,13 @@ pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
         );
     }
 
-    // if options.verbose {
-    //     println!("Found {} solutions, {} linked projects and {} orphaned projects in {}.",
-    //         analysis.num_solutions(),
-    //         analysis.num_linked_projects(),
-    //         analysis.num_orphaned_projects(),
-    //         elapsed);
-    // }
+    if options.verbose {
+        println!("Found {} solutions, {} linked projects and {} orphaned projects in {}.",
+            analysis.num_solutions(),
+            analysis.num_linked_projects(),
+            analysis.num_orphaned_projects(),
+            elapsed);
+    }
 
     let (elapsed, result) = measure_time(|| {
         csv_output::write_files(&analysis)
