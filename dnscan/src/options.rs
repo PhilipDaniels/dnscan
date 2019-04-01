@@ -5,7 +5,8 @@ use std::path::PathBuf;
 /// The command line options.
 pub struct Options {
     pub verbose: bool,
-    pub dir: PathBuf,
+    pub dump_config: bool,
+    pub dir: Option<PathBuf>,
 }
 
 pub fn get_options() -> Options {
@@ -19,14 +20,20 @@ pub fn get_options() -> Options {
                 .help("Be verbose (prints messages about what is being done)"),
         )
         .arg(
+            Arg::with_name("dump-example-config")
+                .short("x")
+                .help("Prints the default configuration to stdout (for use as the basis of a custom configuration file")
+                .conflicts_with_all(&["DIR", "verbose"]),
+        )
+        .arg(
             Arg::with_name("DIR")
                 .help("Specifies the directory to start scanning from")
-                .required(true),
         )
         .get_matches();
 
     Options {
         verbose: matches.is_present("verbose"),
-        dir: PathBuf::from(matches.value_of("DIR").unwrap()),
+        dump_config: matches.is_present("dump-example-config"), 
+        dir: matches.value_of("DIR").map(|d| Some(PathBuf::from(d))).unwrap_or_default(),
     }
 }

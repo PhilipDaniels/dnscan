@@ -16,6 +16,7 @@ pub mod dn_error;
 pub mod find_files;
 pub mod analyze_files;
 pub mod project;
+pub mod configuration;
 
 pub mod prelude {
     pub use crate::as_str::*;
@@ -36,6 +37,7 @@ pub mod prelude {
     pub use crate::find_files::*;
     pub use crate::analyze_files::*;
     pub use crate::project::*;
+    pub use crate::configuration::*;
 }
 
 pub use prelude::*;

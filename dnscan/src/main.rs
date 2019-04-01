@@ -1,3 +1,5 @@
+use std::io::Write;
+
 mod csv_output;
 mod errors;
 mod options;
@@ -10,15 +12,24 @@ use dnlib::prelude::*;
 fn main() {
     let options = options::get_options();
 
-    if !options.dir.exists() {
+    if options.dump_config {
+        Configuration::dump_defaults();
+        std::process::exit(0);
+    }
+
+    let dir = options.dir.unwrap();
+    if !dir.exists() {
         eprintln!("The directory {:?} does not exist.", options.dir);
         std::process::exit(1);
     }
 
-    let (elapsed, _) = measure_time(|| run_analysis_and_print_result(&options));
-    if options.verbose {
-        println!("Total Time = {}", elapsed);
-    }
+    let configuration = Configuration::new(&dir);
+
+
+    // let (elapsed, _) = measure_time(|| run_analysis_and_print_result(&options));
+    // if options.verbose {
+    //     println!("Total Time = {}", elapsed);
+    // }
 }
 
 pub fn run_analysis_and_print_result(options: &Options) {
@@ -31,26 +42,26 @@ pub fn run_analysis_and_print_result(options: &Options) {
     }
 }
 
-pub fn run_analysis(options: &Options) -> AnalysisResult<()> {
+pub fn run_analysis(dir: &Path) -> AnalysisResult<()> {
     let (elapsed, analysis) = measure_time(|| {
-        AnalyzedFiles::new(&options.dir)
+        AnalyzedFiles::new(dir)
      });
 
     let analysis = analysis?;
     if analysis.is_empty() {
         println!(
             "Did not find any .sln or .csproj files under {}",
-            options.dir.display()
+            dir.display()
         );
     }
 
-    if options.verbose {
-        println!("Found {} solutions, {} linked projects and {} orphaned projects in {}.",
-            analysis.num_solutions(),
-            analysis.num_linked_projects(),
-            analysis.num_orphaned_projects(),
-            elapsed);
-    }
+    // if options.verbose {
+    //     println!("Found {} solutions, {} linked projects and {} orphaned projects in {}.",
+    //         analysis.num_solutions(),
+    //         analysis.num_linked_projects(),
+    //         analysis.num_orphaned_projects(),
+    //         elapsed);
+    // }
 
     let (elapsed, result) = measure_time(|| {
         csv_output::write_files(&analysis)

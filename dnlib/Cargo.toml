@@ -12,6 +12,9 @@ rayon = "1.0.3"
 regex = "1"
 elapsed = "0.1.2"
 unicase = "2.3"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_regex = "0.3.1"
 
 [dev-dependencies]
 tempfile = "3.0"
