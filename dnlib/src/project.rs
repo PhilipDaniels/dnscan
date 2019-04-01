@@ -5,11 +5,11 @@ use crate::file_status::FileStatus;
 use crate::interesting_file::InterestingFile;
 use crate::output_type::OutputType;
 use crate::package::Package;
-use crate::package_class::PackageClass;
 use crate::path_extensions::PathExtensions;
 use crate::project_version::ProjectVersion;
 use crate::test_framework::TestFramework;
 use crate::xml_doc::XmlDoc;
+use crate::configuration::Configuration;
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::path::{Path, PathBuf};
@@ -47,7 +47,7 @@ pub struct Project {
 }
 
 impl Project {
-    pub fn new<P, L>(path: P, other_files: Vec<PathBuf>, file_loader: &L) -> Self
+    pub fn new<P, L>(path: P, other_files: Vec<PathBuf>, file_loader: &L, configuration: &Configuration) -> Self
     where
         P: AsRef<Path>,
         L: FileLoader,
@@ -77,7 +77,7 @@ impl Project {
 
         // The things after here are dependent on having first determined the packages
         // that the project uses.
-        proj.packages = proj.extract_packages(file_loader);
+        proj.packages = proj.extract_packages(file_loader, configuration);
         proj.test_framework = proj.extract_test_framework();
         proj.uses_specflow = proj.extract_uses_specflow();
 
@@ -223,7 +223,7 @@ impl Project {
         None
     }
 
-    fn extract_packages<L: FileLoader>(&self, file_loader: &L) -> Vec<Package> {
+    fn extract_packages<L: FileLoader>(&self, file_loader: &L, configuration: &Configuration) -> Vec<Package> {
         lazy_static! {
             // It is rather difficult and incomprehensible to do this in a single regex. All these variants have been seen.
             //
@@ -259,30 +259,16 @@ impl Project {
 
             static ref PKG_CONFIG_RE: Regex = RegexBuilder::new(r##"<package\s*?id="(?P<name>.*?)"\s*?version="(?P<version>.*?)"(?P<inner>.*?)\s*?/>"##)
                 .case_insensitive(true).build().unwrap();
-
-
-            // This small 3rd party set of matchers essentially allows us to easily recognise a few packages
-            // that might otherwise be recognised by the MS or CORP matchers by mistake.
-            static ref THIRD_PARTY_PKG_CLASS_RE: Regex = RegexBuilder::new(r##"^System\.IO\.Abstractions.*|^Owin.Metrics"##)
-                .case_insensitive(true).build().unwrap();
-
-            static ref OURS_PKG_CLASS_RE: Regex = RegexBuilder::new(r##"^Landmark\..*|^DataMaintenance.*|^ValuationHub\..*|^CaseService\..*|^CaseActivities\..*|^NotificationService\..*|^WorkflowService\..*|^WorkflowRunner\..|^Unity.WF*"##)
-                .case_insensitive(true).build().unwrap();
-
-            static ref MS_PKG_CLASS_RE: Regex = RegexBuilder::new(r##"^CommonServiceLocator|^NETStandard\..*|^EntityFramework*|^Microsoft\..*|^MSTest.*|^Owin.*|^System\..*|^EnterpriseLibrary.*"##)
-                .case_insensitive(true).build().unwrap();
         }
 
-        let classify = |pkg_name: &str| -> PackageClass {
-            if THIRD_PARTY_PKG_CLASS_RE.is_match(pkg_name) {
-                PackageClass::ThirdParty
-            } else if OURS_PKG_CLASS_RE.is_match(pkg_name) {
-                PackageClass::Ours
-            } else if MS_PKG_CLASS_RE.is_match(pkg_name) {
-                PackageClass::Microsoft
-            } else {
-                PackageClass::ThirdParty
+        let classify = |pkg_name: &str| -> String {
+            for pkg_group in &configuration.package_groups {
+                if pkg_group.regex.is_match(pkg_name) {
+                    return pkg_group.name.clone();
+                }
             }
+
+            "Unclassified".to_owned()
         };
 
         let mut packages = match self.version {
@@ -300,7 +286,7 @@ impl Project {
                         pkg_name,
                         version,
                         rest.contains("<PrivateAssets>"),
-                        classify(pkg_name),
+                        &classify(pkg_name),
                     )
                 })
                 .collect(),
@@ -314,7 +300,7 @@ impl Project {
                                     &cap["name"],
                                     &cap["version"],
                                     cap["inner"].contains("developmentDependency=\"true\""),
-                                    classify(&cap["name"]),
+                                    &classify(&cap["name"]),
                                 )
                             })
                             .collect()

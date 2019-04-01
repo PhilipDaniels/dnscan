@@ -128,7 +128,7 @@ fn write_projects_to_packages(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
                         &proj.target_frameworks.join(","),
                         // package columns
                         &pkg.name,
-                        pkg.class.as_str(),
+                        &pkg.class,
                         &pkg.version,
                         pkg.development.as_str(),
                         pkg.is_preview().as_str(),

@@ -26,7 +26,7 @@ impl AnalyzedFiles {
         P: AsRef<Path>,
     {
         let pta = find_files(&path)?;
-        AnalyzedFiles::inner_new(path, pta, DiskFileLoader::default())
+        AnalyzedFiles::inner_new(path, configuration, pta, DiskFileLoader::default())
     }
 
     pub fn sort(&mut self) {
@@ -59,7 +59,7 @@ impl AnalyzedFiles {
     }
 
     /// The actual guts of `new`, using a file loader so we can test it.
-    fn inner_new<P, L>(path: P, paths_to_analyze: PathsToAnalyze, file_loader: L) -> DnLibResult<Self>
+    fn inner_new<P, L>(path: P, configuration: &Configuration, paths_to_analyze: PathsToAnalyze, file_loader: L) -> DnLibResult<Self>
     where
         P: AsRef<Path>,
         L: FileLoader,
@@ -104,7 +104,7 @@ impl AnalyzedFiles {
                     .cloned()
                     .collect::<Vec<_>>();
 
-                Project::new(proj_path, other_paths, &file_loader)
+                Project::new(proj_path, other_paths, &file_loader, configuration)
             })
             .collect::<Vec<_>>();
 

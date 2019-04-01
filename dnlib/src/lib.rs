@@ -7,7 +7,6 @@ pub mod output_type;
 pub mod test_framework;
 pub mod xml_doc;
 pub mod file_status;
-pub mod package_class;
 pub mod package;
 pub mod file_info;
 pub mod git_info;
@@ -28,7 +27,6 @@ pub mod prelude {
     pub use crate::test_framework::*;
     pub use crate::xml_doc::*;
     pub use crate::file_status::*;
-    pub use crate::package_class::*;
     pub use crate::package::*;
     pub use crate::file_info::*;
     pub use crate::git_info::*;

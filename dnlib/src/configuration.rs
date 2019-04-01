@@ -34,12 +34,14 @@ impl Default for Configuration {
     fn default() -> Self {
         Configuration {
             package_groups: vec![
-                // The order matters here. Attempts are made to match package
-                // names in the order that these elements appear in (which
-                // matters if patterns are not mutually exclusive).
-                PackageGroup::new("Third Party", r##"^System\.IO\.Abstractions.*|^Owin.Metrics"##),
-                PackageGroup::new("ValHub", r##"^Landmark\..*|^DataMaintenance.*|^ValuationHub\..*|^CaseService\..*|^CaseActivities\..*|^NotificationService\..*|^WorkflowService\..*|^WorkflowRunner\..|^Unity.WF*"##),
-                PackageGroup::new("Microsoft", r##"^CommonServiceLocator|^NETStandard\..*|^EntityFramework*|^Microsoft\..*|^MSTest.*|^Owin.*|^System\..*|^EnterpriseLibrary.*"##),
+                // The order matters here. Attempts are made to match package names in the order that these
+                // elements appear in (which matters if patterns are not mutually exclusive).
+                // A catch all assigns 'Third Party' to anything not yet matched.
+                PackageGroup::new("Third Party", r##"^System\.IO\.Abstractions.*|^Owin\.Metrics|^EntityFramework6\.Npgsql"##),
+                PackageGroup::new("VRM", r##"^VRM\..*|^WorkflowService\..*|^WorkflowRunner\.."##),
+                PackageGroup::new("ValHub", r##"^AuthZ.*|^Landmark\..*|^DataMaintenance.*|^ValuationHub\..*|^CaseService\..*|^CaseActivities\..*|^NotificationService\..*|^Unity\.WF|^QIFCore"##),
+                PackageGroup::new("Microsoft", r##"^CommonServiceLocator|^NETStandard\..*|^EntityFramework*|^Microsoft\..*|^MSTest.*|^Owin.*|^System\..*|^AspNet\..*|^WindowsAzure\..*|^EnterpriseLibrary.*"##),
+                PackageGroup::new("Third Party", r##".*"##),
             ]
         }
     }
