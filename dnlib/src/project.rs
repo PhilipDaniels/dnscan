@@ -405,7 +405,7 @@ impl Project {
                 file_loader.files.insert(pc_path, pcc);
             }
 
-            Project::new(&project_path, self.other_files, &file_loader)
+            Project::new(&project_path, self.other_files, &file_loader, &Configuration::default())
         }
 
         fn add_sdk_prolog(contents: &str) -> String {
@@ -609,7 +609,7 @@ impl Project {
         assert!(project.packages.is_empty());
 
         let project = ProjectBuilder::new(r##"blah<PackageReference Include="Unity" Version="4.0.1" />blah"##).sdk().build();
-        assert_eq!(project.packages, vec![Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)]);
+        assert_eq!(project.packages, vec![Package::new("Unity", "4.0.1", false, "Third Party")]);
     }
 
     #[test]
@@ -621,8 +621,8 @@ impl Project {
             "##
             ).sdk().build();
         assert_eq!(project.packages, vec![
-            Package::new("Automapper", "3.1.4", false, PackageClass::ThirdParty),
-            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
+            Package::new("Automapper", "3.1.4", false, "Third Party"),
+            Package::new("Unity", "4.0.1", false, "Third Party")
             ]);
 
         // Dedup & sort by secondary key (version).
@@ -635,9 +635,9 @@ impl Project {
             "##
             ).sdk().build();
         assert_eq!(project.packages, vec![
-            Package::new("Automapper", "3.1.4", false, PackageClass::ThirdParty),
-            Package::new("Automapper", "3.1.5", false, PackageClass::ThirdParty),
-            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
+            Package::new("Automapper", "3.1.4", false, "Third Party"),
+            Package::new("Automapper", "3.1.5", false, "Third Party"),
+            Package::new("Unity", "4.0.1", false, "Third Party")
             ]);
     }
 
@@ -653,9 +653,9 @@ impl Project {
             "##
             ).sdk().build();
         assert_eq!(project.packages, vec![
-            Package::new("Automapper", "3.1.4", false, PackageClass::ThirdParty),
-            Package::new("Automapper", "3.1.5", false, PackageClass::ThirdParty),
-            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
+            Package::new("Automapper", "3.1.4", false, "Third Party"),
+            Package::new("Automapper", "3.1.5", false, "Third Party"),
+            Package::new("Unity", "4.0.1", false, "Third Party")
             ]);
     }
 
@@ -668,7 +668,7 @@ impl Project {
             "##
         ).sdk().build();
         assert_eq!(project.packages, vec![
-            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty)
+            Package::new("Unity", "4.0.1", false, "Third Party")
             ]);
     }
 
@@ -682,7 +682,7 @@ impl Project {
             "##
         ).sdk().build();
         assert_eq!(project.packages, vec![
-            Package::new("Unity", "4.0.1", true, PackageClass::ThirdParty)
+            Package::new("Unity", "4.0.1", true, "Third Party")
             ]);
     }
 
@@ -705,10 +705,10 @@ impl Project {
             "##
         ).sdk().build();
         assert_eq!(project.packages, vec![
-            Package::new("Automapper", "3.1.4", true, PackageClass::ThirdParty),
-            Package::new("EntityFramework", "2.4.6", false, PackageClass::Microsoft),
-            Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty),
-            Package::new("Versioning.Bamboo", "8.8.9", false, PackageClass::ThirdParty)
+            Package::new("Automapper", "3.1.4", true, "Third Party"),
+            Package::new("EntityFramework", "2.4.6", false, "Microsoft"),
+            Package::new("Unity", "4.0.1", false, "Third Party"),
+            Package::new("Versioning.Bamboo", "8.8.9", false, "Third Party")
             ]);
     }
 
@@ -722,9 +722,9 @@ impl Project {
             <package id="Castle.Core" version="4.3.1" targetFramework="net462" />
             "##).build();
         assert_eq!(project.packages, vec![
-            Package::new("Castle.Core", "4.3.1", false, PackageClass::ThirdParty),
-            Package::new("Clarius.TransformOnBuild", "1.1.12", true, PackageClass::ThirdParty),
-            Package::new("Owin", "1.0", false, PackageClass::Microsoft),
+            Package::new("Castle.Core", "4.3.1", false, "Third Party"),
+            Package::new("Clarius.TransformOnBuild", "1.1.12", true, "Third Party"),
+            Package::new("Owin", "1.0", false, "Microsoft"),
         ]);
     }
 
@@ -871,8 +871,8 @@ impl Project {
         pub fn can_detect_packages() {
             let project = get_sdk_project();
             assert_eq!(project.packages, vec![
-                Package::new("Landmark.Versioning.Bamboo", "3.1.44", true, PackageClass::Ours),
-                Package::new("Unity", "4.0.1", false, PackageClass::ThirdParty),
+                Package::new("Landmark.Versioning.Bamboo", "3.1.44", true, "ValHub"),
+                Package::new("Unity", "4.0.1", false, "Third Party"),
             ]);
         }
     }
@@ -1007,15 +1007,15 @@ impl Project {
             "##);
 
             assert_eq!(project.packages, vec![
-                Package::new("Clarius.TransformOnBuild", "1.1.12", true, PackageClass::ThirdParty),
-                Package::new("Microsoft.Owin.Hosting", "4.0.0", false, PackageClass::Microsoft),
-                Package::new("Microsoft.Owin.SelfHost", "4.0.0", false, PackageClass::Microsoft),
-                Package::new("Moq", "4.8.3", false, PackageClass::ThirdParty),
-                Package::new("MyCorp.Fundamentals", "1.2.18268.136", false, PackageClass::ThirdParty),
-                Package::new("MyProject.Core", "1.12.18297.228", false, PackageClass::ThirdParty),
-                Package::new("Newtonsoft.Json", "11.0.2", false, PackageClass::ThirdParty),
-                Package::new("Npgsql", "3.2.7", false, PackageClass::ThirdParty),
-                Package::new("WorkflowService.Client", "1.12.18297.23", false, PackageClass::Ours),
+                Package::new("Clarius.TransformOnBuild", "1.1.12", true, "Third Party"),
+                Package::new("Microsoft.Owin.Hosting", "4.0.0", false, "Microsoft"),
+                Package::new("Microsoft.Owin.SelfHost", "4.0.0", false, "Microsoft"),
+                Package::new("Moq", "4.8.3", false, "Third Party"),
+                Package::new("MyCorp.Fundamentals", "1.2.18268.136", false, "Third Party"),
+                Package::new("MyProject.Core", "1.12.18297.228", false, "Third Party"),
+                Package::new("Newtonsoft.Json", "11.0.2", false, "Third Party"),
+                Package::new("Npgsql", "3.2.7", false, "Third Party"),
+                Package::new("WorkflowService.Client", "1.12.18297.23", false, "VRM"),
             ]);
         }
     }

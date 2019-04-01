@@ -401,7 +401,8 @@ mod analyzed_files_tests {
 
         println!("pta = {:#?}", pta);
         let file_loader = MemoryFileLoader::new();
-        AnalyzedFiles::inner_new("C:\temp", pta, file_loader).unwrap()
+        let config = Configuration::default();
+        AnalyzedFiles::inner_new("C:\temp", &config, pta, file_loader).unwrap()
     }
 
     /// This function can be used when the tests need the files to have some contents.
@@ -425,7 +426,8 @@ mod analyzed_files_tests {
         }
 
         println!("pta = {:#?}", pta);
-        AnalyzedFiles::inner_new("C:\temp", pta, file_loader).unwrap()
+        let config = Configuration::default();
+        AnalyzedFiles::inner_new("C:\temp", &config, pta, file_loader).unwrap()
     }
 
     #[test]
