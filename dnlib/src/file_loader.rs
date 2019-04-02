@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 
 /// A trait for disk IO, to allow us to mock out the filesystem.
-pub trait FileLoader {
+pub trait FileLoader : Clone {
     fn read_to_string(&self, path: &Path) -> io::Result<String>;
 }
 
