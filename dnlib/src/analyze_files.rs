@@ -14,7 +14,6 @@ use regex::{Regex, RegexBuilder};
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use std::time::{self, Duration};
-//use std::clone::Clone;
 
 /// The set of all files found during analysis.
 #[derive(Debug, Default)]
@@ -78,13 +77,12 @@ impl AnalyzedFiles {
     fn analyze<L>(&mut self, configuration: &Configuration, file_loader: L) -> DnLibResult<()>
     where L: FileLoader + std::marker::Sync
     {
-        // Group the files from the disk walk into our structure.
         // Load and analyze each solution and place them into folders.
         let solution_analysis_start_time = time::Instant::now();
 
         let solutions = self.paths_analyzed.sln_files.par_iter()
-            .map(|path| {
-                Solution::new(path, &file_loader.clone())
+            .map(|sln_path| {
+                Solution::new(sln_path, &file_loader.clone())
             }).collect::<Vec<_>>();
 
         for sln in solutions {
@@ -93,27 +91,28 @@ impl AnalyzedFiles {
 
         self.solution_load_duration = solution_analysis_start_time.elapsed();
 
+
         // For each project, grab all the 'other' files in the same directory.
         // (This is very hacky. Assumes they are all in the project directory! Can fix by replacing
-        // the '==' with a closure).
-        // Then analyze each project.
-        // TODO: This needs to be in parallel.
+        // the '==' with a closure). Then analyze the project itself.
         let project_analysis_start_time = time::Instant::now();
-        let analyzed_projects = self.paths_analyzed.csproj_files.iter()
+
+        let projects = self.paths_analyzed.csproj_files.par_iter()
             .map(|proj_path| {
                 let other_paths = self.paths_analyzed.other_files.iter()
                     .filter(|&other_path| other_path.is_same_dir(proj_path))
                     .cloned()
                     .collect::<Vec<_>>();
 
-                Project::new(proj_path, other_paths, &file_loader, configuration)
+                Project::new(proj_path, other_paths, &file_loader.clone(), configuration)
             })
             .collect::<Vec<_>>();
-        self.project_load_duration = project_analysis_start_time.elapsed();
 
-        for proj in analyzed_projects {
+        for proj in projects {
             self.add_project(proj);
         }
+
+        self.project_load_duration = project_analysis_start_time.elapsed();
 
 
         self.sort();

@@ -17,8 +17,6 @@ cargo run --bin dnscan [-v]
 
 - Should really get rid of tp and have separate sets of tests for Windows and Linux?
 - Tests for pkg version variations
-- Make project analysis run in parallel again
-- Figure out how to run Rayon with 1 thread for debugging.
 - Tests for mentioned projects are completely inadequate.
 - Convert to use Unicase where possible.
 - Remove 2 vecs of Projects?
