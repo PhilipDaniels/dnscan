@@ -27,8 +27,8 @@ fn write_solutions(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
                 sln.file_info.is_valid_utf8.as_str(),
                 sln.version.as_str(),
                 // project columns
-                &sln.num_linked_projects().to_string(),
-                &sln.num_orphaned_projects().to_string(),
+                &sln.linked_projects().count().to_string(),
+                &sln.orphaned_projects().count().to_string(),
             ])?;
         }
     }
@@ -37,17 +37,12 @@ fn write_solutions(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
     Ok(())
 }
 
-fn all_projects(sln: &Solution) -> impl Iterator<Item = (&'static str, &Project)> {
-    sln.linked_projects.iter().map(|proj| ("Linked", proj))
-        .chain(sln.orphaned_projects.iter().map(|proj| ("Orphaned", proj)))
-}
-
 fn write_solutions_to_projects(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
     let mut wtr = csv::Writer::from_path("solutions_to_projects.csv")?;
 
     wtr.write_record(&[
         "SlnDirectory", "SlnPath", "SlnFile", "SlnIsValidUTF8", "SlnVersion",
-        "ProjLinkage", "ProjPath", "ProjFile", "ProjIsValidUTF8", "ProjVersion", "ProjOutputType", "ProjXmlDoc", "ProjTTFile",
+        "ProjOwnership", "ProjPath", "ProjFile", "ProjIsValidUTF8", "ProjVersion", "ProjOutputType", "ProjXmlDoc", "ProjTTFile",
         "ProjEmbeddedDebugging", "ProjLinkedSolutionInfo", "ProjAutoGenerateBindingRedirects", "ProjTargetFrameworks",
         "ProjTestFramework", "ProjUsesSpecflow",
         "ProjPackagesCount", "ProjAssembliesCount", "ProjReferencedProjectCount",
@@ -56,7 +51,7 @@ fn write_solutions_to_projects(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
 
     for sd in &analysis.solution_directories {
         for sln in &sd.solutions {
-            for (link_type, proj) in all_projects(sln) {
+            for proj in &sln.projects {
                 wtr.write_record(&[
                     // sln columns
                     sd.directory.as_str(),
@@ -65,7 +60,7 @@ fn write_solutions_to_projects(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
                     sln.file_info.is_valid_utf8.as_str(),
                     sln.version.as_str(),
                     // project columns
-                    link_type,
+                    proj.ownership.as_str(),
                     proj.file_info.path_as_str(),
                     proj.file_info.filename_as_str(),
                     proj.file_info.is_valid_utf8.as_str(),
@@ -102,14 +97,14 @@ fn write_projects_to_packages(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
 
     wtr.write_record(&[
         "SlnDirectory", "SlnPath", "SlnFile", "SlnIsValidUTF8", "SlnVersion",
-        "ProjLinkage", "ProjPath", "ProjFile", "ProjIsValidUTF8", "ProjVersion", "ProjOutputType", "ProjTargetFrameworks",
+        "ProjOwnership", "ProjPath", "ProjFile", "ProjIsValidUTF8", "ProjVersion", "ProjOutputType", "ProjTargetFrameworks",
         "PkgName", "PkgClass", "PkgVersion", "PkgIsDevelopment", "PkgIsPreview"
     ])?;
 
 
     for sd in &analysis.solution_directories {
         for sln in &sd.solutions {
-            for (link_type, proj) in all_projects(sln) {
+            for proj in &sln.projects {
                 for pkg in &proj.packages {
                     wtr.write_record(&[
                         // sln columns
@@ -119,7 +114,7 @@ fn write_projects_to_packages(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
                         sln.file_info.is_valid_utf8.as_str(),
                         sln.version.as_str(),
                         // project columns
-                        link_type,
+                        proj.ownership.as_str(),
                         proj.file_info.path_as_str(),
                         proj.file_info.filename_as_str(),
                         proj.file_info.is_valid_utf8.as_str(),

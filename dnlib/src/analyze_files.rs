@@ -8,6 +8,7 @@ use crate::find_files::PathsToAnalyze;
 use crate::visual_studio_version::VisualStudioVersion;
 use crate::path_extensions::PathExtensions;
 use crate::configuration::Configuration;
+use crate::project_ownership::ProjectOwnership;
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
@@ -134,13 +135,16 @@ impl AnalyzedFiles {
         self.solution_directories.push(sd);
     }
 
-    fn add_project(&mut self, project: Project) {
+    fn add_project(&mut self, mut project: Project) {
         if let Some(ref mut sln) = self.find_linked_solution(&project.file_info.path) {
-            sln.linked_projects.push(project);
+            project.ownership = ProjectOwnership::Linked;
+            sln.projects.push(project);
         } else if let Some(ref mut sln) = self.find_orphaned_solution(&project.file_info.path) {
-            sln.orphaned_projects.push(project);
+            project.ownership = ProjectOwnership::Orphaned;
+            sln.projects.push(project);
         } else if let Some(ref mut sln) = self.find_orphaned_solution_in_parent_dir(&project.file_info.path) {
-            sln.orphaned_projects.push(project);
+            project.ownership = ProjectOwnership::Orphaned;
+            sln.projects.push(project);
         } else {
             eprintln!("Could not associate project {:?} with a solution, ignoring.", &project.file_info.path);
         }
@@ -166,6 +170,13 @@ impl AnalyzedFiles {
     where
         P: AsRef<Path>,
     {
+        // TODO - needs to be an integration test?
+        // This will actually work ok in real life though.
+
+        // 'is_same_dir' takes the parent of both paths and checks that they are both actually
+        // directories before comparing the parents by case.
+        // Therefore this will fail for all tests if there is no file on disk!
+
         // Try and associate orphaned projects with any solutions that are in the same directory.
         for sd in &mut self.solution_directories {
             let matching_sln = sd.solutions.iter_mut().find(|sln| sln.file_info.path.is_same_dir(&project_path));
@@ -222,13 +233,13 @@ impl SolutionDirectory {
 
     pub fn num_linked_projects(&self) -> usize {
         self.solutions.iter()
-            .map(|sln| sln.num_linked_projects())
+            .map(|sln| sln.linked_projects().count())
             .sum()
     }
 
     pub fn num_orphaned_projects(&self) -> usize {
         self.solutions.iter()
-            .map(|sln| sln.num_orphaned_projects())
+            .map(|sln| sln.orphaned_projects().count())
             .sum()
     }
 }
@@ -240,18 +251,11 @@ pub struct Solution {
     pub version: VisualStudioVersion,
     pub git_info: GitInfo,
 
-    /// The set of projects that are linked to this solution. The project files
-    /// must exist on disk in the same directory or a subdirectory of the solution
-    /// directory, and be referenced from inside the .sln file.
-    /// This field is populated from the directory walk, not the solution contents.
-    pub linked_projects: Vec<Project>,
-
-    /// The set of projects that are related to this solution, in that they exist
-    /// exist on disk in the same directory or a subdirectory of the solution
-    /// directory, but they are not referenced from inside the .sln file.
-    /// (Probably they are projects that you forgot to delete).
-    /// This field is populated from the directory walk, not the solution contents.
-    pub orphaned_projects: Vec<Project>,
+    // The set of projects that we found during the disk walk and have loaded and
+    // associated with this solution (either by explicit linkage because they are
+    // mentioned in the .sln file, or by assumed-orphanship because they are in
+    // the same directory, but no longer in the solution).
+    pub projects: Vec<Project>,
 
     /// The set of projects that is mentioned inside the sln file.
     /// This is populated by reading the solution file and normalizing
@@ -279,16 +283,15 @@ impl Solution {
     }
 
     fn sort(&mut self) {
-        self.linked_projects.sort();
-        self.orphaned_projects.sort();
+        self.projects.sort();
     }
 
-    pub fn num_linked_projects(&self) -> usize {
-        self.linked_projects.len()
+    pub fn linked_projects(&self) -> impl Iterator<Item = &Project> {
+        self.projects.iter().filter(|p| p.ownership == ProjectOwnership::Linked)
     }
 
-    pub fn num_orphaned_projects(&self) -> usize {
-        self.orphaned_projects.len()
+    pub fn orphaned_projects(&self) -> impl Iterator<Item = &Project> {
+        self.projects.iter().filter(|p| p.ownership == ProjectOwnership::Orphaned)
     }
 
     /// Extracts the projects from the contents of the solution file. Note that there is
@@ -401,10 +404,15 @@ mod analyzed_files_tests {
             }
         }
 
-        println!("pta = {:#?}", pta);
         let file_loader = MemoryFileLoader::new();
         let config = Configuration::default();
-        AnalyzedFiles::inner_new(&config, pta, file_loader).unwrap()
+        let mut af = AnalyzedFiles {
+            paths_analyzed: pta,
+            ..Default::default()
+        };
+
+        af.analyze(&config, file_loader).unwrap();
+        af
     }
 
     /// This function can be used when the tests need the files to have some contents.
@@ -427,9 +435,15 @@ mod analyzed_files_tests {
             }
         }
 
-        println!("pta = {:#?}", pta);
+
         let config = Configuration::default();
-        AnalyzedFiles::inner_new(&config, pta, file_loader).unwrap()
+        let mut af = AnalyzedFiles {
+            paths_analyzed: pta,
+            ..Default::default()
+        };
+
+        af.analyze(&config, file_loader).unwrap();
+        af
     }
 
     #[test]
@@ -437,7 +451,6 @@ mod analyzed_files_tests {
         let analyzed_files = analyze(vec![
             tp(r"C:\temp\foo.sln")
         ]);
-        println!("AF = {:#?}", analyzed_files);
 
         assert_eq!(analyzed_files.solution_directories.len(), 1);
         assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
@@ -451,7 +464,6 @@ mod analyzed_files_tests {
             tp(r"C:\temp\foo.sln"),
             tp(r"C:\temp\foo2.sln")
         ]);
-        println!("AF = {:#?}", analyzed_files);
 
         assert_eq!(analyzed_files.solution_directories.len(), 1);
         assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
@@ -467,7 +479,6 @@ mod analyzed_files_tests {
             tp(r"C:\temp\foo2.sln"),
             tp(r"C:\blah\foo3.sln")
         ]);
-        println!("AF = {:#?}", analyzed_files);
 
         assert_eq!(analyzed_files.solution_directories.len(), 2);
 
@@ -487,7 +498,6 @@ mod analyzed_files_tests {
             tp(r"C:\temp\foo.sln"),
             tp(r"C:\temp\p1.csproj")
         ]);
-        println!("AF = {:#?}", analyzed_files);
 
         assert_eq!(analyzed_files.solution_directories.len(), 1);
         assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
@@ -495,9 +505,9 @@ mod analyzed_files_tests {
         assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
 
         let sln_file = &analyzed_files.solution_directories[0].solutions[0];
-        assert_eq!(sln_file.linked_projects.len(), 0);
-        assert_eq!(sln_file.orphaned_projects.len(), 1);
-        assert_eq!(sln_file.orphaned_projects[0].file_info.path, tp(r"C:\temp\p1.csproj"));
+        assert_eq!(sln_file.linked_projects().count(), 0);
+        assert_eq!(sln_file.orphaned_projects().count(), 1);
+        assert_eq!(sln_file.orphaned_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p1.csproj"));
     }
 
     #[test]
@@ -508,7 +518,6 @@ mod analyzed_files_tests {
             tp(r"C:\temp\sub\sub.sln"),
             tp(r"C:\temp\sub\p2.csproj")
         ]);
-        println!("AF = {:#?}", analyzed_files);
 
         assert_eq!(analyzed_files.solution_directories.len(), 2);
         assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
@@ -516,18 +525,18 @@ mod analyzed_files_tests {
         assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
 
         let sln_file = &analyzed_files.solution_directories[0].solutions[0];
-        assert_eq!(sln_file.linked_projects.len(), 0);
-        assert_eq!(sln_file.orphaned_projects.len(), 1);
-        assert_eq!(sln_file.orphaned_projects[0].file_info.path, tp(r"C:\temp\p1.csproj"));
+        assert_eq!(sln_file.linked_projects().count(), 0);
+        assert_eq!(sln_file.orphaned_projects().count(), 1);
+        assert_eq!(sln_file.orphaned_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p1.csproj"));
 
         assert_eq!(analyzed_files.solution_directories[1].directory, tp(r"C:\temp\sub"));
         assert_eq!(analyzed_files.solution_directories[1].solutions.len(), 1);
         assert_eq!(analyzed_files.solution_directories[1].solutions[0].file_info.path, tp(r"C:\temp\sub\sub.sln"));
 
         let sln_file = &analyzed_files.solution_directories[1].solutions[0];
-        assert_eq!(sln_file.linked_projects.len(), 0);
-        assert_eq!(sln_file.orphaned_projects.len(), 1);
-        assert_eq!(sln_file.orphaned_projects[0].file_info.path, tp(r"C:\temp\sub\p2.csproj"));
+        assert_eq!(sln_file.linked_projects().count(), 0);
+        assert_eq!(sln_file.orphaned_projects().count(), 1);
+        assert_eq!(sln_file.orphaned_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\sub\p2.csproj"));
     }
 
     #[test]
@@ -536,7 +545,6 @@ mod analyzed_files_tests {
             (tp(r"C:\temp\foo.sln"), r##""p1.csproj""##),
             (tp(r"C:\temp\p1.csproj"), ""),
         ]);
-        println!("AF = {:#?}", analyzed_files);
 
         assert_eq!(analyzed_files.solution_directories.len(), 1);
         assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
@@ -544,11 +552,12 @@ mod analyzed_files_tests {
         assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
 
         let sln_file = &analyzed_files.solution_directories[0].solutions[0];
-        assert_eq!(sln_file.orphaned_projects.len(), 0);
-        assert_eq!(sln_file.linked_projects.len(), 1);
-        assert_eq!(sln_file.linked_projects[0].file_info.path, tp(r"C:\temp\p1.csproj"));
+        assert_eq!(sln_file.orphaned_projects().count(), 0);
+        assert_eq!(sln_file.linked_projects().count(), 1);
+        assert_eq!(sln_file.linked_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p1.csproj"));
     }
 
+    #[cfg(Windows)]
     #[test]
     pub fn for_two_mentioned_projects() {
         let analyzed_files = analyze2(vec![
@@ -558,7 +567,6 @@ mod analyzed_files_tests {
             (tp(r"C:\temp\p1.csproj"), ""),
             (tp(r"C:\temp\p2.csproj"), ""),
         ]);
-        println!("AF = {:#?}", analyzed_files);
 
         assert_eq!(analyzed_files.solution_directories.len(), 1);
         assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
@@ -566,10 +574,10 @@ mod analyzed_files_tests {
         assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
 
         let sln_file = &analyzed_files.solution_directories[0].solutions[0];
-        assert_eq!(sln_file.orphaned_projects.len(), 0);
-        assert_eq!(sln_file.linked_projects.len(), 2);
-        assert_eq!(sln_file.linked_projects[0].file_info.path, tp(r"C:\temp\p1.csproj"));
-        assert_eq!(sln_file.linked_projects[1].file_info.path, tp(r"C:\temp\p2.csproj"));
+        assert_eq!(sln_file.orphaned_projects().count(), 0);
+        assert_eq!(sln_file.linked_projects().count(), 2);
+        assert_eq!(sln_file.linked_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p1.csproj"));
+        assert_eq!(sln_file.linked_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p2.csproj"));
     }
 
     #[cfg(not(Windows))]
@@ -582,7 +590,6 @@ mod analyzed_files_tests {
             (r"/temp/p1.csproj", ""),
             (r"/temp/sub/sub/p2.csproj", ""),
         ]);
-        println!("AF = {:#?}", analyzed_files);
 
         assert_eq!(analyzed_files.solution_directories.len(), 1);
         assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"/temp"));
@@ -590,9 +597,9 @@ mod analyzed_files_tests {
         assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"/temp\foo.sln"));
 
         let sln_file = &analyzed_files.solution_directories[0].solutions[0];
-        assert_eq!(sln_file.orphaned_projects.len(), 0);
-        assert_eq!(sln_file.linked_projects.len(), 2);
-        assert_eq!(sln_file.linked_projects[0].file_info.path, tp(r"/temp/p1.csproj"));
-        assert_eq!(sln_file.linked_projects[1].file_info.path, tp(r"/temp/sub/sub/p2.csproj"));
+        assert_eq!(sln_file.orphaned_projects().count(), 0);
+        assert_eq!(sln_file.linked_projects().count(), 2);
+        assert_eq!(sln_file.linked_projects().nth(0).unwrap().file_info.path, tp(r"/temp/p1.csproj"));
+        assert_eq!(sln_file.linked_projects().nth(1).unwrap().file_info.path, tp(r"/temp/sub/sub/p2.csproj"));
     }
 }

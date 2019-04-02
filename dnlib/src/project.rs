@@ -10,6 +10,8 @@ use crate::project_version::ProjectVersion;
 use crate::test_framework::TestFramework;
 use crate::xml_doc::XmlDoc;
 use crate::configuration::Configuration;
+use crate::project_ownership::ProjectOwnership;
+
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::path::{Path, PathBuf};
@@ -19,6 +21,7 @@ use std::sync::Arc;
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Project {
     pub file_info: FileInfo,
+    pub ownership: ProjectOwnership,
     pub other_files: Vec<PathBuf>,
     pub version: ProjectVersion,
     pub output_type: OutputType,
