@@ -13,14 +13,15 @@ use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
+use std::time::{self, Duration};
 
 /// The set of all files found during analysis.
 #[derive(Debug, Default)]
 pub struct AnalyzedFiles {
     pub solution_directories: Vec<SolutionDirectory>,
-    // disk walk time
-    // solution load time
-    // project load time
+    pub disk_walk_duration: Option<Duration>,
+    pub solution_load_duration: Option<Duration>,
+    pub project_load_duration: Option<Duration>,
 }
 
 impl AnalyzedFiles {
@@ -28,9 +29,12 @@ impl AnalyzedFiles {
     where
         P: AsRef<Path>,
     {
-        // TODO: Measure time here.
+        let start = time::Instant::now();
         let pta = find_files(&path)?;
-        AnalyzedFiles::inner_new(configuration, pta, DiskFileLoader::default())
+
+        let mut af = AnalyzedFiles::inner_new(configuration, pta, DiskFileLoader::default())?;
+        af.disk_walk_duration = Some(start.elapsed());
+        Ok(af)
     }
 
     pub fn sort(&mut self) {
@@ -69,19 +73,20 @@ impl AnalyzedFiles {
     {
         // Group the files from the disk walk into our structure.
         // Load and analyze each solution and place them into folders.
-        // TODO: Measure time here.
         // TODO: This needs to be in parallel.
+        let start = time::Instant::now();
         let mut files = AnalyzedFiles::default();
         for sln_path in &paths_to_analyze.sln_files {
             files.add_solution(sln_path, &file_loader);
         }
+        files.solution_load_duration = Some(start.elapsed());
 
         // For each project, grab all the 'other' files in the same directory.
         // (This is very hacky. Assumes they are all in the project directory! Can fix by replacing
         // the '==' with a closure).
         // Then analyze each project.
-        // TODO: Measure time here.
         // TODO: This needs to be in parallel.
+        let start = time::Instant::now();
         let analyzed_projects = paths_to_analyze.csproj_files.iter()
             .map(|proj_path| {
                 let other_paths = paths_to_analyze.other_files.iter()
@@ -92,6 +97,7 @@ impl AnalyzedFiles {
                 Project::new(proj_path, other_paths, &file_loader, configuration)
             })
             .collect::<Vec<_>>();
+        files.project_load_duration = Some(start.elapsed());
 
         for proj in analyzed_projects {
             files.add_project(proj);
@@ -101,12 +107,6 @@ impl AnalyzedFiles {
         let (elapsed, solutions) = measure_time(|| {
             paths.sln_files.par_iter().map(|path| {
                 Solution::new(path, &file_loader)
-            }).collect::<Vec<_>>()
-        });
-
-        let (elapsed, projects) = measure_time(|| {
-            paths.csproj_files.par_iter().map(|path| {
-                Project::new(path, &paths, &file_loader)
             }).collect::<Vec<_>>()
         });
         */
