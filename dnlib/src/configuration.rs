@@ -37,11 +37,11 @@ impl Default for Configuration {
                 // The order matters here. Attempts are made to match package names in the order that these
                 // elements appear in (which matters if patterns are not mutually exclusive).
                 // A catch all assigns 'Third Party' to anything not yet matched.
-                PackageGroup::new("Third Party", r##"^System\.IO\.Abstractions.*|^Owin\.Metrics|^EntityFramework6\.Npgsql"##),
-                PackageGroup::new("VRM", r##"^VRM\..*|^WorkflowService\..*|^WorkflowRunner\.."##),
-                PackageGroup::new("ValHub", r##"^AuthZ.*|^Landmark\..*|^DataMaintenance.*|^ValuationHub\..*|^CaseService\..*|^CaseActivities\..*|^NotificationService\..*|^Unity\.WF|^QIFCore"##),
-                PackageGroup::new("Microsoft", r##"^CommonServiceLocator|^NETStandard\..*|^EntityFramework*|^Microsoft\..*|^MSTest.*|^Owin.*|^System\..*|^AspNet\..*|^WindowsAzure\..*|^EnterpriseLibrary.*"##),
-                PackageGroup::new("Third Party", r##".*"##),
+                PackageGroup::new("Third Party", r#"^System\.IO\.Abstractions.*|^Owin\.Metrics|^EntityFramework6\.Npgsql"#),
+                PackageGroup::new("VRM", r#"^VRM\..*|^WorkflowService\..*|^WorkflowRunner\.."#),
+                PackageGroup::new("ValHub", r#"^AuthZ.*|^Landmark\..*|^DataMaintenance.*|^ValuationHub\..*|^CaseService\..*|^CaseActivities\..*|^NotificationService\..*|^Unity\.WF|^QIFCore"#),
+                PackageGroup::new("Microsoft", r#"^CommonServiceLocator|^NETStandard\..*|^EntityFramework*|^Microsoft\..*|^MSTest.*|^Owin.*|^System\..*|^AspNet\..*|^WindowsAzure\..*|^EnterpriseLibrary.*"#),
+                PackageGroup::new("Third Party", r#".*"#),
             ]
         }
     }

@@ -89,8 +89,8 @@ impl Project {
 
     fn extract_tt_file(&self) -> bool {
         lazy_static! {
-            static ref TT_REGEX: Regex = Regex::new(r##"<None (Include|Update).*?\.tt">"##).unwrap();
-            static ref NUSPEC_REGEX: Regex = Regex::new(r##"<None (Include|Update).*?\.nuspec">"##).unwrap();
+            static ref TT_REGEX: Regex = Regex::new(r#"<None (Include|Update).*?\.tt">"#).unwrap();
+            static ref NUSPEC_REGEX: Regex = Regex::new(r#"<None (Include|Update).*?\.nuspec">"#).unwrap();
         }
 
         TT_REGEX.is_match(&self.file_info.contents) && NUSPEC_REGEX.is_match(&self.file_info.contents)
@@ -106,7 +106,7 @@ impl Project {
 
     fn extract_linked_solution_info(&self) -> bool {
         lazy_static! {
-            static ref SOLUTION_INFO_REGEX: Regex = Regex::new(r##"[ <]Link.*?SolutionInfo\.cs.*?(</|/>)"##).unwrap();
+            static ref SOLUTION_INFO_REGEX: Regex = Regex::new(r#"[ <]Link.*?SolutionInfo\.cs.*?(</|/>)"#).unwrap();
         }
 
         SOLUTION_INFO_REGEX.is_match(&self.file_info.contents)
@@ -121,7 +121,7 @@ impl Project {
         // Actually the regex seems good enough, at least for the example files
         // in this project.
         lazy_static! {
-            static ref ASM_REF_REGEX: Regex = Regex::new(r##"<Reference Include="(?P<name>.*?)"\s*?/>"##).unwrap();
+            static ref ASM_REF_REGEX: Regex = Regex::new(r#"<Reference Include="(?P<name>.*?)"\s*?/>"#).unwrap();
         }
 
         let mut result = ASM_REF_REGEX.captures_iter(&self.file_info.contents)
@@ -135,9 +135,9 @@ impl Project {
 
     fn extract_target_frameworks(&self) -> Vec<String> {
         lazy_static! {
-            static ref OLD_TF_REGEX: Regex = Regex::new(r##"<TargetFrameworkVersion>(?P<tf>.*?)</TargetFrameworkVersion>"##).unwrap();
-            static ref SDK_SINGLE_TF_REGEX: Regex = Regex::new(r##"<TargetFramework>(?P<tf>.*?)</TargetFramework>"##).unwrap();
-            static ref SDK_MULTI_TF_REGEX: Regex = Regex::new(r##"<TargetFrameworks>(?P<tfs>.*?)</TargetFrameworks>"##).unwrap();
+            static ref OLD_TF_REGEX: Regex = Regex::new(r#"<TargetFrameworkVersion>(?P<tf>.*?)</TargetFrameworkVersion>"#).unwrap();
+            static ref SDK_SINGLE_TF_REGEX: Regex = Regex::new(r#"<TargetFramework>(?P<tf>.*?)</TargetFramework>"#).unwrap();
+            static ref SDK_MULTI_TF_REGEX: Regex = Regex::new(r#"<TargetFrameworks>(?P<tfs>.*?)</TargetFrameworks>"#).unwrap();
         }
 
         match self.version {
@@ -254,13 +254,13 @@ impl Project {
             // So the idea is to pull out the PackageReference and to its closing tag, getting the package name in the first regex,
             // then to look in the 'rest' to get the version number in a second step.
 
-            static ref SDK_RE: Regex = RegexBuilder::new(r##"<PackageReference\s+Include="(?P<name>[^"]+)"(?P<rest>.+?)(/>|</PackageReference>)"##)
+            static ref SDK_RE: Regex = RegexBuilder::new(r#"<PackageReference\s+Include="(?P<name>[^"]+)"(?P<rest>.+?)(/>|</PackageReference>)"#)
                 .case_insensitive(true).dot_matches_new_line(true).build().unwrap();
 
-            static ref SDK_VERSION_RE: Regex = RegexBuilder::new(r##"(Version="(?P<version>[^"]+)"|<Version>(?P<version2>[^<]+)</Version>)"##)
+            static ref SDK_VERSION_RE: Regex = RegexBuilder::new(r#"(Version="(?P<version>[^"]+)"|<Version>(?P<version2>[^<]+)</Version>)"#)
                 .case_insensitive(true).build().unwrap();
 
-            static ref PKG_CONFIG_RE: Regex = RegexBuilder::new(r##"<package\s*?id="(?P<name>.*?)"\s*?version="(?P<version>.*?)"(?P<inner>.*?)\s*?/>"##)
+            static ref PKG_CONFIG_RE: Regex = RegexBuilder::new(r#"<package\s*?id="(?P<name>.*?)"\s*?version="(?P<version>.*?)"(?P<inner>.*?)\s*?/>"#)
                 .case_insensitive(true).build().unwrap();
         }
 
@@ -426,202 +426,202 @@ impl Project {
 
     #[test]
     pub fn extract_version_works() {
-        let project = ProjectBuilder::new(r##""##).build();
+        let project = ProjectBuilder::new(r#""#).build();
         assert_eq!(project.version, ProjectVersion::Unknown);
 
-        let project = ProjectBuilder::new(r##""##).sdk().build();
+        let project = ProjectBuilder::new(r#""#).sdk().build();
         assert_eq!(project.version, ProjectVersion::MicrosoftNetSdk);
 
-        let project = ProjectBuilder::new(r##""##).old().build();
+        let project = ProjectBuilder::new(r#""#).old().build();
         assert_eq!(project.version, ProjectVersion::OldStyle);
 
-        let project = ProjectBuilder::new(r##""##).web().build();
+        let project = ProjectBuilder::new(r#""#).web().build();
         assert_eq!(project.version, ProjectVersion::MicrosoftNetSdkWeb);
     }
 
     #[test]
     pub fn extract_output_type_works() {
-        let project = ProjectBuilder::new(r##""##).build();
+        let project = ProjectBuilder::new(r#""#).build();
         assert_eq!(project.output_type, OutputType::Library);
 
-        let project = ProjectBuilder::new(r##"<OutputType>Library</OutputType>"##).build();
+        let project = ProjectBuilder::new(r#"<OutputType>Library</OutputType>"#).build();
         assert_eq!(project.output_type, OutputType::Library);
 
-        let project = ProjectBuilder::new(r##"<OutputType>Exe</OutputType>"##).build();
+        let project = ProjectBuilder::new(r#"<OutputType>Exe</OutputType>"#).build();
         assert_eq!(project.output_type, OutputType::Exe);
 
-        let project = ProjectBuilder::new(r##"<OutputType>WinExe</OutputType>"##).build();
+        let project = ProjectBuilder::new(r#"<OutputType>WinExe</OutputType>"#).build();
         assert_eq!(project.output_type, OutputType::WinExe);
     }
 
     #[test]
     pub fn extract_xml_doc_works() {
-        let project = ProjectBuilder::new(r##""##).build();
+        let project = ProjectBuilder::new(r#""#).build();
         assert_eq!(project.xml_doc, XmlDoc::None);
 
-        let project = ProjectBuilder::new(r##"blah<DocumentationFile>bin\Debug\WorkflowService.Client.xml</DocumentationFile>blah"##).build();
+        let project = ProjectBuilder::new(r#"blah<DocumentationFile>bin\Debug\WorkflowService.Client.xml</DocumentationFile>blah"#).build();
         assert_eq!(project.xml_doc, XmlDoc::Debug);
 
-        let project = ProjectBuilder::new(r##"blah<DocumentationFile>bin\Release\WorkflowService.Client.xml</DocumentationFile>blah"##).build();
+        let project = ProjectBuilder::new(r#"blah<DocumentationFile>bin\Release\WorkflowService.Client.xml</DocumentationFile>blah"#).build();
         assert_eq!(project.xml_doc, XmlDoc::Release);
 
-        let project = ProjectBuilder::new(r##"blah<DocumentationFile>bin\Release\WorkflowService.Client.xml</DocumentationFile>
-            <DocumentationFile>bin\Debug\WorkflowService.Client.xml</DocumentationFile>blah"##).build();
+        let project = ProjectBuilder::new(r#"blah<DocumentationFile>bin\Release\WorkflowService.Client.xml</DocumentationFile>
+            <DocumentationFile>bin\Debug\WorkflowService.Client.xml</DocumentationFile>blah"#).build();
         assert_eq!(project.xml_doc, XmlDoc::Both);
     }
 
     #[test]
     pub fn extract_tt_file_works() {
-        let project = ProjectBuilder::new(r##""##).build();
+        let project = ProjectBuilder::new(r#""#).build();
         assert!(!project.tt_file);
 
-        let project = ProjectBuilder::new(r##"blah<None Update="NuSpecTemplate.tt">blah"##).build();
+        let project = ProjectBuilder::new(r#"blah<None Update="NuSpecTemplate.tt">blah"#).build();
         assert!(!project.tt_file);
 
-        let project = ProjectBuilder::new(r##"blah<None Update="NuSpecTemplate.nuspec">blah"##).build();
+        let project = ProjectBuilder::new(r#"blah<None Update="NuSpecTemplate.nuspec">blah"#).build();
         assert!(!project.tt_file);
 
-        let project = ProjectBuilder::new(r##"blah<None Update="NuSpecTemplate.nuspec">blah
-            <None Update="NuSpecTemplate.tt">blah"##).build();
+        let project = ProjectBuilder::new(r#"blah<None Update="NuSpecTemplate.nuspec">blah
+            <None Update="NuSpecTemplate.tt">blah"#).build();
         assert!(project.tt_file);
 
-        let project = ProjectBuilder::new(r##"blah<None Include="NuSpecTemplate.nuspec">blah
-            <None Include="NuSpecTemplate.tt">blah"##).build();
+        let project = ProjectBuilder::new(r#"blah<None Include="NuSpecTemplate.nuspec">blah
+            <None Include="NuSpecTemplate.tt">blah"#).build();
         assert!(project.tt_file);
     }
 
     #[test]
     pub fn extract_embedded_debugging_works() {
-        let project = ProjectBuilder::new(r##""##).build();
+        let project = ProjectBuilder::new(r#""#).build();
         assert!(!project.embedded_debugging);
 
-        let project = ProjectBuilder::new(r##"blah<DebugType>embedded</DebugType>blah"##).build();
+        let project = ProjectBuilder::new(r#"blah<DebugType>embedded</DebugType>blah"#).build();
         assert!(!project.embedded_debugging);
 
-        let project = ProjectBuilder::new(r##"blah<EmbedAllSources>true</EmbedAllSources>blah"##).build();
+        let project = ProjectBuilder::new(r#"blah<EmbedAllSources>true</EmbedAllSources>blah"#).build();
         assert!(!project.embedded_debugging);
 
-        let project = ProjectBuilder::new(r##"blah<DebugType>embedded</DebugType>blah"
-            <EmbedAllSources>true</EmbedAllSources>blah"##).sdk().build();
+        let project = ProjectBuilder::new(r#"blah<DebugType>embedded</DebugType>blah"
+            <EmbedAllSources>true</EmbedAllSources>blah"#).sdk().build();
         assert!(project.embedded_debugging);
     }
 
     #[test]
     pub fn extract_linked_solution_info_works() {
-        let project = ProjectBuilder::new(r##""##).build();
+        let project = ProjectBuilder::new(r#""#).build();
         assert!(!project.linked_solution_info);
 
         // SDK style.
-        let project = ProjectBuilder::new(r##"blah<ItemGroup>
+        let project = ProjectBuilder::new(r#"blah<ItemGroup>
             <Compile Include="..\SolutionInfo.cs" Link="Properties\SolutionInfo.cs" />blah
-            </ItemGroup>blah"##).build();
+            </ItemGroup>blah"#).build();
         assert!(project.linked_solution_info);
 
         // Old style.
-        let project = ProjectBuilder::new(r##"blah<Compile Include="..\SolutionInfo.cs">
+        let project = ProjectBuilder::new(r#"blah<Compile Include="..\SolutionInfo.cs">
             <Link>Properties\SolutionInfo.cs</Link>blah
-            </Compile>blah"##).build();
+            </Compile>blah"#).build();
         assert!(project.linked_solution_info);
     }
 
     #[test]
     pub fn extract_auto_generate_binding_redirects_works() {
-        let project = ProjectBuilder::new(r##""##).build();
+        let project = ProjectBuilder::new(r#""#).build();
         assert!(!project.auto_generate_binding_redirects);
 
-        let project = ProjectBuilder::new(r##"blah<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>blah"##).build();
+        let project = ProjectBuilder::new(r#"blah<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>blah"#).build();
         assert!(project.auto_generate_binding_redirects);
 
-        let project = ProjectBuilder::new(r##"blah<AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>blah"##).build();
+        let project = ProjectBuilder::new(r#"blah<AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>blah"#).build();
         assert!(!project.auto_generate_binding_redirects);
     }
 
     #[test]
     pub fn extract_referenced_assemblies_works() {
-        let project = ProjectBuilder::new(r##""##).build();
+        let project = ProjectBuilder::new(r#""#).build();
         assert!(project.referenced_assemblies.is_empty());
 
-        let project = ProjectBuilder::new(r##"blah<Reference Include="System.Windows" />blah"##).build();
+        let project = ProjectBuilder::new(r#"blah<Reference Include="System.Windows" />blah"#).build();
         assert_eq!(project.referenced_assemblies, vec!["System.Windows"]);
 
-        let project = ProjectBuilder::new(r##"blah<Reference Include="System.Windows" />blah
-            blah<Reference Include="System.Windows" />blah"##).build();
+        let project = ProjectBuilder::new(r#"blah<Reference Include="System.Windows" />blah
+            blah<Reference Include="System.Windows" />blah"#).build();
         assert_eq!(project.referenced_assemblies, vec!["System.Windows"]);
 
-        let project = ProjectBuilder::new(r##"blah<Reference Include="System.Windows" />blah
-            blah<Reference Include="System.Data" />blah"##).build();
+        let project = ProjectBuilder::new(r#"blah<Reference Include="System.Windows" />blah
+            blah<Reference Include="System.Data" />blah"#).build();
         assert_eq!(project.referenced_assemblies, vec!["System.Data", "System.Windows"]);
     }
 
     #[test]
     pub fn sdk_extract_target_frameworks_works() {
-        let project = ProjectBuilder::new(r##""##).build();
+        let project = ProjectBuilder::new(r#""#).build();
         assert!(project.target_frameworks.is_empty());
 
-        let project = ProjectBuilder::new(r##"blah<TargetFramework>net462</TargetFramework>blah"##).sdk().build();
+        let project = ProjectBuilder::new(r#"blah<TargetFramework>net462</TargetFramework>blah"#).sdk().build();
         assert_eq!(project.target_frameworks, vec!["net462"]);
 
         // I don't believe this happens, but this is what we get.
-        let project = ProjectBuilder::new(r##"blah<TargetFramework>net462</TargetFramework>blah<TargetFramework>net472</TargetFramework>"##).sdk().build();
+        let project = ProjectBuilder::new(r#"blah<TargetFramework>net462</TargetFramework>blah<TargetFramework>net472</TargetFramework>"#).sdk().build();
         assert_eq!(project.target_frameworks, vec!["net462", "net472"]);
 
-        let project = ProjectBuilder::new(r##"blah<TargetFrameworks>net462;net472</TargetFrameworks>blah"##).sdk().build();
+        let project = ProjectBuilder::new(r#"blah<TargetFrameworks>net462;net472</TargetFrameworks>blah"#).sdk().build();
         assert_eq!(project.target_frameworks, vec!["net462", "net472"]);
     }
 
     #[test]
     pub fn old_extract_target_frameworks_works() {
-        let project = ProjectBuilder::new(r##""##).build();
+        let project = ProjectBuilder::new(r#""#).build();
         assert!(project.target_frameworks.is_empty());
 
-        let project = ProjectBuilder::new(r##"blah<TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>blah"##).old().build();
+        let project = ProjectBuilder::new(r#"blah<TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>blah"#).old().build();
         assert_eq!(project.target_frameworks, vec!["v4.6.2"]);
 
-        let project = ProjectBuilder::new(r##"blah<TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>blah
-            <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>"##).old().build();
+        let project = ProjectBuilder::new(r#"blah<TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>blah
+            <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>"#).old().build();
         assert_eq!(project.target_frameworks, vec!["v4.6.2", "v4.7.2"]);
     }
 
     #[test]
     pub fn has_packages_config_not_present() {
-        let project = ProjectBuilder::new(r##""##).build();
+        let project = ProjectBuilder::new(r#""#).build();
         assert_eq!(project.packages_config, FileStatus::NotPresent);
     }
 
     #[test]
     pub fn has_packages_config_on_disk() {
-        let project = ProjectBuilder::new(r##""##).with_packages_config("contents").build();
+        let project = ProjectBuilder::new(r#""#).with_packages_config("contents").build();
         assert_eq!(project.packages_config, FileStatus::OnDiskOnly);
     }
 
     #[test]
     pub fn has_packages_config_in_project_file_only() {
-        let project = ProjectBuilder::new(r##" Include="packages.config" />"##).build();
+        let project = ProjectBuilder::new(r#" Include="packages.config" />"#).build();
         assert_eq!(project.packages_config, FileStatus::InProjectFileOnly);
     }
 
     #[test]
     pub fn has_packages_config_in_project_file_and_on_disk() {
-        let project = ProjectBuilder::new(r##" Include="packages.config" />"##).with_packages_config("contents").build();
+        let project = ProjectBuilder::new(r#" Include="packages.config" />"#).with_packages_config("contents").build();
         assert_eq!(project.packages_config, FileStatus::InProjectFileAndOnDisk);
     }
 
     #[test]
     pub fn extract_packages_sdk_one_line() {
-        let project = ProjectBuilder::new(r##""##).sdk().build();
+        let project = ProjectBuilder::new(r#""#).sdk().build();
         assert!(project.packages.is_empty());
 
-        let project = ProjectBuilder::new(r##"blah<PackageReference Include="Unity" Version="4.0.1" />blah"##).sdk().build();
+        let project = ProjectBuilder::new(r#"blah<PackageReference Include="Unity" Version="4.0.1" />blah"#).sdk().build();
         assert_eq!(project.packages, vec![Package::new("Unity", "4.0.1", false, "Third Party")]);
     }
 
     #[test]
     pub fn extract_packages_sdk_one_line_sorts() {
         let project = ProjectBuilder::new(
-            r##"
+            r#"
             blah<PackageReference Include="Unity" Version="4.0.1" />blah
             blah<PackageReference Include="Automapper" Version="3.1.4" />blah
-            "##
+            "#
             ).sdk().build();
 
         assert_eq!(project.packages, vec![
@@ -631,12 +631,12 @@ impl Project {
 
         // Dedup & sort by secondary key (version).
         let project = ProjectBuilder::new(
-            r##"
+            r#"
             blah<PackageReference Include="Automapper" Version="3.1.5" />blah
             blah<PackageReference Include="Unity" Version="4.0.1" />blah
             blah<PackageReference Include="Automapper" Version="3.1.4" />blah
             blah<PackageReference Include="Unity" Version="4.0.1" />blah
-            "##
+            "#
             ).sdk().build();
 
         assert_eq!(project.packages, vec![
@@ -650,12 +650,12 @@ impl Project {
     pub fn extract_packages_sdk_one_line_dedups() {
         // Dedup & sort by secondary key (i.e. the version).
         let project = ProjectBuilder::new(
-            r##"
+            r#"
             blah<PackageReference Include="Automapper" Version="3.1.5" />blah
             blah<PackageReference Include="Unity" Version="4.0.1" />blah
             blah<PackageReference Include="Automapper" Version="3.1.4" />blah
             blah<PackageReference Include="Unity" Version="4.0.1" />blah
-            "##
+            "#
             ).sdk().build();
 
         assert_eq!(project.packages, vec![
@@ -668,10 +668,10 @@ impl Project {
     #[test]
     pub fn extract_packages_sdk_multi_line() {
         let project = ProjectBuilder::new(
-            r##"
+            r#"
             blah<PackageReference Include="Unity" Version="4.0.1">
                 </PackageReference>
-            "##
+            "#
         ).sdk().build();
 
         assert_eq!(project.packages, vec![
@@ -682,11 +682,11 @@ impl Project {
     #[test]
     pub fn extract_packages_sdk_multi_line_private_assets() {
         let project = ProjectBuilder::new(
-            r##"
+            r#"
             blah<PackageReference Include="Unity" Version="4.0.1">
                 <PrivateAssets>
                 </PackageReference>
-            "##
+            "#
         ).sdk().build();
 
         assert_eq!(project.packages, vec![
@@ -699,7 +699,7 @@ impl Project {
         // This flip-flop of styles discovered problems in the regex when it
         // was not terminating early enough.
         let project = ProjectBuilder::new(
-            r##"
+            r#"
             blah<PackageReference Include="Unity" Version="4.0.1">
                 </PackageReference>
 
@@ -710,7 +710,7 @@ impl Project {
                 </PackageReference>
 
                 <PackageReference Include="Versioning.Bamboo" Version="8.8.9" />
-            "##
+            "#
         ).sdk().build();
 
         assert_eq!(project.packages, vec![
@@ -726,7 +726,7 @@ impl Project {
         // This flip-flop of styles discovered problems in the regex when it
         // was not terminating early enough.
         let project = ProjectBuilder::new(
-            r##"
+            r#"
             <PackageReference Include="MoreFluentAssertions" Version="1.2.3" />
             <PackageReference Include="Microsoft.EntityFrameworkCore">
                 <Version>2.1.4</Version>
@@ -747,7 +747,7 @@ impl Project {
                 <PrivateAssets>all</PrivateAssets>
                 <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
             </PackageReference>
-            "##
+            "#
         ).sdk().build();
 
         assert_eq!(project.packages, vec![
@@ -761,13 +761,13 @@ impl Project {
 
     #[test]
     pub fn extract_packages_old_including_sort_and_dedup() {
-        let project = ProjectBuilder::new(r##" Include="packages.config" />"##).old()
-            .with_packages_config(r##"
+        let project = ProjectBuilder::new(r#" Include="packages.config" />"#).old()
+            .with_packages_config(r#"
             <package id="Clarius.TransformOnBuild" version="1.1.12" targetFramework="net462" developmentDependency="true" />
             <package id="Castle.Core" version="4.3.1" targetFramework="net462" />
             <package id="Owin" version="1.0" targetFramework="net462" />
             <package id="Castle.Core" version="4.3.1" targetFramework="net462" />
-            "##).build();
+            "#).build();
         assert_eq!(project.packages, vec![
             Package::new("Castle.Core", "4.3.1", false, "Third Party"),
             Package::new("Clarius.TransformOnBuild", "1.1.12", true, "Third Party"),
@@ -777,39 +777,39 @@ impl Project {
 
     #[test]
     pub fn extract_test_framework_mstest() {
-        let project = ProjectBuilder::new(r##"<PackageReference Include="MSTest.TestFramework" Version="4.0.1" />"##)
+        let project = ProjectBuilder::new(r#"<PackageReference Include="MSTest.TestFramework" Version="4.0.1" />"#)
             .sdk().build();
         assert_eq!(project.test_framework, TestFramework::MSTest);
     }
 
     #[test]
     pub fn extract_test_framework_xunit() {
-        let project = ProjectBuilder::new(r##"<PackageReference Include="Xunit.Core" Version="4.0.1" />"##)
+        let project = ProjectBuilder::new(r#"<PackageReference Include="Xunit.Core" Version="4.0.1" />"#)
             .sdk().build();
         assert_eq!(project.test_framework, TestFramework::XUnit);
     }
 
     #[test]
     pub fn extract_test_framework_nunit() {
-        let project = ProjectBuilder::new(r##"<PackageReference Include="NUnit.Core" Version="4.0.1" />"##)
+        let project = ProjectBuilder::new(r#"<PackageReference Include="NUnit.Core" Version="4.0.1" />"#)
             .sdk().build();
         assert_eq!(project.test_framework, TestFramework::NUnit);
     }
 
     #[test]
     pub fn extract_test_framework_none() {
-        let project = ProjectBuilder::new(r##"<PackageReference Include="MSTestNotMatched" Version="4.0.1" />"##)
+        let project = ProjectBuilder::new(r#"<PackageReference Include="MSTestNotMatched" Version="4.0.1" />"#)
             .sdk().build();
         assert_eq!(project.test_framework, TestFramework::None);
     }
 
     #[test]
     pub fn extract_uses_specflow_works() {
-        let project = ProjectBuilder::new(r##"<PackageReference Include="NUnit.Core" Version="4.0.1" />"##)
+        let project = ProjectBuilder::new(r#"<PackageReference Include="NUnit.Core" Version="4.0.1" />"#)
             .sdk().build();
         assert!(!project.uses_specflow);
 
-        let project = ProjectBuilder::new(r##"<PackageReference Include="SpecFlow" Version="2.3.2" />"##)
+        let project = ProjectBuilder::new(r#"<PackageReference Include="SpecFlow" Version="2.3.2" />"#)
             .sdk().build();
         assert!(project.uses_specflow);
     }
@@ -1041,7 +1041,7 @@ impl Project {
 
         #[test]
         pub fn can_detect_packages() {
-            let project = get_old_project_with_packages(r##"
+            let project = get_old_project_with_packages(r#"
                 <package id="Clarius.TransformOnBuild" version="1.1.12" targetFramework="net462" developmentDependency="true" />
                 <package id="MyCorp.Fundamentals" version="1.2.18268.136" targetFramework="net462" />
                 <package id="Microsoft.Owin.Hosting" version="4.0.0" targetFramework="net462" />
@@ -1051,7 +1051,7 @@ impl Project {
                 <package id="Npgsql" version="3.2.7" targetFramework="net462" />
                 <package id="MyProject.Core" version="1.12.18297.228" targetFramework="net462" />
                 <package id="WorkflowService.Client" version="1.12.18297.23" targetFramework="net462" />
-            "##);
+            "#);
 
             assert_eq!(project.packages, vec![
                 Package::new("Clarius.TransformOnBuild", "1.1.12", true, "Third Party"),

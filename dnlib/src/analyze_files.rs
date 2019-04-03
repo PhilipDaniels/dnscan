@@ -542,7 +542,7 @@ mod analyzed_files_tests {
     #[test]
     pub fn for_one_mentioned_project() {
         let analyzed_files = analyze2(vec![
-            (tp(r"C:\temp\foo.sln"), r##""p1.csproj""##),
+            (tp(r"C:\temp\foo.sln"), r#""p1.csproj""#),
             (tp(r"C:\temp\p1.csproj"), ""),
         ]);
 
@@ -561,9 +561,9 @@ mod analyzed_files_tests {
     #[test]
     pub fn for_two_mentioned_projects() {
         let analyzed_files = analyze2(vec![
-            (tp(r"C:\temp\foo.sln"), r##""p1.csproj"
+            (tp(r"C:\temp\foo.sln"), r#""p1.csproj"
                                          "p2.csproj"
-                                     "##),
+                                     "#),
             (tp(r"C:\temp\p1.csproj"), ""),
             (tp(r"C:\temp\p2.csproj"), ""),
         ]);
@@ -584,9 +584,9 @@ mod analyzed_files_tests {
     #[test]
     pub fn for_two_mentioned_projects_on_linux() {
         let analyzed_files = analyze2(vec![
-            (r"/temp/foo.sln", r##""p1.csproj"
+            (r"/temp/foo.sln", r#""p1.csproj"
                                    "sub/sub/p2.csproj"
-                               "##),
+                               "#),
             (r"/temp/p1.csproj", ""),
             (r"/temp/sub/sub/p2.csproj", ""),
         ]);
