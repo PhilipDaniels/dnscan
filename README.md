@@ -15,10 +15,22 @@ cargo run --bin dnscan [-v]
 
 ## TODO
 
-- Should really get rid of tp and have separate sets of tests for Windows and Linux?
+- Project things
+    - pub referenced_projects: Vec<Arc<Project>>,
+    - packages_require_consolidation,
+    - redundant_packages_count
+    - redundant_projects_count
+- Analyze_files: merge find_linked_sln and find_orphaned_slns into one fn
+- Analyze_files: make integration tests due to use of Path.is_dir()
+    - Get rid of tp
+    - Same types of tests for Windows and Linux
+    - Use tempfile/tempdir?
+- Git info extraction
 - Tests for mentioned projects are completely inadequate.
 - Better settings for rustfmt
-- Git info extraction
+    - Longer lines!
+    - Preserve vertical space, do not wrap everything
+    - Maybe look in ripgrep repo
 - Build a REST API ('serve mode') for getting at the data
   - Consider some sort of 'reporting data structure'
 - A web site built on the REST API

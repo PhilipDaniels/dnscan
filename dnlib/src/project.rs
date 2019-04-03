@@ -43,10 +43,9 @@ pub struct Project {
     pub test_framework: TestFramework,
     pub uses_specflow: bool,
 
-    // TODO: Filled in later.
     pub referenced_projects: Vec<Arc<Project>>,
 
-    // TODO: packages_require_consolidation, redundant_packages_count, redundant_projects_count
+
 }
 
 impl Project {
@@ -117,7 +116,7 @@ impl Project {
     }
 
     fn extract_referenced_assemblies(&self) -> Vec<String> {
-        // TODO: Necessary to exclude those references that come from NuGet packages?
+        // Necessary to exclude those references that come from NuGet packages?
         // Actually the regex seems good enough, at least for the example files
         // in this project.
         lazy_static! {

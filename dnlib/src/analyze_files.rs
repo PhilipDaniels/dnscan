@@ -170,9 +170,6 @@ impl AnalyzedFiles {
     where
         P: AsRef<Path>,
     {
-        // TODO - needs to be an integration test?
-        // This will actually work ok in real life though.
-
         // 'is_same_dir' takes the parent of both paths and checks that they are both actually
         // directories before comparing the parents by case.
         // Therefore this will fail for all tests if there is no file on disk!
