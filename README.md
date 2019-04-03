@@ -27,8 +27,3 @@ cargo run --bin dnscan [-v]
   - Remove redundant NuGet package references
   - Scan source for redundant NuGet packages
   - Remove redundant Assembly references
-
-
-
-        self.other_files.iter()
-            .find(|item| unicase::eq(item.filename_as_str(), other_file.as_str()))

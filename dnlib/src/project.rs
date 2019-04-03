@@ -200,7 +200,7 @@ impl Project {
             InterestingFile::ProjectJson => &PROJECT_JSON_RE,
         };
 
-        match (re.is_match(&self.file_info.contents), self.get_other_file(interesting_file).is_some()) {
+        match (re.is_match(&self.file_info.contents), self.find_other_file(interesting_file).is_some()) {
             (true, true) => FileStatus::InProjectFileAndOnDisk,
             (true, false) => FileStatus::InProjectFileOnly,
             (false, true) => FileStatus::OnDiskOnly,
@@ -208,22 +208,15 @@ impl Project {
         }
     }
 
-    // TODO: Do we still need this?
-
     /// Checks to see whether a project has another file associated with it
     /// (i.e. that the other file actually exists on disk). This check is based on
     /// the directory of the project and the 'other_files'; we do not use the
     /// XML contents of the project file for this check. We are looking for actual
     /// physical files "in the expected places". This allows us to spot orphaned
     /// files that should have been deleted as part of project migration.
-    fn get_other_file(&self, other_file: InterestingFile) -> Option<&PathBuf> {
-        for item in &self.other_files {
-            if item.filename_as_str().to_lowercase() == other_file.as_str() {
-                return Some(item);
-            }
-        }
-
-        None
+    fn find_other_file(&self, other_file: InterestingFile) -> Option<&PathBuf> {
+        self.other_files.iter()
+            .find(|item| unicase::eq(item.filename_as_str(), other_file.as_str()))
     }
 
     fn extract_packages<L: FileLoader>(&self, file_loader: &L, configuration: &Configuration) -> Vec<Package> {
@@ -295,7 +288,7 @@ impl Project {
                 .collect(),
             ProjectVersion::OldStyle => {
                 // Grab them from the actual packages.config file contents.
-                self.get_other_file(InterestingFile::PackagesConfig)
+                self.find_other_file(InterestingFile::PackagesConfig)
                     .and_then(|pc_path| file_loader.read_to_string(pc_path).ok())
                     .map(|pc_contents| { PKG_CONFIG_RE.captures_iter(&pc_contents)
                             .map(|cap| {

@@ -57,12 +57,10 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
     if options.verbose {
         println!("Discovered files in {:?}", analysis.disk_walk_duration);
         println!("Loaded {} solutions in {:?}", analysis.num_solutions(), analysis.solution_load_duration);
-        println!("Loaded {} projects in {:?}", analysis.num_solutions(), analysis.project_load_duration);
-        // println!("Found {} solutions, {} linked projects and {} orphaned projects in {}.",
-        //     analysis.num_solutions(),
-        //     analysis.num_linked_projects(),
-        //     analysis.num_orphaned_projects(),
-        //     elapsed);
+        println!("Loaded {} linked projects and {} orphaned projects in {:?}",
+            analysis.num_linked_projects(),
+            analysis.num_orphaned_projects(),
+            analysis.project_load_duration);
     }
 
     let start = std::time::Instant::now();
