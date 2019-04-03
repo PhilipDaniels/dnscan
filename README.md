@@ -16,10 +16,8 @@ cargo run --bin dnscan [-v]
 ## TODO
 
 - Should really get rid of tp and have separate sets of tests for Windows and Linux?
-- Tests for pkg version variations
 - Tests for mentioned projects are completely inadequate.
 - Convert to use Unicase where possible.
-- Remove 2 vecs of Projects?
 - Better settings for rustfmt
 - Git info extraction
 - Build a REST API ('serve mode') for getting at the data

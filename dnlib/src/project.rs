@@ -250,7 +250,7 @@ impl Project {
             //     <PrivateAssets>all</PrivateAssets>
             //     <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
             // </PackageReference>
-             //
+            //
             // So the idea is to pull out the PackageReference and to its closing tag, getting the package name in the first regex,
             // then to look in the 'rest' to get the version number in a second step.
 
@@ -623,6 +623,7 @@ impl Project {
             blah<PackageReference Include="Automapper" Version="3.1.4" />blah
             "##
             ).sdk().build();
+
         assert_eq!(project.packages, vec![
             Package::new("Automapper", "3.1.4", false, "Third Party"),
             Package::new("Unity", "4.0.1", false, "Third Party")
@@ -637,6 +638,7 @@ impl Project {
             blah<PackageReference Include="Unity" Version="4.0.1" />blah
             "##
             ).sdk().build();
+
         assert_eq!(project.packages, vec![
             Package::new("Automapper", "3.1.4", false, "Third Party"),
             Package::new("Automapper", "3.1.5", false, "Third Party"),
@@ -655,6 +657,7 @@ impl Project {
             blah<PackageReference Include="Unity" Version="4.0.1" />blah
             "##
             ).sdk().build();
+
         assert_eq!(project.packages, vec![
             Package::new("Automapper", "3.1.4", false, "Third Party"),
             Package::new("Automapper", "3.1.5", false, "Third Party"),
@@ -670,6 +673,7 @@ impl Project {
                 </PackageReference>
             "##
         ).sdk().build();
+
         assert_eq!(project.packages, vec![
             Package::new("Unity", "4.0.1", false, "Third Party")
             ]);
@@ -684,6 +688,7 @@ impl Project {
                 </PackageReference>
             "##
         ).sdk().build();
+
         assert_eq!(project.packages, vec![
             Package::new("Unity", "4.0.1", true, "Third Party")
             ]);
@@ -707,11 +712,50 @@ impl Project {
                 <PackageReference Include="Versioning.Bamboo" Version="8.8.9" />
             "##
         ).sdk().build();
+
         assert_eq!(project.packages, vec![
             Package::new("Automapper", "3.1.4", true, "Third Party"),
             Package::new("EntityFramework", "2.4.6", false, "Microsoft"),
             Package::new("Unity", "4.0.1", false, "Third Party"),
             Package::new("Versioning.Bamboo", "8.8.9", false, "Third Party")
+            ]);
+    }
+
+    #[test]
+    pub fn extract_packages_worst_case_seen_in_real_life() {
+        // This flip-flop of styles discovered problems in the regex when it
+        // was not terminating early enough.
+        let project = ProjectBuilder::new(
+            r##"
+            <PackageReference Include="MoreFluentAssertions" Version="1.2.3" />
+            <PackageReference Include="Microsoft.EntityFrameworkCore">
+                <Version>2.1.4</Version>
+            </PackageReference>
+            <PackageReference Include="Landmark.Versioning.Bamboo" Version="3.3.19078.47">
+                <PrivateAssets>all</PrivateAssets>
+                <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+            </PackageReference>
+            <PackageReference Include="FluentAssertions">
+                  <Version>5.6.0</Version>
+            </PackageReference>
+            <PackageReference Include="MoreFluentAssertions" Version="1.2.3" />
+            <PackageReference Include="Landmark.Versioning.Bamboo" Version="3.3.19078.47">
+                <PrivateAssets>all</PrivateAssets>
+                <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+            </PackageReference>
+            <PackageReference Include="JsonNet.PrivateSettersContractResolvers.Source" Version="0.1.0">
+                <PrivateAssets>all</PrivateAssets>
+                <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+            </PackageReference>
+            "##
+        ).sdk().build();
+
+        assert_eq!(project.packages, vec![
+            Package::new("FluentAssertions", "5.6.0", false, "Third Party"),
+            Package::new("JsonNet.PrivateSettersContractResolvers.Source", "0.1.0", true, "Third Party"),
+            Package::new("Landmark.Versioning.Bamboo", "3.3.19078.47", true, "ValHub"),
+            Package::new("Microsoft.EntityFrameworkCore", "2.1.4", false, "Microsoft"),
+            Package::new("MoreFluentAssertions", "1.2.3", false, "Third Party"),
             ]);
     }
 

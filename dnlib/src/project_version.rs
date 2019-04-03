@@ -32,8 +32,8 @@ impl AsStr for ProjectVersion {
     }
 }
 
-pub(crate) const SDK_WEB_PROLOG: &str = "<Project Sdk=\"Microsoft.NET.Sdk.Web\">";
-pub(crate) const SDK_PROLOG: &str = "<Project Sdk=\"Microsoft.NET.Sdk\">";
+pub(crate) const SDK_WEB_PROLOG: &str = r#"<Project Sdk="Microsoft.NET.Sdk.Web">"#;
+pub(crate) const SDK_PROLOG: &str = r#"<Project Sdk="Microsoft.NET.Sdk">"#;
 pub(crate) const OLD_PROLOG: &str = "<Project ToolsVersion=";
 
 impl ProjectVersion {
