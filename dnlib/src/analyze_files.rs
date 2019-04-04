@@ -298,7 +298,7 @@ impl Solution {
     /// See also `refers_to_project` where this surfaces.
     fn extract_mentioned_projects(sln_dir: PathBuf, contents: &str) -> Vec<PathBuf> {
         lazy_static! {
-            static ref PROJECT_RE: Regex = RegexBuilder::new(r##""(?P<projpath>[^"]+csproj)"##)
+            static ref PROJECT_RE: Regex = RegexBuilder::new(r#""(?P<projpath>[^"]+csproj)"#)
                 .case_insensitive(true).build().unwrap();
         }
 
@@ -368,235 +368,328 @@ mod analyzed_files_tests {
     use super::*;
     use crate::file_loader::MemoryFileLoader;
 
-    // We have to use a real file system for these tests because of the directory walk (which
-    // can be fairly easily factored out) and the PathExtensions tests (which cannot).
-    // `tp` = translate path - makes tests work on Windows and Linux.
-    #[cfg(windows)]
-    fn tp(path: &str) -> PathBuf {
-        PathBuf::from(path)
-    }
+    // // We have to use a real file system for these tests because of the directory walk (which
+    // // can be fairly easily factored out) and the PathExtensions tests (which cannot).
+    // // `tp` = translate path - makes tests work on Windows and Linux.
+    // #[cfg(windows)]
+    // fn tp(path: &str) -> PathBuf {
+    //     PathBuf::from(path)
+    // }
 
-    #[cfg(not(windows))]
-    fn tp(mut path: &str) -> PathBuf {
-        if path.starts_with(r"C:\") {
-            path = &path[3..];
-        }
+    // #[cfg(not(windows))]
+    // fn tp(mut path: &str) -> PathBuf {
+    //     if path.starts_with(r"C:\") {
+    //         path = &path[3..];
+    //     }
 
-        let path = path.replace('\\', "/");
-        PathBuf::from(path)
-    }
+    //     let path = path.replace('\\', "/");
+    //     PathBuf::from(path)
+    // }
 
-    /// This function can be used when we are just dealing with paths and their relationships.
-    fn analyze<P: AsRef<Path>>(paths: Vec<P>) -> AnalyzedFiles {
-        let mut pta = PathsToAnalyze::default();
-        for p in &paths {
-            let p = p.as_ref().to_owned();
-            let ext = p.extension().unwrap();
-            if ext == "sln" {
-                pta.sln_files.push(p);
-            } else if ext == "csproj" {
-                pta.csproj_files.push(p);
-            } else {
-                pta.other_files.push(p);
-            }
-        }
+    // /// This function can be used when we are just dealing with paths and their relationships.
+    // fn analyze<P: AsRef<Path>>(paths: Vec<P>) -> AnalyzedFiles {
+    //     let mut pta = PathsToAnalyze::default();
+    //     for p in &paths {
+    //         let p = p.as_ref().to_owned();
+    //         let ext = p.extension().unwrap();
+    //         if ext == "sln" {
+    //             pta.sln_files.push(p);
+    //         } else if ext == "csproj" {
+    //             pta.csproj_files.push(p);
+    //         } else {
+    //             pta.other_files.push(p);
+    //         }
+    //     }
 
-        let file_loader = MemoryFileLoader::new();
-        let config = Configuration::default();
-        let mut af = AnalyzedFiles {
-            paths_analyzed: pta,
-            ..Default::default()
-        };
+    //     let file_loader = MemoryFileLoader::new();
+    //     let config = Configuration::default();
+    //     let mut af = AnalyzedFiles {
+    //         paths_analyzed: pta,
+    //         ..Default::default()
+    //     };
 
-        af.analyze(&config, file_loader).unwrap();
-        af
-    }
+    //     af.analyze(&config, file_loader).unwrap();
+    //     af
+    // }
 
-    /// This function can be used when the tests need the files to have some contents.
-    fn analyze2<P: AsRef<Path>>(paths: Vec<(P, &str)>) -> AnalyzedFiles {
-        let mut pta = PathsToAnalyze::default();
-        let mut file_loader = MemoryFileLoader::new();
+    // /// This function can be used when the tests need the files to have some contents.
+    // fn analyze2<P: AsRef<Path>>(paths: Vec<(P, &str)>) -> AnalyzedFiles {
+    //     let mut pta = PathsToAnalyze::default();
+    //     let mut file_loader = MemoryFileLoader::new();
 
-        for p in &paths {
-            let contents = p.1.to_owned();
-            let p = p.0.as_ref().to_owned();
-            file_loader.files.insert(p.clone(), contents);
+    //     for p in &paths {
+    //         let contents = p.1.to_owned();
+    //         let p = p.0.as_ref().to_owned();
+    //         file_loader.files.insert(p.clone(), contents);
 
-            let ext = p.extension().unwrap();
-            if ext == "sln" {
-                pta.sln_files.push(p);
-            } else if ext == "csproj" {
-                pta.csproj_files.push(p);
-            } else {
-                pta.other_files.push(p);
-            }
-        }
+    //         let ext = p.extension().unwrap();
+    //         if ext == "sln" {
+    //             pta.sln_files.push(p);
+    //         } else if ext == "csproj" {
+    //             pta.csproj_files.push(p);
+    //         } else {
+    //             pta.other_files.push(p);
+    //         }
+    //     }
 
 
-        let config = Configuration::default();
-        let mut af = AnalyzedFiles {
-            paths_analyzed: pta,
-            ..Default::default()
-        };
+    //     let config = Configuration::default();
+    //     let mut af = AnalyzedFiles {
+    //         paths_analyzed: pta,
+    //         ..Default::default()
+    //     };
 
-        af.analyze(&config, file_loader).unwrap();
-        af
+    //     af.analyze(&config, file_loader).unwrap();
+    //     af
+    // }
+
+    use tempfile;
+    use std::io::{self, Write};
+    use std::fs::{self, File};
+    use crate::path_extensions::PathExtensions;
+
+    fn make_temporary_directory() -> io::Result<tempfile::TempDir> {
+        let root = tempfile::Builder::new()
+            .prefix("dnlib-temp-")
+            .rand_bytes(5)
+            .tempdir()?;
+
+        let file_path = root.path().join("car.sln");
+        let mut file = File::create(&file_path)?;
+
+        // Slns always use Windows-style paths, even when using 'dotnet' on Linux.
+        writeln!(file, r#"
+                        "ford.csproj"
+                        "sub\toyota.csproj"
+                        "#)?;
+
+        let file_path = root.path().join("ford.csproj");
+        File::create(&file_path)?;
+        let file_path = root.path().join("bmw.csproj");
+        File::create(&file_path)?;
+
+        let sub_dir = root.path().join("sub");
+        fs::create_dir_all(&sub_dir)?;
+        let file_path = sub_dir.join("toyota.csproj");
+        File::create(file_path)?;
+
+        // Trucks.
+        let truck_dir = root.path().join("trucks");
+        fs::create_dir_all(&truck_dir)?;
+
+        let file_path = truck_dir.join("truck.sln");
+        let mut file = File::create(&file_path)?;
+        writeln!(file, r#"  "volvo.csproj"  "#)?;
+
+        let file_path = truck_dir.join("volvo.csproj");
+        File::create(&file_path)?;
+
+        let file_path = truck_dir.join("mercedes.csproj");
+        File::create(&file_path)?;
+
+        let file_path = truck_dir.join("renault.csproj");
+        File::create(&file_path)?;
+
+        Ok(root)
     }
 
     #[test]
-    pub fn for_one_sln_in_one_dir() {
-        let analyzed_files = analyze(vec![
-            tp(r"C:\temp\foo.sln")
-        ]);
+    pub fn test_scanning_on_linux() {
+        let temp_files = make_temporary_directory().unwrap();
+        let root_dir = temp_files.path();
 
-        assert_eq!(analyzed_files.solution_directories.len(), 1);
-        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
-        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
-        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
-    }
+        let analyzed_files = AnalyzedFiles::new(
+            root_dir,
+            &Configuration::default()
+            ).unwrap();
 
-    #[test]
-    pub fn for_two_slns_in_one_dir() {
-        let analyzed_files = analyze(vec![
-            tp(r"C:\temp\foo.sln"),
-            tp(r"C:\temp\foo2.sln")
-        ]);
-
-        assert_eq!(analyzed_files.solution_directories.len(), 1);
-        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
-        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 2);
-        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
-        assert_eq!(analyzed_files.solution_directories[0].solutions[1].file_info.path, tp(r"C:\temp\foo2.sln"));
-    }
-
-    #[test]
-    pub fn for_three_slns_in_two_dirs_and_sorts_solution_directories() {
-        let analyzed_files = analyze(vec![
-            tp(r"C:\temp\foo.sln"),
-            tp(r"C:\temp\foo2.sln"),
-            tp(r"C:\blah\foo3.sln")
-        ]);
+        //println!("AF = {:#?}", analyzed_files);
 
         assert_eq!(analyzed_files.solution_directories.len(), 2);
 
-        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\blah"));
-        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
-        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\blah\foo3.sln"));
+        let car_sln_dir = &analyzed_files.solution_directories[0];
+        println!("car_sln_dir = {:#?}", car_sln_dir);
+        assert_eq!(car_sln_dir.directory, root_dir);
+        assert_eq!(car_sln_dir.num_solutions(), 1);
+        assert_eq!(car_sln_dir.num_linked_projects(), 2);
+        assert_eq!(car_sln_dir.num_orphaned_projects(), 1);
+        let car_sln = &car_sln_dir.solutions[0];
+        assert_eq!(car_sln.file_info.filename_as_str(), "car.sln");
+        assert_eq!(car_sln.linked_projects().nth(0).unwrap().file_info.path.filename_as_str(), "ford.csproj");
+        assert_eq!(car_sln.linked_projects().nth(1).unwrap().file_info.path.filename_as_str(), "toyota.csproj");
+        // BMW is orphaned because not actually mentioned in the sln file.
+        assert_eq!(car_sln.orphaned_projects().nth(0).unwrap().file_info.path.filename_as_str(), "bmw.csproj");
 
-        assert_eq!(analyzed_files.solution_directories[1].directory, tp(r"C:\temp"));
-        assert_eq!(analyzed_files.solution_directories[1].solutions.len(), 2);
-        assert_eq!(analyzed_files.solution_directories[1].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
-        assert_eq!(analyzed_files.solution_directories[1].solutions[1].file_info.path, tp(r"C:\temp\foo2.sln"));
+
+        let truck_sln_dir = &analyzed_files.solution_directories[1];
+        println!("truck_sln_dir = {:#?}", truck_sln_dir);
+        let expected_truck_dir = root_dir.join("trucks");
+        assert_eq!(truck_sln_dir.directory, expected_truck_dir);
+        assert_eq!(truck_sln_dir.num_solutions(), 1);
+        assert_eq!(truck_sln_dir.num_linked_projects(), 1);
+        assert_eq!(truck_sln_dir.num_orphaned_projects(), 2);
+        let truck_sln = &truck_sln_dir.solutions[0];
+        assert_eq!(truck_sln.file_info.filename_as_str(), "truck.sln");
+        assert_eq!(truck_sln.linked_projects().nth(0).unwrap().file_info.path.filename_as_str(), "volvo.csproj");
+        assert_eq!(truck_sln.orphaned_projects().nth(0).unwrap().file_info.path.filename_as_str(), "mercedes.csproj");
+        assert_eq!(truck_sln.orphaned_projects().nth(1).unwrap().file_info.path.filename_as_str(), "renault.csproj");
     }
 
-    #[test]
-    pub fn for_one_orphaned_project() {
-        let analyzed_files = analyze(vec![
-            tp(r"C:\temp\foo.sln"),
-            tp(r"C:\temp\p1.csproj")
-        ]);
 
-        assert_eq!(analyzed_files.solution_directories.len(), 1);
-        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
-        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
-        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
+    // #[test]
+    // pub fn for_one_sln_in_one_dir() {
+    //     let analyzed_files = analyze(vec![
+    //         tp(r"C:\temp\foo.sln")
+    //     ]);
 
-        let sln_file = &analyzed_files.solution_directories[0].solutions[0];
-        assert_eq!(sln_file.linked_projects().count(), 0);
-        assert_eq!(sln_file.orphaned_projects().count(), 1);
-        assert_eq!(sln_file.orphaned_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p1.csproj"));
-    }
+    //     assert_eq!(analyzed_files.solution_directories.len(), 1);
+    //     assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
+    // }
 
-    #[test]
-    pub fn for_multiple_orphaned_projects_including_sub_dirs() {
-        let analyzed_files = analyze(vec![
-            tp(r"C:\temp\foo.sln"),
-            tp(r"C:\temp\p1.csproj"),
-            tp(r"C:\temp\sub\sub.sln"),
-            tp(r"C:\temp\sub\p2.csproj")
-        ]);
+    // #[test]
+    // pub fn for_two_slns_in_one_dir() {
+    //     let analyzed_files = analyze(vec![
+    //         tp(r"C:\temp\foo.sln"),
+    //         tp(r"C:\temp\foo2.sln")
+    //     ]);
 
-        assert_eq!(analyzed_files.solution_directories.len(), 2);
-        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
-        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
-        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
+    //     assert_eq!(analyzed_files.solution_directories.len(), 1);
+    //     assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 2);
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions[1].file_info.path, tp(r"C:\temp\foo2.sln"));
+    // }
 
-        let sln_file = &analyzed_files.solution_directories[0].solutions[0];
-        assert_eq!(sln_file.linked_projects().count(), 0);
-        assert_eq!(sln_file.orphaned_projects().count(), 1);
-        assert_eq!(sln_file.orphaned_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p1.csproj"));
+    // #[test]
+    // pub fn for_three_slns_in_two_dirs_and_sorts_solution_directories() {
+    //     let analyzed_files = analyze(vec![
+    //         tp(r"C:\temp\foo.sln"),
+    //         tp(r"C:\temp\foo2.sln"),
+    //         tp(r"C:\blah\foo3.sln")
+    //     ]);
 
-        assert_eq!(analyzed_files.solution_directories[1].directory, tp(r"C:\temp\sub"));
-        assert_eq!(analyzed_files.solution_directories[1].solutions.len(), 1);
-        assert_eq!(analyzed_files.solution_directories[1].solutions[0].file_info.path, tp(r"C:\temp\sub\sub.sln"));
+    //     assert_eq!(analyzed_files.solution_directories.len(), 2);
 
-        let sln_file = &analyzed_files.solution_directories[1].solutions[0];
-        assert_eq!(sln_file.linked_projects().count(), 0);
-        assert_eq!(sln_file.orphaned_projects().count(), 1);
-        assert_eq!(sln_file.orphaned_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\sub\p2.csproj"));
-    }
+    //     assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\blah"));
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\blah\foo3.sln"));
 
-    #[test]
-    pub fn for_one_mentioned_project() {
-        let analyzed_files = analyze2(vec![
-            (tp(r"C:\temp\foo.sln"), r#""p1.csproj""#),
-            (tp(r"C:\temp\p1.csproj"), ""),
-        ]);
+    //     assert_eq!(analyzed_files.solution_directories[1].directory, tp(r"C:\temp"));
+    //     assert_eq!(analyzed_files.solution_directories[1].solutions.len(), 2);
+    //     assert_eq!(analyzed_files.solution_directories[1].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
+    //     assert_eq!(analyzed_files.solution_directories[1].solutions[1].file_info.path, tp(r"C:\temp\foo2.sln"));
+    // }
 
-        assert_eq!(analyzed_files.solution_directories.len(), 1);
-        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
-        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
-        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
+    // #[test]
+    // pub fn for_one_orphaned_project() {
+    //     let analyzed_files = analyze(vec![
+    //         tp(r"C:\temp\foo.sln"),
+    //         tp(r"C:\temp\p1.csproj")
+    //     ]);
 
-        let sln_file = &analyzed_files.solution_directories[0].solutions[0];
-        assert_eq!(sln_file.orphaned_projects().count(), 0);
-        assert_eq!(sln_file.linked_projects().count(), 1);
-        assert_eq!(sln_file.linked_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p1.csproj"));
-    }
+    //     assert_eq!(analyzed_files.solution_directories.len(), 1);
+    //     assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
 
-    #[cfg(Windows)]
-    #[test]
-    pub fn for_two_mentioned_projects() {
-        let analyzed_files = analyze2(vec![
-            (tp(r"C:\temp\foo.sln"), r#""p1.csproj"
-                                         "p2.csproj"
-                                     "#),
-            (tp(r"C:\temp\p1.csproj"), ""),
-            (tp(r"C:\temp\p2.csproj"), ""),
-        ]);
+    //     let sln_file = &analyzed_files.solution_directories[0].solutions[0];
+    //     assert_eq!(sln_file.linked_projects().count(), 0);
+    //     assert_eq!(sln_file.orphaned_projects().count(), 1);
+    //     assert_eq!(sln_file.orphaned_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p1.csproj"));
+    // }
 
-        assert_eq!(analyzed_files.solution_directories.len(), 1);
-        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
-        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
-        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
+    // #[test]
+    // pub fn for_multiple_orphaned_projects_including_sub_dirs() {
+    //     let analyzed_files = analyze(vec![
+    //         tp(r"C:\temp\foo.sln"),
+    //         tp(r"C:\temp\p1.csproj"),
+    //         tp(r"C:\temp\sub\sub.sln"),
+    //         tp(r"C:\temp\sub\p2.csproj")
+    //     ]);
 
-        let sln_file = &analyzed_files.solution_directories[0].solutions[0];
-        assert_eq!(sln_file.orphaned_projects().count(), 0);
-        assert_eq!(sln_file.linked_projects().count(), 2);
-        assert_eq!(sln_file.linked_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p1.csproj"));
-        assert_eq!(sln_file.linked_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p2.csproj"));
-    }
+    //     assert_eq!(analyzed_files.solution_directories.len(), 2);
+    //     assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
 
-    #[cfg(not(Windows))]
-    #[test]
-    pub fn for_two_mentioned_projects_on_linux() {
-        let analyzed_files = analyze2(vec![
-            (r"/temp/foo.sln", r#""p1.csproj"
-                                   "sub/sub/p2.csproj"
-                               "#),
-            (r"/temp/p1.csproj", ""),
-            (r"/temp/sub/sub/p2.csproj", ""),
-        ]);
+    //     let sln_file = &analyzed_files.solution_directories[0].solutions[0];
+    //     assert_eq!(sln_file.linked_projects().count(), 0);
+    //     assert_eq!(sln_file.orphaned_projects().count(), 1);
+    //     assert_eq!(sln_file.orphaned_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p1.csproj"));
 
-        assert_eq!(analyzed_files.solution_directories.len(), 1);
-        assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"/temp"));
-        assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
-        assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"/temp\foo.sln"));
+    //     assert_eq!(analyzed_files.solution_directories[1].directory, tp(r"C:\temp\sub"));
+    //     assert_eq!(analyzed_files.solution_directories[1].solutions.len(), 1);
+    //     assert_eq!(analyzed_files.solution_directories[1].solutions[0].file_info.path, tp(r"C:\temp\sub\sub.sln"));
 
-        let sln_file = &analyzed_files.solution_directories[0].solutions[0];
-        assert_eq!(sln_file.orphaned_projects().count(), 0);
-        assert_eq!(sln_file.linked_projects().count(), 2);
-        assert_eq!(sln_file.linked_projects().nth(0).unwrap().file_info.path, tp(r"/temp/p1.csproj"));
-        assert_eq!(sln_file.linked_projects().nth(1).unwrap().file_info.path, tp(r"/temp/sub/sub/p2.csproj"));
-    }
+    //     let sln_file = &analyzed_files.solution_directories[1].solutions[0];
+    //     assert_eq!(sln_file.linked_projects().count(), 0);
+    //     assert_eq!(sln_file.orphaned_projects().count(), 1);
+    //     assert_eq!(sln_file.orphaned_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\sub\p2.csproj"));
+    // }
+
+    // #[test]
+    // pub fn for_one_mentioned_project() {
+    //     let analyzed_files = analyze2(vec![
+    //         (tp(r"C:\temp\foo.sln"), r#""p1.csproj""#),
+    //         (tp(r"C:\temp\p1.csproj"), ""),
+    //     ]);
+
+    //     assert_eq!(analyzed_files.solution_directories.len(), 1);
+    //     assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
+
+    //     let sln_file = &analyzed_files.solution_directories[0].solutions[0];
+    //     assert_eq!(sln_file.orphaned_projects().count(), 0);
+    //     assert_eq!(sln_file.linked_projects().count(), 1);
+    //     assert_eq!(sln_file.linked_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p1.csproj"));
+    // }
+
+    // #[cfg(Windows)]
+    // #[test]
+    // pub fn for_two_mentioned_projects() {
+    //     let analyzed_files = analyze2(vec![
+    //         (tp(r"C:\temp\foo.sln"), r#""p1.csproj"
+    //                                      "p2.csproj"
+    //                                  "#),
+    //         (tp(r"C:\temp\p1.csproj"), ""),
+    //         (tp(r"C:\temp\p2.csproj"), ""),
+    //     ]);
+
+    //     assert_eq!(analyzed_files.solution_directories.len(), 1);
+    //     assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"C:\temp"));
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"C:\temp\foo.sln"));
+
+    //     let sln_file = &analyzed_files.solution_directories[0].solutions[0];
+    //     assert_eq!(sln_file.orphaned_projects().count(), 0);
+    //     assert_eq!(sln_file.linked_projects().count(), 2);
+    //     assert_eq!(sln_file.linked_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p1.csproj"));
+    //     assert_eq!(sln_file.linked_projects().nth(0).unwrap().file_info.path, tp(r"C:\temp\p2.csproj"));
+    // }
+
+    // #[cfg(not(Windows))]
+    // #[test]
+    // pub fn for_two_mentioned_projects_on_linux() {
+    //     let analyzed_files = analyze2(vec![
+    //         (r"/temp/foo.sln", r#""p1.csproj"
+    //                                "sub/sub/p2.csproj"
+    //                            "#),
+    //         (r"/temp/p1.csproj", ""),
+    //         (r"/temp/sub/sub/p2.csproj", ""),
+    //     ]);
+
+    //     assert_eq!(analyzed_files.solution_directories.len(), 1);
+    //     assert_eq!(analyzed_files.solution_directories[0].directory, tp(r"/temp"));
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions.len(), 1);
+    //     assert_eq!(analyzed_files.solution_directories[0].solutions[0].file_info.path, tp(r"/temp\foo.sln"));
+
+    //     let sln_file = &analyzed_files.solution_directories[0].solutions[0];
+    //     assert_eq!(sln_file.orphaned_projects().count(), 0);
+    //     assert_eq!(sln_file.linked_projects().count(), 2);
+    //     assert_eq!(sln_file.linked_projects().nth(0).unwrap().file_info.path, tp(r"/temp/p1.csproj"));
+    //     assert_eq!(sln_file.linked_projects().nth(1).unwrap().file_info.path, tp(r"/temp/sub/sub/p2.csproj"));
+    // }
 }
