@@ -281,7 +281,7 @@ impl Project {
                         pkg_name,
                         version,
                         rest.contains("<PrivateAssets>"),
-                        &classify(pkg_name),
+                        classify(pkg_name),
                     )
                 })
                 .collect(),
@@ -295,7 +295,7 @@ impl Project {
                                     &cap["name"],
                                     &cap["version"],
                                     cap["inner"].contains("developmentDependency=\"true\""),
-                                    &classify(&cap["name"]),
+                                    classify(&cap["name"]),
                                 )
                             })
                             .collect()
