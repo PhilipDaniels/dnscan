@@ -1,22 +1,19 @@
 use std::fmt;
 use crate::dn_error::DnLibError;
+
 use lazy_static::lazy_static;
 use regex::Regex;
 use strum_macros::{AsRefStr};
+use smart_default::SmartDefault;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr, SmartDefault)]
 pub enum FileStatus {
+    #[default]
     Unknown,
     NotPresent,
     InProjectFileOnly,
     OnDiskOnly,
     InProjectFileAndOnDisk
-}
-
-impl Default for FileStatus {
-    fn default() -> Self {
-        FileStatus::Unknown
-    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -76,8 +73,9 @@ impl fmt::Display for InterestingFile {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr, SmartDefault)]
 pub enum OutputType {
+    #[default]
     Unknown,
 
     /// The output is a library (DLL).
@@ -88,12 +86,6 @@ pub enum OutputType {
 
     /// The output is an EXE (e.g. a Console app).
     Exe,
-}
-
-impl Default for OutputType {
-    fn default() -> Self {
-        OutputType::Unknown
-    }
 }
 
 impl OutputType {
@@ -111,21 +103,17 @@ impl OutputType {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr, SmartDefault)]
 pub enum ProjectOwnership {
+    #[default]
     Unknown,
     Linked,
     Orphaned,
 }
 
-impl Default for ProjectOwnership {
-    fn default() -> Self {
-        ProjectOwnership::Unknown
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr, SmartDefault)]
 pub enum ProjectVersion {
+    #[default]
     Unknown,
 
     /// The type of project that begins with `<Project Sdk="Microsoft.NET.Sdk">`.
@@ -137,12 +125,6 @@ pub enum ProjectVersion {
     /// The type of project that begins with `<?xml version="1.0" encoding="utf-8"?>`
     /// and includes the next line `<Project ToolsVersion="14.0"`
     OldStyle,
-}
-
-impl Default for ProjectVersion {
-    fn default() -> Self {
-        ProjectVersion::Unknown
-    }
 }
 
 pub(crate) const SDK_WEB_PROLOG: &str = r#"<Project Sdk="Microsoft.NET.Sdk.Web">"#;
@@ -175,32 +157,22 @@ impl fmt::Display for ProjectVersion {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr, SmartDefault)]
 pub enum TestFramework {
+    #[default]
     None,
     MSTest,
     XUnit,
     NUnit,
 }
 
-impl Default for TestFramework {
-    fn default() -> Self {
-        TestFramework::None
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr, SmartDefault)]
 pub enum VisualStudioVersion {
+    #[default]
     Unknown,
     VS2015,
     VS2017,
     VS2019,
-}
-
-impl Default for VisualStudioVersion {
-    fn default() -> Self {
-        VisualStudioVersion::Unknown
-    }
 }
 
 impl VisualStudioVersion {
@@ -217,8 +189,9 @@ impl VisualStudioVersion {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr, SmartDefault)]
 pub enum XmlDoc {
+    #[default]
     Unknown,
 
     /// No Debug or Release mode XML documentation is being generated.
@@ -232,12 +205,6 @@ pub enum XmlDoc {
 
     /// XML documentation is being generated for both Debug and Release mode.
     Both
-}
-
-impl Default for XmlDoc {
-    fn default() -> Self {
-        XmlDoc::Unknown
-    }
 }
 
 impl XmlDoc {

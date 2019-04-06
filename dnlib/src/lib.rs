@@ -1,3 +1,5 @@
+extern crate smart_default;
+
 pub mod enums;
 pub mod file_loader;
 pub mod path_extensions;
