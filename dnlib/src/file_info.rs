@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use crate::file_loader::FileLoader;
 use crate::path_extensions::PathExtensions;
 
@@ -12,11 +12,11 @@ pub struct FileInfo {
 
 impl FileInfo {
     pub fn new<P, L>(path: P, file_loader: &L) -> Self
-        where P: AsRef<Path>,
+        where P: Into<PathBuf>,
               L: FileLoader
     {
         let mut fi = FileInfo::default();
-        fi.path = path.as_ref().to_owned();
+        fi.path = path.into();
         let file_contents_result = file_loader.read_to_string(&fi.path);
         fi.is_valid_utf8 = file_contents_result.is_ok();
         fi.contents = file_contents_result.unwrap_or_default();

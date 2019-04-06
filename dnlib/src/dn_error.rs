@@ -10,8 +10,6 @@ pub enum DnLibError {
 
     // Errors raised by us...
     InvalidInterestingFile(String),
-    //Regular(ErrorKind),
-    //Custom(String)
 }
 
 impl Error for DnLibError {

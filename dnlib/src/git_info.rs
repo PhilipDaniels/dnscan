@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::PathBuf;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 /// Represents information about the Git repository a file is in.
@@ -11,7 +11,7 @@ pub struct GitInfo {
 
 impl GitInfo {
     pub fn new<P>(path: P) -> Self
-        where P: AsRef<Path>
+        where P: Into<PathBuf>
     {
         Default::default()
     }

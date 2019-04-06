@@ -56,7 +56,7 @@ impl Project {
     {
         let mut proj = Project::default();
         proj.other_files = other_files;
-        proj.file_info = FileInfo::new(path, file_loader);
+        proj.file_info = FileInfo::new(path.as_ref(), file_loader);
         if !proj.file_info.is_valid_utf8 {
             return proj;
         }
@@ -347,20 +347,17 @@ impl Project {
      }
 
     impl ProjectBuilder {
-        fn new(csproj_contents: &str) -> Self {
+        fn new<S>(csproj_contents: S) -> Self
+        where S: Into<String>
+        {
             ProjectBuilder {
-                csproj_contents: csproj_contents.to_owned(),
+                csproj_contents: csproj_contents.into(),
                 .. ProjectBuilder::default()
             }
         }
 
         fn with_packages_config(mut self, packages_config_contents: &str) -> Self {
             self.packages_config_contents = Some(packages_config_contents.to_owned());
-            self
-        }
-
-        fn with_other_files(mut self, other_files: Vec<PathBuf>) -> Self {
-            self.other_files = other_files;
             self
         }
 

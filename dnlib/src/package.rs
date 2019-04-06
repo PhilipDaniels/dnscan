@@ -24,14 +24,3 @@ impl Package {
         self.version.contains('-')
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    pub fn demonstrate_can_call_with_differing_type_parameters() {
-        let class = "class".to_owned();
-        let pkg = Package::new("name", "ver", true, class);
-    }
-}

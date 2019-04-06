@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::{io, fs, env};
 
 use regex::Regex;
@@ -14,11 +14,12 @@ pub struct PackageGroup {
 }
 
 impl PackageGroup {
-    fn new<S>(name: S, regex: S) -> Self
-    where S: AsRef<str>
+    fn new<N, R>(name: N, regex: R) -> Self
+    where N: Into<String>,
+          R: AsRef<str>
     {
         PackageGroup {
-            name: name.as_ref().to_owned(),
+            name: name.into(),
             regex: Regex::new(regex.as_ref()).unwrap(),
         }
     }
@@ -49,12 +50,12 @@ impl Default for Configuration {
 
 impl Configuration {
     pub fn new<P>(directory_to_scan: P) -> Self
-    where P: AsRef<Path>
+    where P: Into<PathBuf>
     {
         const CONFIG_FILE: &str = ".dnscan.json";
 
         // Look for a config file in the path to scan.
-        let mut dir_to_scan = directory_to_scan.as_ref().to_owned();
+        let mut dir_to_scan = directory_to_scan.into();
         dir_to_scan.push(CONFIG_FILE);
         if let Some(cfg) = Self::load_from_file(&dir_to_scan) {
             return cfg;

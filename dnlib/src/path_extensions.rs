@@ -191,27 +191,4 @@ mod tests {
         let p2 = PathBuf::from(r"A\B\c");
         assert!(p1.eq_ignoring_case(p2));
     }
-
-    // #[test]
-    // pub fn is_same_dir() {
-    //     let p1 = PathBuf::from("a");
-    //     let p2 = PathBuf::from("A");
-    //     assert!(p1.is_same_dir(p2));
-
-    //     let p1 = PathBuf::from(r"a\b");
-    //     let p2 = PathBuf::from(r"A\b");
-    //     assert!(p1.is_same_dir(p2));
-    // }
-
-    // #[test]
-    // pub fn is_bin_or_obj_dir() {
-    //     let p1 = PathBuf::from("");
-    //     assert!(!p1.is_bin_or_obj_dir());
-
-    //     let p1 = PathBuf::from("a");
-    //     assert!(!p1.is_bin_or_obj_dir());
-
-    //     let p1 = PathBuf::from("bin");
-    //     assert!(!p1.is_bin_or_obj_dir());
-    // }
 }

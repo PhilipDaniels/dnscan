@@ -210,9 +210,9 @@ pub struct SolutionDirectory {
 }
 
 impl SolutionDirectory {
-    fn new<P: AsRef<Path>>(sln_directory: P) -> Self {
+    fn new<P: Into<PathBuf>>(sln_directory: P) -> Self {
         SolutionDirectory {
-            directory: sln_directory.as_ref().to_owned(),
+            directory: sln_directory.into(),
             solutions: vec![]
         }
     }
@@ -266,7 +266,7 @@ impl Solution {
         P: AsRef<Path>,
         L: FileLoader,
     {
-        let fi = FileInfo::new(path, file_loader);
+        let fi = FileInfo::new(path.as_ref(), file_loader);
         let ver = VisualStudioVersion::extract(&fi.contents).unwrap_or_default();
         let sln_dir = fi.path.parent().unwrap().to_owned();
         let mp = Self::extract_mentioned_projects(sln_dir, &fi.contents);
