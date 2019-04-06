@@ -1,6 +1,5 @@
 use std::error::Error;
-use std::io;
-use std::fmt;
+use std::{io, fmt};
 
 #[derive(Debug)]
 pub enum DnLibError {
@@ -45,11 +44,5 @@ impl From<walkdir::Error> for DnLibError {
         DnLibError::Walk(err)
     }
 }
-
-// impl From<csv::Error> for DnLibError {
-//     fn from(err: csv::Error) -> DnLibError {
-//         DnLibError::Csv(err)
-//     }
-// }
 
 pub type DnLibResult<T> = std::result::Result<T, DnLibError>;

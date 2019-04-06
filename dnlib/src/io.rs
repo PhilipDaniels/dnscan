@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use std::str::FromStr;
 use walkdir::{DirEntry, WalkDir};
-use crate::dn_error::DnLibResult;
+use crate::errors::DnLibResult;
 use crate::enums::InterestingFile;
 
 /// A trait for disk IO, to allow us to mock out the filesystem.
