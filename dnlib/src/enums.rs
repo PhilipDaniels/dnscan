@@ -2,8 +2,9 @@ use std::fmt;
 use crate::dn_error::DnLibError;
 use lazy_static::lazy_static;
 use regex::Regex;
+use strum_macros::{AsRefStr};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr)]
 pub enum FileStatus {
     Unknown,
     NotPresent,
@@ -15,18 +16,6 @@ pub enum FileStatus {
 impl Default for FileStatus {
     fn default() -> Self {
         FileStatus::Unknown
-    }
-}
-
-impl AsRef<str> for FileStatus {
-    fn as_ref(&self) -> &str {
-        match self {
-            FileStatus::Unknown => "Unknown",
-            FileStatus::NotPresent => "NotPresent",
-            FileStatus::InProjectFileOnly => "InProjectFileOnly",
-            FileStatus::OnDiskOnly => "OnDiskOnly",
-            FileStatus::InProjectFileAndOnDisk => "InProjectFileAndOnDisk",
-        }
     }
 }
 
@@ -87,7 +76,7 @@ impl fmt::Display for InterestingFile {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr)]
 pub enum OutputType {
     Unknown,
 
@@ -107,17 +96,6 @@ impl Default for OutputType {
     }
 }
 
-impl AsRef<str> for OutputType {
-    fn as_ref(&self) -> &str {
-        match self {
-            OutputType::Unknown => "Unknown",
-            OutputType::Library => "Library",
-            OutputType::WinExe => "WinExe",
-            OutputType::Exe => "Exe",
-        }
-    }
-}
-
 impl OutputType {
     pub fn extract(project_file_contents: &str) -> OutputType {
         if project_file_contents.contains("<OutputType>Library</OutputType>") {
@@ -133,7 +111,7 @@ impl OutputType {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr)]
 pub enum ProjectOwnership {
     Unknown,
     Linked,
@@ -146,17 +124,7 @@ impl Default for ProjectOwnership {
     }
 }
 
-impl AsRef<str> for ProjectOwnership {
-    fn as_ref(&self) -> &str {
-        match self {
-            ProjectOwnership::Unknown => "Unknown",
-            ProjectOwnership::Linked => "Linked",
-            ProjectOwnership::Orphaned => "Orphaned",
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr)]
 pub enum ProjectVersion {
     Unknown,
 
@@ -174,17 +142,6 @@ pub enum ProjectVersion {
 impl Default for ProjectVersion {
     fn default() -> Self {
         ProjectVersion::Unknown
-    }
-}
-
-impl AsRef<str> for ProjectVersion {
-    fn as_ref(&self) -> &str {
-        match self {
-            ProjectVersion::Unknown => "Unknown",
-            ProjectVersion::MicrosoftNetSdk => "MicrosoftNetSdk",
-            ProjectVersion::MicrosoftNetSdkWeb => "MicrosoftNetSdkWeb",
-            ProjectVersion::OldStyle => "OldStyle",
-        }
     }
 }
 
@@ -218,7 +175,7 @@ impl fmt::Display for ProjectVersion {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr)]
 pub enum TestFramework {
     None,
     MSTest,
@@ -232,18 +189,7 @@ impl Default for TestFramework {
     }
 }
 
-impl AsRef<str> for TestFramework {
-    fn as_ref(&self) -> &str {
-        match self {
-            TestFramework::None => "None",
-            TestFramework::MSTest => "MSTest",
-            TestFramework::XUnit => "XUnit",
-            TestFramework::NUnit => "NUnit",
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr)]
 pub enum VisualStudioVersion {
     Unknown,
     VS2015,
@@ -254,17 +200,6 @@ pub enum VisualStudioVersion {
 impl Default for VisualStudioVersion {
     fn default() -> Self {
         VisualStudioVersion::Unknown
-    }
-}
-
-impl AsRef<str> for VisualStudioVersion {
-    fn as_ref(&self) -> &str {
-        match self {
-            VisualStudioVersion::Unknown => "Unknown",
-            VisualStudioVersion::VS2015 => "VS2015",
-            VisualStudioVersion::VS2017 => "VS2017",
-            VisualStudioVersion::VS2019 => "VS2019",
-        }
     }
 }
 
@@ -282,7 +217,7 @@ impl VisualStudioVersion {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, AsRefStr)]
 pub enum XmlDoc {
     Unknown,
 
@@ -302,18 +237,6 @@ pub enum XmlDoc {
 impl Default for XmlDoc {
     fn default() -> Self {
         XmlDoc::Unknown
-    }
-}
-
-impl AsRef<str> for XmlDoc {
-    fn as_ref(&self) -> &str {
-        match self {
-            XmlDoc::Unknown => "Unknown",
-            XmlDoc::None => "None",
-            XmlDoc::Debug => "Debug",
-            XmlDoc::Release => "Release",
-            XmlDoc::Both => "Both",
-        }
     }
 }
 
