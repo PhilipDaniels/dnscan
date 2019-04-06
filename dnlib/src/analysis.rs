@@ -14,7 +14,7 @@ use std::time::{self, Duration};
 
 /// The set of all files found during analysis.
 #[derive(Debug, Default)]
-pub struct AnalyzedFiles {
+pub struct Analysis {
     pub paths_analyzed: PathsToAnalyze,
     pub solution_directories: Vec<SolutionDirectory>,
     pub disk_walk_duration: Duration,
@@ -22,7 +22,7 @@ pub struct AnalyzedFiles {
     pub project_load_duration: Duration,
 }
 
-impl AnalyzedFiles {
+impl Analysis {
     pub fn new<P>(path: P, configuration: &Configuration) -> DnLibResult<Self>
     where
         P: AsRef<Path>,
@@ -30,7 +30,7 @@ impl AnalyzedFiles {
         let disk_walk_start_time = time::Instant::now();
         let pta = find_files(&path)?;
 
-        let mut af = AnalyzedFiles {
+        let mut af = Self {
             paths_analyzed: pta,
             disk_walk_duration: disk_walk_start_time.elapsed(),
             ..Default::default()
@@ -412,7 +412,7 @@ mod analyzed_files_tests {
         let temp_files = make_temporary_directory().unwrap();
         let root_dir = temp_files.path();
 
-        let analyzed_files = AnalyzedFiles::new(
+        let analyzed_files = Analysis::new(
             root_dir,
             &Configuration::default()
             ).unwrap();

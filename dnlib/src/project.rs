@@ -35,8 +35,6 @@ pub struct Project {
     pub uses_specflow: bool,
 
     pub referenced_projects: Vec<Arc<Project>>,
-
-
 }
 
 impl Project {

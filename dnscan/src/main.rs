@@ -46,7 +46,7 @@ pub fn run_analysis_and_print_result(options: &Options, configuration: &Configur
 
 pub fn run_analysis(options: &Options, configuration: &Configuration) -> AnalysisResult<()> {
     let dir = options.dir.as_ref().unwrap();
-    let analysis = AnalyzedFiles::new(&dir, configuration)?;
+    let analysis = Analysis::new(&dir, configuration)?;
     if analysis.is_empty() {
         println!(
             "Did not find any .sln or .csproj files under {}",
