@@ -5,10 +5,9 @@ use crate::find_files::find_files;
 use crate::git_info::GitInfo;
 use crate::project::Project;
 use crate::find_files::PathsToAnalyze;
-use crate::visual_studio_version::VisualStudioVersion;
+use crate::enums::*;
 use crate::path_extensions::PathExtensions;
 use crate::configuration::Configuration;
-use crate::project_ownership::ProjectOwnership;
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};

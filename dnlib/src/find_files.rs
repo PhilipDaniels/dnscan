@@ -3,7 +3,7 @@ use std::str::FromStr;
 use walkdir::{DirEntry, WalkDir};
 use crate::path_extensions::PathExtensions;
 use crate::dn_error::DnLibResult;
-use crate::interesting_file::InterestingFile;
+use crate::enums::InterestingFile;
 
 /// This struct is used to collect the raw directory walking results prior to further
 /// analysis. It is basically just a list of paths of various types. No effort is made

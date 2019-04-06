@@ -1,15 +1,9 @@
 use crate::file_info::FileInfo;
 use crate::file_loader::FileLoader;
-use crate::file_status::FileStatus;
-use crate::interesting_file::InterestingFile;
-use crate::output_type::OutputType;
+use crate::enums::*;
 use crate::package::Package;
 use crate::path_extensions::PathExtensions;
-use crate::project_version::ProjectVersion;
-use crate::test_framework::TestFramework;
-use crate::xml_doc::XmlDoc;
 use crate::configuration::Configuration;
-use crate::project_ownership::ProjectOwnership;
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
@@ -335,7 +329,6 @@ impl Project {
  mod tests {
     use super::*;
     use crate::file_loader::MemoryFileLoader;
-    use crate::project_version::{SDK_PROLOG, OLD_PROLOG, SDK_WEB_PROLOG};
 
     #[derive(Default)]
     struct ProjectBuilder {
