@@ -1,6 +1,5 @@
 use std::path::PathBuf;
-use crate::file_loader::FileLoader;
-use crate::path_extensions::PathExtensions;
+use crate::io::{FileLoader, PathExtensions};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 /// Represents information about a .sln or .csproj file.

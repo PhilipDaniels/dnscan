@@ -1,12 +1,9 @@
 use crate::dn_error::DnLibResult;
 use crate::file_info::FileInfo;
-use crate::file_loader::{DiskFileLoader, FileLoader};
-use crate::find_files::find_files;
 use crate::git_info::GitInfo;
 use crate::project::Project;
-use crate::find_files::PathsToAnalyze;
 use crate::enums::*;
-use crate::path_extensions::PathExtensions;
+use crate::io::{PathExtensions, PathsToAnalyze, DiskFileLoader, find_files, FileLoader};
 use crate::configuration::Configuration;
 
 use lazy_static::lazy_static;
@@ -363,7 +360,7 @@ mod analyzed_files_tests {
     use tempfile;
     use std::io::{self, Write};
     use std::fs::{self, File};
-    use crate::path_extensions::PathExtensions;
+    use crate::io::PathExtensions;
 
     fn make_temporary_directory() -> io::Result<tempfile::TempDir> {
         let root = tempfile::Builder::new()

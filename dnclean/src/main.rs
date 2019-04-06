@@ -1,5 +1,5 @@
 use clap::{App, Arg};
-use dnlib::path_extensions::{self, PathExtensions};
+use dnlib::io::{PathExtensions, make_path_under_home_dir};
 use rayon::prelude::*;
 use std::fs;
 use std::io::{self, Write};
@@ -166,8 +166,7 @@ fn get_paths_of_interest(options: &Options) -> PathsToClean {
     // Now the vsclean options (-m).
     if options.vsclean {
         // This is the MEF component cache. VS will rebuild it on restart.
-        let path =
-            path_extensions::make_path_under_home_dir("AppData/Local/Microsoft/VisualStudio");
+        let path = make_path_under_home_dir("AppData/Local/Microsoft/VisualStudio");
         let walker = WalkDir::new(path);
         for _entry in walker
             .into_iter()
@@ -175,14 +174,14 @@ fn get_paths_of_interest(options: &Options) -> PathsToClean {
         {}
 
         // JetBrains caches.
-        let path = path_extensions::make_path_under_home_dir("AppData/Local/JetBrains");
+        let path = make_path_under_home_dir("AppData/Local/JetBrains");
         let walker = WalkDir::new(path);
         for _entry in walker
             .into_iter()
             .filter_entry(|e| continue_walking_jetbrains(e, &mut paths))
         {}
 
-        let path = path_extensions::make_path_under_home_dir("AppData/Microsoft/WebsiteCache");
+        let path = make_path_under_home_dir("AppData/Microsoft/WebsiteCache");
         if path.exists() {
             paths.other_dirs_to_delete.push(path);
         }
