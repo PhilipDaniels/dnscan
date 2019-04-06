@@ -202,24 +202,16 @@ pub struct SolutionDirectory {
 
     /// The sln files in this directory.
     pub solutions: Vec<Solution>,
-}
 
-impl<P> From<P> for SolutionDirectory
-where P: Into<PathBuf>
-{
-    fn from(sln_directory: P) -> Self {
-        SolutionDirectory {
-            directory: sln_directory.into(),
-            solutions: vec![]
-        }
-    }
+    /// Info about the Git repo, if any.
+    pub git_info: Option<GitInfo>,
 }
 
 impl SolutionDirectory {
     fn new<P: Into<PathBuf>>(sln_directory: P) -> Self {
         SolutionDirectory {
             directory: sln_directory.into(),
-            solutions: vec![]
+            ..Default::default()
         }
     }
 
