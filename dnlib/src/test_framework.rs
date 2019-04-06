@@ -1,5 +1,3 @@
-use crate::as_str::AsStr;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TestFramework {
     None,
@@ -14,8 +12,8 @@ impl Default for TestFramework {
     }
 }
 
-impl AsStr for TestFramework {
-    fn as_str(&self) -> &'static str {
+impl AsRef<str> for TestFramework {
+    fn as_ref(&self) -> &str {
         match self {
             TestFramework::None => "None",
             TestFramework::MSTest => "MSTest",

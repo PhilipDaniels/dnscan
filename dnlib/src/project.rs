@@ -1,4 +1,3 @@
-use crate::as_str::AsStr;
 use crate::file_info::FileInfo;
 use crate::file_loader::FileLoader;
 use crate::file_status::FileStatus;
@@ -171,22 +170,22 @@ impl Project {
     fn has_file_of_interest(&self, interesting_file: InterestingFile) -> FileStatus {
         // TODO: An optimisation would be to scan for all of these at once rather than separately.
         lazy_static! {
-            static ref WEB_CONFIG_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::WebConfig.as_str()))
+            static ref WEB_CONFIG_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::WebConfig))
                 .case_insensitive(true).build().unwrap();
 
-            static ref APP_CONFIG_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::AppConfig.as_str()))
+            static ref APP_CONFIG_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::AppConfig))
                 .case_insensitive(true).build().unwrap();
 
-            static ref APP_SETTINGS_JSON_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::AppSettingsJson.as_str()))
+            static ref APP_SETTINGS_JSON_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::AppSettingsJson))
                 .case_insensitive(true).build().unwrap();
 
-            static ref PACKAGE_JSON_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::PackageJson.as_str()))
+            static ref PACKAGE_JSON_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::PackageJson))
                 .case_insensitive(true).build().unwrap();
 
-            static ref PACKAGES_CONFIG_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::PackagesConfig.as_str()))
+            static ref PACKAGES_CONFIG_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::PackagesConfig))
                 .case_insensitive(true).build().unwrap();
 
-            static ref PROJECT_JSON_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::ProjectJson.as_str()))
+            static ref PROJECT_JSON_RE: Regex = RegexBuilder::new(&format!("\\sInclude=\"{}\"\\s*?/>", InterestingFile::ProjectJson))
                 .case_insensitive(true).build().unwrap();
         }
 
@@ -215,7 +214,7 @@ impl Project {
     /// files that should have been deleted as part of project migration.
     fn find_other_file(&self, other_file: InterestingFile) -> Option<&PathBuf> {
         self.other_files.iter()
-            .find(|item| unicase::eq(item.filename_as_str(), other_file.as_str()))
+            .find(|item| unicase::eq(item.filename_as_str(), other_file.as_ref()))
     }
 
     fn extract_packages<L: FileLoader>(&self, file_loader: &L, configuration: &Configuration) -> Vec<Package> {

@@ -1,5 +1,3 @@
-use crate::as_str::AsStr;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ProjectOwnership {
     Unknown,
@@ -13,8 +11,8 @@ impl Default for ProjectOwnership {
     }
 }
 
-impl AsStr for ProjectOwnership {
-    fn as_str(&self) -> &'static str {
+impl AsRef<str> for ProjectOwnership {
+    fn as_ref(&self) -> &str {
         match self {
             ProjectOwnership::Unknown => "Unknown",
             ProjectOwnership::Linked => "Linked",

@@ -2,6 +2,10 @@ use csv;
 use dnlib::prelude::*;
 use crate::errors::AnalysisResult;
 
+fn bool_to_str(b: bool) -> &'static str {
+    if b { "true" } else { "false" }
+}
+
 pub fn write_files(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
     write_solutions(analysis)?;
     write_solutions_to_projects(analysis)?;
@@ -24,8 +28,8 @@ fn write_solutions(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
                 sd.directory.as_str(),
                 sln.file_info.path_as_str(),
                 sln.file_info.filename_as_str(),
-                sln.file_info.is_valid_utf8.as_str(),
-                sln.version.as_str(),
+                bool_to_str(sln.file_info.is_valid_utf8),
+                sln.version.as_ref(),
                 // project columns
                 &sln.linked_projects().count().to_string(),
                 &sln.orphaned_projects().count().to_string(),
@@ -57,32 +61,32 @@ fn write_solutions_to_projects(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
                     sd.directory.as_str(),
                     sln.file_info.path_as_str(),
                     sln.file_info.filename_as_str(),
-                    sln.file_info.is_valid_utf8.as_str(),
-                    sln.version.as_str(),
+                    &sln.file_info.is_valid_utf8.to_string(),
+                    sln.version.as_ref(),
                     // project columns
-                    proj.ownership.as_str(),
+                    proj.ownership.as_ref(),
                     proj.file_info.path_as_str(),
                     proj.file_info.filename_as_str(),
-                    proj.file_info.is_valid_utf8.as_str(),
-                    proj.version.as_str(),
-                    proj.output_type.as_str(),
-                    proj.xml_doc.as_str(),
-                    proj.tt_file.as_str(),
-                    proj.embedded_debugging.as_str(),
-                    proj.linked_solution_info.as_str(),
-                    proj.auto_generate_binding_redirects.as_str(),
+                    bool_to_str(proj.file_info.is_valid_utf8),
+                    proj.version.as_ref(),
+                    proj.output_type.as_ref(),
+                    proj.xml_doc.as_ref(),
+                    bool_to_str(proj.tt_file),
+                    bool_to_str(proj.embedded_debugging),
+                    bool_to_str(proj.linked_solution_info),
+                    bool_to_str(proj.auto_generate_binding_redirects),
                     &proj.target_frameworks.join(","),
-                    proj.test_framework.as_str(),
-                    proj.uses_specflow.as_str(),
+                    proj.test_framework.as_ref(),
+                    bool_to_str(proj.uses_specflow),
                     &proj.packages.len().to_string(),
                     &proj.referenced_assemblies.len().to_string(),
                     &proj.referenced_projects.len().to_string(),
-                    proj.web_config.as_str(),
-                    proj.app_config.as_str(),
-                    proj.app_settings_json.as_str(),
-                    proj.package_json.as_str(),
-                    proj.packages_config.as_str(),
-                    proj.project_json.as_str(),
+                    proj.web_config.as_ref(),
+                    proj.app_config.as_ref(),
+                    proj.app_settings_json.as_ref(),
+                    proj.package_json.as_ref(),
+                    proj.packages_config.as_ref(),
+                    proj.project_json.as_ref(),
                 ])?;
             }
         }
@@ -111,22 +115,22 @@ fn write_projects_to_packages(analysis: &AnalyzedFiles) -> AnalysisResult<()> {
                         sd.directory.as_str(),
                         sln.file_info.path_as_str(),
                         sln.file_info.filename_as_str(),
-                        sln.file_info.is_valid_utf8.as_str(),
-                        sln.version.as_str(),
+                        bool_to_str(sln.file_info.is_valid_utf8),
+                        sln.version.as_ref(),
                         // project columns
-                        proj.ownership.as_str(),
+                        proj.ownership.as_ref(),
                         proj.file_info.path_as_str(),
                         proj.file_info.filename_as_str(),
-                        proj.file_info.is_valid_utf8.as_str(),
-                        proj.version.as_str(),
-                        proj.output_type.as_str(),
+                        bool_to_str(proj.file_info.is_valid_utf8),
+                        proj.version.as_ref(),
+                        proj.output_type.as_ref(),
                         &proj.target_frameworks.join(","),
                         // package columns
                         &pkg.name,
                         &pkg.class,
                         &pkg.version,
-                        pkg.development.as_str(),
-                        pkg.is_preview().as_str(),
+                        bool_to_str(pkg.development),
+                        bool_to_str(pkg.is_preview()),
                     ])?;
                 }
             }

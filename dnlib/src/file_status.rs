@@ -1,5 +1,3 @@
-use crate::as_str::AsStr;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FileStatus {
     Unknown,
@@ -15,8 +13,8 @@ impl Default for FileStatus {
     }
 }
 
-impl AsStr for FileStatus {
-    fn as_str(&self) -> &'static str {
+impl AsRef<str> for FileStatus {
+    fn as_ref(&self) -> &str {
         match self {
             FileStatus::Unknown => "Unknown",
             FileStatus::NotPresent => "NotPresent",

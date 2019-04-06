@@ -1,4 +1,4 @@
-use crate::as_str::AsStr;
+use std::fmt;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ProjectVersion {
@@ -21,8 +21,8 @@ impl Default for ProjectVersion {
     }
 }
 
-impl AsStr for ProjectVersion {
-    fn as_str(&self) -> &'static str {
+impl AsRef<str> for ProjectVersion {
+    fn as_ref(&self) -> &str {
         match self {
             ProjectVersion::Unknown => "Unknown",
             ProjectVersion::MicrosoftNetSdk => "MicrosoftNetSdk",
@@ -47,5 +47,17 @@ impl ProjectVersion {
         } else {
             None
         }
+    }
+}
+
+impl fmt::Display for ProjectVersion {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}",
+            match self {
+                ProjectVersion::Unknown => "Unknown",
+                ProjectVersion::MicrosoftNetSdk => "MicrosoftNetSdk",
+                ProjectVersion::MicrosoftNetSdkWeb => "MicrosoftNetSdkWeb",
+                ProjectVersion::OldStyle => "OldStyle",
+            })
     }
 }

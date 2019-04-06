@@ -1,5 +1,3 @@
-use crate::as_str::AsStr;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VisualStudioVersion {
     Unknown,
@@ -14,8 +12,8 @@ impl Default for VisualStudioVersion {
     }
 }
 
-impl AsStr for VisualStudioVersion {
-    fn as_str(&self) -> &'static str {
+impl AsRef<str> for VisualStudioVersion {
+    fn as_ref(&self) -> &str {
         match self {
             VisualStudioVersion::Unknown => "Unknown",
             VisualStudioVersion::VS2015 => "VS2015",

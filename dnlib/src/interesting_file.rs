@@ -1,4 +1,4 @@
-use crate::as_str::AsStr;
+use std::fmt;
 use crate::dn_error::DnLibError;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -22,8 +22,8 @@ pub enum InterestingFile {
     ProjectJson
 }
 
-impl AsStr for InterestingFile {
-    fn as_str(&self) -> &'static str {
+impl AsRef<str> for InterestingFile {
+    fn as_ref(&self) -> &str {
         match self {
             InterestingFile::WebConfig => "web.config",
             InterestingFile::AppConfig => "app.config",
@@ -49,5 +49,11 @@ impl std::str::FromStr for InterestingFile {
             "project.json" => Ok(InterestingFile::ProjectJson),
             _ => Err(DnLibError::InvalidInterestingFile(s)),
         }
+    }
+}
+
+impl fmt::Display for InterestingFile {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.as_ref())
     }
 }

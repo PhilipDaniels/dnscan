@@ -1,5 +1,3 @@
-use crate::as_str::AsStr;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OutputType {
     Unknown,
@@ -20,8 +18,8 @@ impl Default for OutputType {
     }
 }
 
-impl AsStr for OutputType {
-    fn as_str(&self) -> &'static str {
+impl AsRef<str> for OutputType {
+    fn as_ref(&self) -> &str {
         match self {
             OutputType::Unknown => "Unknown",
             OutputType::Library => "Library",

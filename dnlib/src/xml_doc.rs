@@ -1,6 +1,5 @@
 use lazy_static::lazy_static;
 use regex::Regex;
-use crate::as_str::AsStr;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum XmlDoc {
@@ -25,8 +24,8 @@ impl Default for XmlDoc {
     }
 }
 
-impl AsStr for XmlDoc {
-    fn as_str(&self) -> &'static str {
+impl AsRef<str> for XmlDoc {
+    fn as_ref(&self) -> &str {
         match self {
             XmlDoc::Unknown => "Unknown",
             XmlDoc::None => "None",

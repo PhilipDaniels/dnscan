@@ -209,6 +209,28 @@ pub struct SolutionDirectory {
     pub solutions: Vec<Solution>,
 }
 
+impl<P> From<P> for SolutionDirectory
+where P: Into<PathBuf>
+{
+    fn from(sln_directory: P) -> Self {
+        SolutionDirectory {
+            directory: sln_directory.into(),
+            solutions: vec![]
+        }
+    }
+}
+
+
+#[cfg(test)]
+mod tests2 {
+    use super::*;
+    #[test]
+    pub fn x() {
+        let p = PathBuf::from("s");
+        let s: SolutionDirectory = "somepath".into();
+    }
+}
+
 impl SolutionDirectory {
     fn new<P: Into<PathBuf>>(sln_directory: P) -> Self {
         SolutionDirectory {

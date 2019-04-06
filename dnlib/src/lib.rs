@@ -1,4 +1,3 @@
-pub mod as_str;
 pub mod file_loader;
 pub mod path_extensions;
 pub mod visual_studio_version;
@@ -19,7 +18,6 @@ pub mod configuration;
 pub mod project_ownership;
 
 pub mod prelude {
-    pub use crate::as_str::*;
     pub use crate::file_loader::*;
     pub use crate::path_extensions::*;
     pub use crate::visual_studio_version::*;
