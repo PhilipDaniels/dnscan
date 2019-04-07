@@ -17,7 +17,9 @@ fn write_solutions(analysis: &Analysis) -> AnalysisResult<()> {
     let mut wtr = csv::Writer::from_path("solutions.csv")?;
 
     wtr.write_record(&[
-        "SlnDirectory", "SlnPath", "SlnFile", "SlnIsValidUTF8", "SlnVersion",
+        "SlnDirectory",
+        "GitBranch", "GitSha", "GitSummary", "GitCommitTime", "GitAuthor", "GitAuthorEmail", "GitRemoteName", "GitRemoteUrl",
+        "SlnPath", "SlnFile", "SlnIsValidUTF8", "SlnVersion",
         "LinkedProjectsCount", "OrphanedProjectsCount"
     ])?;
 
@@ -26,6 +28,14 @@ fn write_solutions(analysis: &Analysis) -> AnalysisResult<()> {
             wtr.write_record(&[
                 // sln columns
                 sd.directory.as_str(),
+                sd.git_info.as_ref().map_or("", |git_info| &git_info.branch),
+                sd.git_info.as_ref().map_or("", |git_info| &git_info.sha),
+                sd.git_info.as_ref().map_or("", |git_info| &git_info.summary),
+                sd.git_info.as_ref().map_or("", |git_info| &git_info.commit_time),
+                sd.git_info.as_ref().map_or("", |git_info| &git_info.author),
+                sd.git_info.as_ref().map_or("", |git_info| &git_info.author_email),
+                sd.git_info.as_ref().map_or("", |git_info| &git_info.remote_name),
+                sd.git_info.as_ref().map_or("", |git_info| &git_info.remote_url),
                 sln.file_info.path_as_str(),
                 sln.file_info.filename_as_str(),
                 bool_to_str(sln.file_info.is_valid_utf8),

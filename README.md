@@ -21,7 +21,6 @@ cargo run --bin dnscan [-v]
     - redundant_packages_count
     - redundant_projects_count
 - Analyze_files: merge find_linked_sln and find_orphaned_slns into one fn
-- Git info extraction
 - Tests for mentioned projects are completely inadequate.
 - Better settings for rustfmt
     - Longer lines!

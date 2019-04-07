@@ -10,10 +10,12 @@ use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use std::time::{self, Duration};
 use std::sync::Arc;
+use std::ffi::OsStr;
 
 /// The set of all files found during analysis.
 #[derive(Debug, Default)]
 pub struct Analysis {
+    pub root_path: PathBuf,
     pub paths_analyzed: PathsToAnalyze,
     pub solution_directories: Vec<SolutionDirectory>,
     pub disk_walk_duration: Duration,
@@ -22,14 +24,16 @@ pub struct Analysis {
 }
 
 impl Analysis {
-    pub fn new<P>(path: P, configuration: &Configuration) -> DnLibResult<Self>
+    pub fn new<P>(root_path: P, configuration: &Configuration) -> DnLibResult<Self>
     where
-        P: AsRef<Path>,
+        P: Into<PathBuf>,
     {
         let disk_walk_start_time = time::Instant::now();
-        let pta = find_files(&path)?;
+        let root_path = root_path.into();
+        let pta = find_files(&root_path)?;
 
         let mut af = Self {
+            root_path: root_path,
             paths_analyzed: pta,
             disk_walk_duration: disk_walk_start_time.elapsed(),
             ..Default::default()
@@ -115,7 +119,8 @@ impl Analysis {
         Ok(())
     }
 
-    fn add_solution(&mut self, sln: Solution) {
+    fn add_solution(&mut self, sln: Solution)
+    {
         let sln_dir = sln.file_info.path.parent().unwrap();
 
         for item in &mut self.solution_directories {
@@ -126,6 +131,7 @@ impl Analysis {
         }
 
         let mut sd = SolutionDirectory::new(sln_dir);
+        sd.get_git_info(&self.root_path);
         sd.solutions.push(sln);
         self.solution_directories.push(sd);
     }
@@ -236,6 +242,12 @@ impl SolutionDirectory {
         self.solutions.iter()
             .map(|sln| sln.orphaned_projects().count())
             .sum()
+    }
+
+    fn get_git_info<C>(&mut self, ceiling_dir: C)
+    where C: AsRef<OsStr>
+    {
+        self.git_info = GitInfo::new(&self.directory, ceiling_dir).ok();
     }
 }
 
