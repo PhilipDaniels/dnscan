@@ -115,7 +115,11 @@ impl Analysis {
         self.project_load_duration = project_analysis_start_time.elapsed();
 
         // Now we can find which projects refer to which other projects.
-
+        for sd in &self.solution_directories {
+            for sln in &sd.solutions {
+                sln.calculate_project_references();
+            }
+        }
 
         self.sort();
         Ok(())
@@ -375,6 +379,22 @@ impl Solution {
     fn refers_to_project<P: AsRef<Path>>(&self, project_path: P) -> bool {
         let project_path = project_path.as_ref();
         self.mentioned_projects.iter().any(|mp| mp.eq_ignoring_case(project_path))
+    }
+
+    fn calculate_project_references(&self) {
+        for proj in &self.projects {
+            // For each project in this solution, look through all of its referenced_project_paths
+            for rpp in &proj.referenced_project_paths {
+                // For each path, try and find the corresponding project in this solution.
+                // Note that this calculation is *within this solution* only.
+                if let Some(reffed_proj) = self.projects.iter().find(|p| p.file_info.path == *rpp) {
+                    // If found, add something to proj.referenced_projects.
+                    println!("Project {:?} refers to project {:?}", proj.file_info.filename_as_str(),  reffed_proj.file_info.filename_as_str());
+                    //let rp = Arc::new(*reffed_proj);
+                    //proj.referenced_projects.push(rp);
+                }
+            }
+        }
     }
 }
 
