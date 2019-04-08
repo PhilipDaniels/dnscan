@@ -114,6 +114,8 @@ impl Analysis {
 
         self.project_load_duration = project_analysis_start_time.elapsed();
 
+        // Now we can find which projects refer to which other projects.
+
 
         self.sort();
         Ok(())
@@ -270,6 +272,50 @@ pub struct Solution {
     mentioned_projects: Vec<PathBuf>
 }
 
+/// Convert this extracted path to a form that matches what is in use on
+/// the operating system the program is running on. Mentioned paths are
+/// always of the form "Dir\Foo.csproj" (in other words, even on Linux
+/// they use Windows-style slashes)
+#[cfg(windows)]
+fn norm_mentioned_path(mp: &str) -> String {
+    mp.to_owned()
+}
+
+#[cfg(not(windows))]
+fn norm_mentioned_path(mp: &str) -> String {
+    mp.replace('\\', "/").to_owned()
+}
+
+// From https://github.com/rust-lang/cargo/blob/2e4cfc2b7d43328b207879228a2ca7d427d188bb/src/cargo/util/paths.rs#L65-L90
+fn normalize_path(path: &Path) -> PathBuf {
+    use std::path::Component;
+
+    let mut components = path.components().peekable();
+    let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().cloned() {
+        components.next();
+        PathBuf::from(c.as_os_str())
+    } else {
+        PathBuf::new()
+    };
+
+    for component in components {
+        match component {
+            Component::Prefix(..) => unreachable!(),
+            Component::RootDir => {
+                ret.push(component.as_os_str());
+            }
+            Component::CurDir => {}
+            Component::ParentDir => {
+                ret.pop();
+            }
+            Component::Normal(c) => {
+                ret.push(c);
+            }
+        }
+    }
+    ret
+}
+
 impl Solution {
     pub fn new<P, L>(path: P, file_loader: &L) -> Self
     where
@@ -315,7 +361,7 @@ impl Solution {
         let mut project_paths = PROJECT_RE.captures_iter(contents)
             .map(|cap| {
                 let mut path = sln_dir.clone();
-                let x = Self::norm_mentioned_path(&cap["projpath"]);
+                let x = norm_mentioned_path(&cap["projpath"]);
                 path.push(x);
                 path
             })
@@ -329,20 +375,6 @@ impl Solution {
     fn refers_to_project<P: AsRef<Path>>(&self, project_path: P) -> bool {
         let project_path = project_path.as_ref();
         self.mentioned_projects.iter().any(|mp| mp.eq_ignoring_case(project_path))
-    }
-
-    /// Convert this extracted path to a form that matches what is in use on
-    /// the operating system the program is running on. Mentioned paths are
-    /// always of the form "Dir\Foo.csproj" (in other words, even on Linux
-    /// they use Windows-style slashes)
-    #[cfg(windows)]
-    fn norm_mentioned_path(mp: &str) -> String {
-        mp.to_owned()
-    }
-
-    #[cfg(not(windows))]
-    fn norm_mentioned_path(mp: &str) -> String {
-        mp.replace('\\', "/").to_owned()
     }
 }
 
@@ -409,6 +441,9 @@ pub struct Project {
     pub test_framework: TestFramework,
     pub uses_specflow: bool,
 
+    // This is a collection of the normalized 'foo.csproj' paths as extracted from this csproj file.
+    referenced_project_paths: Vec<PathBuf>,
+    // And this is it converted into a set oif references to actual Project objects.
     pub referenced_projects: Vec<Arc<Project>>,
 }
 
@@ -440,6 +475,7 @@ impl Project {
         proj.package_json = proj.has_file_of_interest(InterestingFile::PackageJson);
         proj.packages_config = proj.has_file_of_interest(InterestingFile::PackagesConfig);
         proj.project_json = proj.has_file_of_interest(InterestingFile::ProjectJson);
+        proj.referenced_project_paths = proj.extract_project_paths();
 
         // The things after here are dependent on having first determined the packages
         // that the project uses.
@@ -581,6 +617,29 @@ impl Project {
         self.other_files.iter()
             .find(|item| unicase::eq(item.filename_as_str(), other_file.as_ref()))
     }
+
+    fn extract_project_paths(&self) -> Vec<PathBuf> {
+        lazy_static! {
+            static ref PROJECT_REF_REGEX: Regex = RegexBuilder::new(r#"<ProjectReference\s+Include="(?P<name>[^"]+)"(?P<rest>.+?)(/>|</ProjectReference>)"#)
+                .case_insensitive(true).dot_matches_new_line(true).build().unwrap();
+        }
+
+        let mut paths: Vec<PathBuf> = PROJECT_REF_REGEX.captures_iter(&self.file_info.contents)
+            .map(|cap| {
+                let mut path = self.file_info.path.parent().unwrap().to_owned();
+                // This will be something like "..\Foo\Foo.csproj"
+                let relative_csproj_path = norm_mentioned_path(&cap["name"]);
+                path.push(relative_csproj_path);
+                let path = normalize_path(&path);
+                path
+            })
+            .collect();
+
+        paths.sort();
+        paths.dedup();
+        paths
+    }
+
 
     fn extract_packages<L: FileLoader>(&self, file_loader: &L, configuration: &Configuration) -> Vec<Package> {
         lazy_static! {
