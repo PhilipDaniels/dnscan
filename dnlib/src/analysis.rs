@@ -145,13 +145,13 @@ impl Analysis {
     fn add_project(&mut self, mut project: Project) {
         if let Some(ref mut sln) = self.find_linked_solution(&project.file_info.path) {
             project.ownership = ProjectOwnership::Linked;
-            sln.projects.push(project);
+            sln.projects.push(Arc::new(project));
         } else if let Some(ref mut sln) = self.find_orphaned_solution(&project.file_info.path) {
             project.ownership = ProjectOwnership::Orphaned;
-            sln.projects.push(project);
+            sln.projects.push(Arc::new(project));
         } else if let Some(ref mut sln) = self.find_orphaned_solution_in_parent_dir(&project.file_info.path) {
             project.ownership = ProjectOwnership::Orphaned;
-            sln.projects.push(project);
+            sln.projects.push(Arc::new(project));
         } else {
             eprintln!("Could not associate project {:?} with a solution, ignoring.", &project.file_info.path);
         }
@@ -268,7 +268,7 @@ pub struct Solution {
     // associated with this solution (either by explicit linkage because they are
     // mentioned in the .sln file, or by assumed-orphanship because they are in
     // the same directory, but no longer in the solution).
-    pub projects: Vec<Project>,
+    pub projects: Vec<Arc<Project>>,
 
     /// The set of projects that is mentioned inside the sln file.
     /// This is populated by reading the solution file and normalizing
@@ -343,11 +343,11 @@ impl Solution {
         self.projects.sort();
     }
 
-    pub fn linked_projects(&self) -> impl Iterator<Item = &Project> {
+    pub fn linked_projects(&self) -> impl Iterator<Item = &Arc<Project>> {
         self.projects.iter().filter(|p| p.ownership == ProjectOwnership::Linked)
     }
 
-    pub fn orphaned_projects(&self) -> impl Iterator<Item = &Project> {
+    pub fn orphaned_projects(&self) -> impl Iterator<Item = &Arc<Project>> {
         self.projects.iter().filter(|p| p.ownership == ProjectOwnership::Orphaned)
     }
 
@@ -390,8 +390,7 @@ impl Solution {
                 if let Some(reffed_proj) = self.projects.iter().find(|p| p.file_info.path == *rpp) {
                     // If found, add something to proj.referenced_projects.
                     println!("Project {:?} refers to project {:?}", proj.file_info.filename_as_str(),  reffed_proj.file_info.filename_as_str());
-                    //let rp = Arc::new(*reffed_proj);
-                    //proj.referenced_projects.push(rp);
+                    proj.referenced_projects.push(Arc::clone(reffed_proj));
                 }
             }
         }
