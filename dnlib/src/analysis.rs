@@ -208,7 +208,7 @@ impl Analysis {
 }
 
 
-#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Eq)]
 /// Represents a directory that contains 1 or more solution files.
 pub struct SolutionDirectory {
     /// The directory path, e.g. `C:\temp\my_solution`.
@@ -220,6 +220,36 @@ pub struct SolutionDirectory {
     /// Info about the Git repo, if any.
     pub git_info: Option<GitInfo>,
 }
+
+impl PartialEq for SolutionDirectory {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.directory == other.directory
+    }
+}
+
+impl Hash for SolutionDirectory {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.directory.hash(state)
+    }
+}
+
+impl PartialOrd for SolutionDirectory {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.directory.cmp(&other.directory))
+    }
+}
+
+impl Ord for SolutionDirectory {
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.directory.cmp(&other.directory)
+    }
+}
+
+
 
 impl SolutionDirectory {
     fn new<P: Into<PathBuf>>(sln_directory: P) -> Self {
@@ -259,7 +289,7 @@ impl SolutionDirectory {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Eq)]
 /// Represents a sln file and any projects that are associated with it.
 pub struct Solution {
     pub file_info: FileInfo,
@@ -277,6 +307,35 @@ pub struct Solution {
     /// the extracted paths.
     mentioned_projects: Vec<PathBuf>
 }
+
+impl PartialEq for Solution {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.file_info == other.file_info
+    }
+}
+
+impl Hash for Solution {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.file_info.hash(state)
+    }
+}
+
+impl PartialOrd for Solution {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.file_info.cmp(&other.file_info))
+    }
+}
+
+impl Ord for Solution {
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.file_info.cmp(&other.file_info)
+    }
+}
+
 
 /// Convert this extracted path to a form that matches what is in use on
 /// the operating system the program is running on. Mentioned paths are
@@ -437,33 +496,38 @@ impl FileInfo {
 }
 
 impl PartialEq for FileInfo {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.path == other.path
     }
 }
 
 impl Hash for FileInfo {
+    #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.path.hash(state)
     }
 }
 
-impl Ord for FileInfo {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.path.cmp(&other.path)
-    }
-}
-
 impl PartialOrd for FileInfo {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
+impl Ord for FileInfo {
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.path.cmp(&other.path)
+    }
+}
+
+
 
 
 /// The results of analyzing a project file.
-#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Eq)]
 pub struct Project {
     pub file_info: FileInfo,
     pub ownership: ProjectOwnership,
@@ -493,6 +557,35 @@ pub struct Project {
     // And this is it converted into a set oif references to actual Project objects.
     pub referenced_projects: Vec<Arc<Project>>,
 }
+
+impl PartialEq for Project {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.file_info == other.file_info
+    }
+}
+
+impl Hash for Project {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.file_info.hash(state)
+    }
+}
+
+impl PartialOrd for Project {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.file_info.cmp(&other.file_info))
+    }
+}
+
+impl Ord for Project {
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.file_info.cmp(&other.file_info)
+    }
+}
+
 
 impl Project {
     pub fn new<P, L>(path: P, other_files: Vec<PathBuf>, file_loader: &L, configuration: &Configuration) -> Self
