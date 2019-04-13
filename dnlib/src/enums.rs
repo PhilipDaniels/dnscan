@@ -16,7 +16,7 @@ pub enum FileStatus {
     InProjectFileAndOnDisk
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum InterestingFile {
     /// The web.config file.
     WebConfig,
