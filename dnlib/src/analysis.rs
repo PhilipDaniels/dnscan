@@ -11,6 +11,8 @@ use std::path::{Path, PathBuf};
 use std::time::{self, Duration};
 use std::sync::Arc;
 use std::ffi::OsStr;
+use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 
 /// The set of all files found during analysis.
 #[derive(Debug, Default)]
@@ -397,7 +399,7 @@ impl Solution {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Eq)]
 /// Represents information about a .sln or .csproj file.
 pub struct FileInfo {
     pub path: PathBuf,
@@ -433,6 +435,32 @@ impl FileInfo {
         self.path.directory_as_str()
     }
 }
+
+impl PartialEq for FileInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+    }
+}
+
+impl Hash for FileInfo {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.path.hash(state)
+    }
+}
+
+impl Ord for FileInfo {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.path.cmp(&other.path)
+    }
+}
+
+impl PartialOrd for FileInfo {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+
 
 /// The results of analyzing a project file.
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord)]

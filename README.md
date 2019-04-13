@@ -34,3 +34,5 @@ cargo run --bin dnscan [-v]
   - Remove redundant NuGet package references
   - Scan source for redundant NuGet packages
   - Remove redundant Assembly references
+
+
