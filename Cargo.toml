@@ -1,2 +1,11 @@
 [workspace]
 members = ["dnlib", "dnclean", "dnscan"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+debug = true
+
+# For fastest possible build, do
+#   RUSTFLAGS="-C target-cpu=native" cargo build --release
+
