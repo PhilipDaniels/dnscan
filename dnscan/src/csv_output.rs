@@ -66,6 +66,8 @@ fn write_solutions_to_projects(analysis: &Analysis) -> AnalysisResult<()> {
     for sd in &analysis.solution_directories {
         for sln in &sd.solutions {
             for proj in &sln.projects {
+                let proj = proj.read().unwrap();
+
                 wtr.write_record(&[
                     // sln columns
                     sd.directory.as_str(),
@@ -115,10 +117,11 @@ fn write_projects_to_packages(analysis: &Analysis) -> AnalysisResult<()> {
         "PkgName", "PkgClass", "PkgVersion", "PkgIsDevelopment", "PkgIsPreview"
     ])?;
 
-
     for sd in &analysis.solution_directories {
         for sln in &sd.solutions {
             for proj in &sln.projects {
+                let proj = proj.read().unwrap();
+
                 for pkg in &proj.packages {
                     wtr.write_record(&[
                         // sln columns
@@ -145,7 +148,6 @@ fn write_projects_to_packages(analysis: &Analysis) -> AnalysisResult<()> {
                 }
             }
         }
-
     }
 
     wtr.flush()?;
