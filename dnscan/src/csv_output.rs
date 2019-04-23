@@ -67,8 +67,6 @@ fn write_solutions_to_projects(analysis: &Analysis) -> AnalysisResult<()> {
     for sd in &analysis.solution_directories {
         for sln in &sd.solutions {
             for proj in &sln.projects {
-                let proj = proj.read().unwrap();
-
                 wtr.write_record(&[
                     // sln columns
                     sd.directory.as_str(),
@@ -93,7 +91,7 @@ fn write_solutions_to_projects(analysis: &Analysis) -> AnalysisResult<()> {
                     bool_to_str(proj.uses_specflow),
                     &proj.packages.len().to_string(),
                     &proj.referenced_assemblies.len().to_string(),
-                    &proj.referenced_projects.len().to_string(),
+                    &proj.get_referenced_projects(sln).len().to_string(),
                     proj.web_config.as_ref(),
                     proj.app_config.as_ref(),
                     proj.app_settings_json.as_ref(),
@@ -121,8 +119,6 @@ fn write_projects_to_packages(analysis: &Analysis) -> AnalysisResult<()> {
     for sd in &analysis.solution_directories {
         for sln in &sd.solutions {
             for proj in &sln.projects {
-                let proj = proj.read().unwrap();
-
                 for pkg in &proj.packages {
                     wtr.write_record(&[
                         // sln columns
@@ -168,11 +164,7 @@ fn write_projects_to_projects(analysis: &Analysis) -> AnalysisResult<()> {
     for sd in &analysis.solution_directories {
         for sln in &sd.solutions {
             for owning_proj in &sln.projects {
-                let owning_proj = owning_proj.read().unwrap();
-
-                for reffed_proj in &owning_proj.referenced_projects {
-                    let reffed_proj = reffed_proj.read().unwrap();
-
+                for reffed_proj in &owning_proj.get_referenced_projects(sln) {
                     wtr.write_record(&[
                         // sln columns
                         sd.directory.as_str(),

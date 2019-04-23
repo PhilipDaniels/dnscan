@@ -117,13 +117,6 @@ impl Analysis {
 
         self.project_load_duration = project_analysis_start_time.elapsed();
 
-        // Now we can find which projects refer to which other projects.
-        for sd in &mut self.solution_directories {
-            for sln in &mut sd.solutions {
-                sln.calculate_project_references();
-            }
-        }
-
         self.sort();
         Ok(())
     }
@@ -148,13 +141,13 @@ impl Analysis {
     fn add_project(&mut self, mut project: Project) {
         if let Some(ref mut sln) = self.find_linked_solution(&project.file_info.path) {
             project.ownership = ProjectOwnership::Linked;
-            sln.projects.push(Arc::new(RwLock::new(project)));
+            sln.projects.push(project);
         } else if let Some(ref mut sln) = self.find_orphaned_solution(&project.file_info.path) {
             project.ownership = ProjectOwnership::Orphaned;
-            sln.projects.push(Arc::new(RwLock::new(project)));
+            sln.projects.push(project);
         } else if let Some(ref mut sln) = self.find_orphaned_solution_in_parent_dir(&project.file_info.path) {
             project.ownership = ProjectOwnership::Orphaned;
-            sln.projects.push(Arc::new(RwLock::new(project)));
+            sln.projects.push(project);
         } else {
             eprintln!("Could not associate project {:?} with a solution, ignoring.", &project.file_info.path);
         }
@@ -301,7 +294,7 @@ pub struct Solution {
     // associated with this solution (either by explicit linkage because they are
     // mentioned in the .sln file, or by assumed-orphanship because they are in
     // the same directory, but no longer in the solution).
-    pub projects: Vec<Arc<RwLock<Project>>>,
+    pub projects: Vec<Project>,
 
     /// The set of projects that is mentioned inside the sln file.
     /// This is populated by reading the solution file and normalizing
@@ -404,18 +397,15 @@ impl Solution {
     }
 
     fn sort(&mut self) {
-        self.projects.sort_by_cached_key(|arp| {
-            let proj = arp.read().unwrap();
-            proj.file_info.path.clone()
-        });
+        self.projects.sort();
     }
 
-    pub fn linked_projects(&self) -> impl Iterator<Item = &Arc<RwLock<Project>>> {
-        self.projects.iter().filter(|p| p.read().unwrap().ownership == ProjectOwnership::Linked)
+    pub fn linked_projects(&self) -> impl Iterator<Item = &Project> {
+        self.projects.iter().filter(|p| p.ownership == ProjectOwnership::Linked)
     }
 
-    pub fn orphaned_projects(&self) -> impl Iterator<Item = &Arc<RwLock<Project>>> {
-        self.projects.iter().filter(|&p| p.read().unwrap().ownership == ProjectOwnership::Orphaned)
+    pub fn orphaned_projects(&self) -> impl Iterator<Item = &Project> {
+        self.projects.iter().filter(|p| p.ownership == ProjectOwnership::Orphaned)
     }
 
     /// Extracts the projects from the contents of the solution file. Note that there is
@@ -446,67 +436,6 @@ impl Solution {
     fn refers_to_project<P: AsRef<Path>>(&self, project_path: P) -> bool {
         let project_path = project_path.as_ref();
         self.mentioned_projects.iter().any(|mp| mp.eq_ignoring_case(project_path))
-    }
-
-    fn get_project_to_project_references(&self) -> HashMap<PathBuf, Vec<Arc<RwLock<Project>>>> {
-        // FIXME: This is very strange. The function won't compile without this,
-        // yet I would expect that Rust could infer it since this variable is
-        // returned at the end of the function. Error is
-        //   'cannot infer type for `V` on the entry.push() line
-        //   type must be known at this point
-        let mut proj_refs: HashMap<PathBuf, Vec<Arc<RwLock<Project>>>> = HashMap::new();
-
-        for owning_proj in &self.projects {
-            // For each project in this solution, look through all of its referenced_project_paths
-            let owning_proj = owning_proj.read().unwrap();
-            for rpp in &owning_proj.referenced_project_paths {
-                // For each path, try and find the corresponding project in this solution.
-                // Note that this calculation is *within this solution* only.
-                if let Some(reffed_proj) = self.projects.iter().find(|p| p.read().unwrap().file_info.path == *rpp) {
-                    let reffed_proj = Arc::clone(reffed_proj);
-
-                    {
-                        let rpp_read = reffed_proj.read().unwrap();
-                        let reffed_proj_path = &rpp_read.file_info.filename_as_str();
-                        println!("Project {:?} refers to project {:?}", owning_proj.file_info.filename_as_str(),  reffed_proj_path);
-                    }
-
-                    let p = owning_proj.file_info.path.clone();
-                    let entry = proj_refs.entry(p).or_default();
-                    entry.push(reffed_proj);
-                }
-            }
-        }
-
-        proj_refs
-    }
-
-    // Alternatives:
-    // 1. Do not store this, just calculate it on demand. Allows refs to be returned.
-    // and would simplify the data structure a lot (gets rid of Arc<RwLock>).
-    // 2. Interior mutability is looking quite a nice solution now.
-    // 3. Build this *before* we have initially finished constructing the project, i.e. before we
-    // place it into the Solution's vector. Not sure how this helps though, it would still require
-    // us to use an Arc<RwLock>.
-    // 4. If calculating on demand, could memoize the results, using lifetimes? This sounds like
-    // a nice solution.
-    fn calculate_project_references(&mut self) {
-        let refs = self.get_project_to_project_references();
-
-        for proj in &mut self.projects {
-            let mut proj = proj.write().unwrap();
-            if let Some(refs_for_proj) = refs.get(&proj.file_info.path) {
-                proj.referenced_projects = refs_for_proj.to_vec();
-            }
-        }
-    }
-
-    pub fn calc_on_demand_proj_to_proj(&self) -> HashMap<&Project, Vec<&Project>> {
-        let mut proj_refs = HashMap::new();
-
-
-
-        proj_refs
     }
 }
 
@@ -606,8 +535,6 @@ pub struct Project {
 
     // This is a collection of the normalized 'foo.csproj' paths as extracted from this csproj file.
     referenced_project_paths: Vec<PathBuf>,
-    // And this is it converted into a set oif references to actual Project objects.
-    pub referenced_projects: Vec<Arc<RwLock<Project>>>,
 }
 
 impl PartialEq for Project {
@@ -678,6 +605,19 @@ impl Project {
         proj.uses_specflow = proj.extract_uses_specflow();
 
         proj
+    }
+
+    // TODO: Memmoize this.
+    pub fn get_referenced_projects<'s>(&self, sln: &'s Solution) -> Vec<&'s Project> {
+        let mut result = vec![];
+
+        for rp in &sln.projects {
+            if self.referenced_project_paths.iter().find(|rpp| rp.file_info.path == **rpp).is_some() {
+                result.push(rp);
+            }
+        }
+
+        result
     }
 
     fn extract_tt_file(&self) -> bool {
