@@ -10,6 +10,7 @@ pub fn write_files(analysis: &Analysis) -> AnalysisResult<()> {
     write_solutions(analysis)?;
     write_solutions_to_projects(analysis)?;
     write_projects_to_packages(analysis)?;
+    write_projects_to_projects(analysis)?;
     Ok(())
 }
 
@@ -144,6 +145,51 @@ fn write_projects_to_packages(analysis: &Analysis) -> AnalysisResult<()> {
                         &pkg.version,
                         bool_to_str(pkg.development),
                         bool_to_str(pkg.is_preview()),
+                    ])?;
+                }
+            }
+        }
+    }
+
+    wtr.flush()?;
+    Ok(())
+}
+
+fn write_projects_to_projects(analysis: &Analysis) -> AnalysisResult<()> {
+    let mut wtr = csv::Writer::from_path("projects_to_projects.csv")?;
+
+    wtr.write_record(&[
+        "SlnDirectory", "SlnPath", "SlnFile",
+        "ProjPath", "ProjFile", "ProjIsValidUTF8", "ProjVersion", "ProjOutputType",
+        "RefProjPath", "RefProjPath", "RefProjIsValidUTF8", "RefProjVersion", "RefProjOutputType",
+    ])?;
+
+
+    for sd in &analysis.solution_directories {
+        for sln in &sd.solutions {
+            for owning_proj in &sln.projects {
+                let owning_proj = owning_proj.read().unwrap();
+
+                for reffed_proj in &owning_proj.referenced_projects {
+                    let reffed_proj = reffed_proj.read().unwrap();
+
+                    wtr.write_record(&[
+                        // sln columns
+                        sd.directory.as_str(),
+                        sln.file_info.path_as_str(),
+                        sln.file_info.filename_as_str(),
+                        // project columns
+                        owning_proj.file_info.path_as_str(),
+                        owning_proj.file_info.filename_as_str(),
+                        bool_to_str(owning_proj.file_info.is_valid_utf8),
+                        owning_proj.version.as_ref(),
+                        owning_proj.output_type.as_ref(),
+                        // referenced project columns
+                        reffed_proj.file_info.path_as_str(),
+                        reffed_proj.file_info.filename_as_str(),
+                        bool_to_str(reffed_proj.file_info.is_valid_utf8),
+                        reffed_proj.version.as_ref(),
+                        reffed_proj.output_type.as_ref(),
                     ])?;
                 }
             }
