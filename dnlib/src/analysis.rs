@@ -481,6 +481,15 @@ impl Solution {
         proj_refs
     }
 
+    // Alternatives:
+    // 1. Do not store this, just calculate it on demand. Allows refs to be returned.
+    // and would simplify the data structure a lot (gets rid of Arc<RwLock>).
+    // 2. Interior mutability is looking quite a nice solution now.
+    // 3. Build this *before* we have initially finished constructing the project, i.e. before we
+    // place it into the Solution's vector. Not sure how this helps though, it would still require
+    // us to use an Arc<RwLock>.
+    // 4. If calculating on demand, could memoize the results, using lifetimes? This sounds like
+    // a nice solution.
     fn calculate_project_references(&mut self) {
         let refs = self.get_project_to_project_references();
 
@@ -490,6 +499,14 @@ impl Solution {
                 proj.referenced_projects = refs_for_proj.to_vec();
             }
         }
+    }
+
+    pub fn calc_on_demand_proj_to_proj(&self) -> HashMap<&Project, Vec<&Project>> {
+        let mut proj_refs = HashMap::new();
+
+
+
+        proj_refs
     }
 }
 
