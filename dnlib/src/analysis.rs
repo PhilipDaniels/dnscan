@@ -9,7 +9,7 @@ use regex::{Regex, RegexBuilder};
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use std::time::{self, Duration};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 use std::ffi::OsStr;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
@@ -404,7 +404,10 @@ impl Solution {
     }
 
     fn sort(&mut self) {
-        //self.projects.sort();
+        self.projects.sort_by_cached_key(|arp| {
+            let proj = arp.read().unwrap();
+            proj.file_info.path.clone()
+        });
     }
 
     pub fn linked_projects(&self) -> impl Iterator<Item = &Arc<RwLock<Project>>> {
