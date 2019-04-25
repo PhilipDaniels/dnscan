@@ -191,7 +191,7 @@ impl Analysis {
 
         let mut handles = None;
 
-        'outer: for ownership_type in vec![ProjectOwnership::Linked, ProjectOwnership::Orphaned] {
+        'outer: for ownership_type in &[ProjectOwnership::Linked, ProjectOwnership::Orphaned] {
             for (dir_idx, sln_dir) in self.solution_directories.iter_mut().enumerate() {
                 for (sln_idx, sln) in sln_dir.solutions.iter_mut().enumerate() {
 
@@ -213,7 +213,7 @@ impl Analysis {
         };
 
         if let Some((dir_idx, sln_idx, ownership_type)) = handles {
-            Some((&mut self.solution_directories[dir_idx].solutions[sln_idx], ownership_type))
+            Some((&mut self.solution_directories[dir_idx].solutions[sln_idx], *ownership_type))
         } else {
             None
         }
