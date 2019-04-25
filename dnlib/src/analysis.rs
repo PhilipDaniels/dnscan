@@ -137,42 +137,86 @@ impl Analysis {
     }
 
     fn add_project(&mut self, mut project: Project) {
-        if let Some((dir_idx, sln_idx, ownership)) = self.get_solution_that_owns_project(&project.file_info.path) {
-            let sln = &mut self.solution_directories[dir_idx].solutions[sln_idx];
+        if let Some((sln2, ownership)) = self.get_solution_that_owns_project2(&project.file_info.path) {
             project.ownership = ownership;
-            sln.projects.push(project);
+            sln2.projects.push(project);
         } else {
             eprintln!("Could not associate project {:?} with a solution, ignoring.", &project.file_info.path);
         }
+
+        // if let Some((dir_idx, sln_idx, ownership)) = self.get_solution_that_owns_project(&project.file_info.path) {
+        //     let sln = &mut self.solution_directories[dir_idx].solutions[sln_idx];
+        //     project.ownership = ownership;
+        //     sln.projects.push(project);
+        // } else {
+        //     eprintln!("Could not associate project {:?} with a solution, ignoring.", &project.file_info.path);
+        // }
     }
 
-    fn get_solution_that_owns_project<P>(&self, project_path: P) -> Option<(usize, usize, ProjectOwnership)>
+    // fn get_solution_that_owns_project<P>(&self, project_path: P) -> Option<(usize, usize, ProjectOwnership)>
+    // where
+    //     P: AsRef<Path>,
+    // {
+    //     let project_path = project_path.as_ref();
+    //     let parent_dir = project_path.parent().expect("Should always be able to get the parent dir of a project.");
+
+    //     for ownership_type in vec![ProjectOwnership::Linked, ProjectOwnership::Orphaned] {
+    //         for (dir_idx, sln_dir) in self.solution_directories.iter().enumerate() {
+    //             for (sln_idx, sln) in sln_dir.solutions.iter().enumerate() {
+
+    //                 match ownership_type {
+    //                     ProjectOwnership::Linked => if sln.refers_to_project(project_path) {
+    //                         return Some((dir_idx, sln_idx, ownership_type))
+    //                     },
+    //                     ProjectOwnership::Orphaned => if sln.file_info.path.is_same_dir(project_path) ||
+    //                                                      sln.file_info.path.is_same_dir(parent_dir)
+    //                     {
+    //                         return Some((dir_idx, sln_idx, ownership_type))
+    //                     },
+    //                     ProjectOwnership::Unknown => unreachable!("There are only 2 ownership types to check.")
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     None
+    // }
+
+    fn get_solution_that_owns_project2<P>(&mut self, project_path: P) -> Option<(&mut Solution, ProjectOwnership)>
     where
         P: AsRef<Path>,
     {
         let project_path = project_path.as_ref();
         let parent_dir = project_path.parent().expect("Should always be able to get the parent dir of a project.");
 
-        for ownership_type in vec![ProjectOwnership::Linked, ProjectOwnership::Orphaned] {
-            for (dir_idx, sln_dir) in self.solution_directories.iter().enumerate() {
-                for (sln_idx, sln) in sln_dir.solutions.iter().enumerate() {
+        let mut handles = None;
+
+        'outer: for ownership_type in vec![ProjectOwnership::Linked, ProjectOwnership::Orphaned] {
+            for (dir_idx, sln_dir) in self.solution_directories.iter_mut().enumerate() {
+                for (sln_idx, sln) in sln_dir.solutions.iter_mut().enumerate() {
 
                     match ownership_type {
                         ProjectOwnership::Linked => if sln.refers_to_project(project_path) {
-                            return Some((dir_idx, sln_idx, ownership_type))
+                            handles = Some((dir_idx, sln_idx, ownership_type));
+                            break 'outer;
                         },
                         ProjectOwnership::Orphaned => if sln.file_info.path.is_same_dir(project_path) ||
-                                                         sln.file_info.path.is_same_dir(parent_dir)
+                                                        sln.file_info.path.is_same_dir(parent_dir)
                         {
-                            return Some((dir_idx, sln_idx, ownership_type))
+                            handles = Some((dir_idx, sln_idx, ownership_type));
+                            break 'outer;
                         },
                         ProjectOwnership::Unknown => unreachable!("There are only 2 ownership types to check.")
                     }
                 }
             }
-        }
+        };
 
-        None
+        if let Some((dir_idx, sln_idx, ownership_type)) = handles {
+            Some((&mut self.solution_directories[dir_idx].solutions[sln_idx], ownership_type))
+        } else {
+            None
+        }
     }
 }
 
