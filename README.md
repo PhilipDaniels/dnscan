@@ -15,12 +15,15 @@ cargo run --bin dnscan [-v]
 
 ## TODO
 
-- Project things
-    - pub referenced_projects: Vec<Arc<Project>>,
-    - packages_require_consolidation,
-    - redundant_packages_count
-    - redundant_projects_count
 - Analyze_files: merge find_linked_sln and find_orphaned_slns into one fn
+- Find projects that are redundant
+- Find packages that are redundant
+    - First level is to find redundant installs within a solution (caused by project references brining them in)
+    - Second level is to analyze the NuGet package itself, find redundancies within a project and then transitively
+- Find what-uses-what
+    - We already have projects_to_packages
+    - Really care about what is the compilation order of our ecosystem.
+
 - Tests for mentioned projects are completely inadequate.
 - Better settings for rustfmt
     - Longer lines!
@@ -29,10 +32,3 @@ cargo run --bin dnscan [-v]
 - Build a REST API ('serve mode') for getting at the data
   - Consider some sort of 'reporting data structure'
 - A web site built on the REST API
-- Implement Fix mode
-  - Remove redundant project references
-  - Remove redundant NuGet package references
-  - Scan source for redundant NuGet packages
-  - Remove redundant Assembly references
-
-

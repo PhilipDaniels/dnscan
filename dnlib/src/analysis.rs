@@ -607,7 +607,6 @@ impl Project {
         proj
     }
 
-    // TODO: Memmoize this.
     pub fn get_referenced_projects<'s>(&self, sln: &'s Solution) -> Vec<&'s Project> {
         let mut result = vec![];
 
