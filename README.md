@@ -16,6 +16,7 @@ cargo run --bin dnscan [-v]
 ## TODO
 
 - Analyze_files: merge find_linked_sln and find_orphaned_slns into one fn
+- Hide internal errors, convert to strings.
 - Find projects that are redundant
 - Find packages that are redundant
     - First level is to find redundant installs within a solution (caused by project references brining them in)

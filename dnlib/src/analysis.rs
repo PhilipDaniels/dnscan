@@ -9,11 +9,9 @@ use regex::{Regex, RegexBuilder};
 use rayon::prelude::*;
 use std::path::{Path, PathBuf};
 use std::time::{self, Duration};
-use std::sync::{Arc, RwLock};
 use std::ffi::OsStr;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
-use std::collections::HashMap;
 
 /// The set of all files found during analysis.
 #[derive(Debug, Default)]
@@ -139,62 +137,39 @@ impl Analysis {
     }
 
     fn add_project(&mut self, mut project: Project) {
-        if let Some(ref mut sln) = self.find_linked_solution(&project.file_info.path) {
-            project.ownership = ProjectOwnership::Linked;
-            sln.projects.push(project);
-        } else if let Some(ref mut sln) = self.find_orphaned_solution(&project.file_info.path) {
-            project.ownership = ProjectOwnership::Orphaned;
-            sln.projects.push(project);
-        } else if let Some(ref mut sln) = self.find_orphaned_solution_in_parent_dir(&project.file_info.path) {
-            project.ownership = ProjectOwnership::Orphaned;
+        if let Some((dir_idx, sln_idx, ownership)) = self.get_solution_that_owns_project(&project.file_info.path) {
+            let sln = &mut self.solution_directories[dir_idx].solutions[sln_idx];
+            project.ownership = ownership;
             sln.projects.push(project);
         } else {
             eprintln!("Could not associate project {:?} with a solution, ignoring.", &project.file_info.path);
         }
     }
 
-    /// Scan all known solutions trying to find one that refers to the specified
-    /// project path. Works as a pair with `find_orphaned_solution` - I had to
-    /// create three functions to get around the borrow checker.
-    /// TODO: Merge this into 1 function.
-    fn find_linked_solution<P>(&mut self, project_path: P) -> Option<&mut Solution>
+    fn get_solution_that_owns_project<P>(&self, project_path: P) -> Option<(usize, usize, ProjectOwnership)>
     where
         P: AsRef<Path>,
     {
-        for sd in &mut self.solution_directories {
-            let matching_sln = sd.solutions.iter_mut().find(|sln| sln.refers_to_project(&project_path));
-            if matching_sln.is_some() { return matching_sln; }
-        }
+        let project_path = project_path.as_ref();
+        let parent_dir = project_path.parent().expect("Should always be able to get the parent dir of a project.");
 
-        None
-    }
+        for ownership_type in vec![ProjectOwnership::Linked, ProjectOwnership::Orphaned] {
+            for (dir_idx, sln_dir) in self.solution_directories.iter().enumerate() {
+                for (sln_idx, sln) in sln_dir.solutions.iter().enumerate() {
 
-    fn find_orphaned_solution<P>(&mut self, project_path: P) -> Option<&mut Solution>
-    where
-        P: AsRef<Path>,
-    {
-        // 'is_same_dir' takes the parent of both paths and checks that they are both actually
-        // directories before comparing the parents by case.
-        // Therefore this will fail for all tests if there is no file on disk!
-
-        // Try and associate orphaned projects with any solutions that are in the same directory.
-        for sd in &mut self.solution_directories {
-            let matching_sln = sd.solutions.iter_mut().find(|sln| sln.file_info.path.is_same_dir(&project_path));
-            if matching_sln.is_some() { return matching_sln; }
-        }
-
-        None
-    }
-
-    fn find_orphaned_solution_in_parent_dir<P>(&mut self, project_path: P) -> Option<&mut Solution>
-    where
-        P: AsRef<Path>,
-    {
-        // Try and associate orphaned projects with any solutions that are in the parent directory.
-        let parent_dir = project_path.as_ref().parent().unwrap();
-        for sd in &mut self.solution_directories {
-            let matching_sln = sd.solutions.iter_mut().find(|sln| sln.file_info.path.is_same_dir(&parent_dir));
-            if matching_sln.is_some() { return matching_sln; }
+                    match ownership_type {
+                        ProjectOwnership::Linked => if sln.refers_to_project(project_path) {
+                            return Some((dir_idx, sln_idx, ownership_type))
+                        },
+                        ProjectOwnership::Orphaned => if sln.file_info.path.is_same_dir(project_path) ||
+                                                         sln.file_info.path.is_same_dir(parent_dir)
+                        {
+                            return Some((dir_idx, sln_idx, ownership_type))
+                        },
+                        ProjectOwnership::Unknown => unreachable!("There are only 2 ownership types to check.")
+                    }
+                }
+            }
         }
 
         None
