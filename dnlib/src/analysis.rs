@@ -593,29 +593,19 @@ impl Project {
     /// Finds all the projects in the solution that this project references.
     /// I.e. finds all the 'children' of this project.
     pub fn get_child_projects<'s>(&self, sln: &'s Solution) -> Vec<&'s Project> {
-        let mut result = vec![];
-
-        for potential_child in &sln.projects {
-            if self.refers_to(potential_child) {
-                result.push(potential_child);
-            }
-        }
-
-        result
+        sln.projects
+            .iter()
+            .filter(|potential_child| self.refers_to(potential_child))
+            .collect()
     }
 
     /// Finds all the projects in the solution that refer to this project.
     /// I.e. finds all the 'parents' of this project.
     pub fn get_parent_projects<'s>(&self, sln: &'s Solution) -> Vec<&'s Project> {
-        let mut result = vec![];
-
-        for potential_parent in &sln.projects {
-            if potential_parent.refers_to(self) {
-                result.push(potential_parent);
-            }
-        }
-
-        result
+        sln.projects
+            .iter()
+            .filter(|potential_parent| potential_parent.refers_to(self))
+            .collect()
     }
 
     fn refers_to(&self, other: &Self) -> bool {
