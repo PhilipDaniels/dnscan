@@ -51,7 +51,7 @@ impl AsRef<str> for InterestingFile {
 }
 
 impl std::str::FromStr for InterestingFile {
-    type Err = DnLibError;
+    type Err = ();
 
     fn from_str(s: &str) -> Result<InterestingFile, Self::Err> {
         let s = s.to_lowercase();
@@ -62,7 +62,7 @@ impl std::str::FromStr for InterestingFile {
             "package.json" => Ok(InterestingFile::PackageJson),
             "packages.config" => Ok(InterestingFile::PackagesConfig),
             "project.json" => Ok(InterestingFile::ProjectJson),
-            _ => Err(DnLibError::InvalidInterestingFile(s)),
+            _ => Err(())
         }
     }
 }

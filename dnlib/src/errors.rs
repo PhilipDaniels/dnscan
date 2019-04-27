@@ -10,9 +10,6 @@ pub enum DnLibError {
     WalkError(String),
     // A Git error occurred.
     GitError(String),
-
-    // Errors raised by us...
-    InvalidInterestingFile(String),
 }
 
 impl Error for DnLibError {
@@ -27,7 +24,6 @@ impl fmt::Display for DnLibError {
             DnLibError::IoError(ref s) => write!(f, "{}", s),
             DnLibError::WalkError(ref s) => write!(f, "{}", s),
             DnLibError::GitError(ref s) => write!(f, "{}", s),
-            DnLibError::InvalidInterestingFile(ref s) => write!(f, "{}", s),
         }
     }
 }

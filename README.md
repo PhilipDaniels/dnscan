@@ -23,8 +23,6 @@ cargo run --bin dnscan [-v]
     - We already have projects_to_packages
     - Really care about what is the compilation order of our ecosystem.
 
-- InvalidInterestingFile is probably internal and should not be exposed
-  as a public error.
 - Tests for mentioned projects are completely inadequate.
 - Better settings for rustfmt
     - Longer lines!
