@@ -81,6 +81,9 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
         println!("Visiting {}", node);
     }
 
+    let dot = Dot::with_config(&graph, &[Config::EdgeNoLabel]);
+    println!("\n{:?}", dot);
+
     Ok(())
 }
 

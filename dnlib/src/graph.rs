@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 pub use petgraph::prelude::*;
+pub use petgraph::dot::*;
 
 pub enum Node<'a> {
     Analysis(&'a Analysis),
