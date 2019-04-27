@@ -15,7 +15,6 @@ cargo run --bin dnscan [-v]
 
 ## TODO
 
-- Hide internal errors, convert to strings.
 - Find projects that are redundant
 - Find packages that are redundant
     - First level is to find redundant installs within a solution (caused by project references brining them in)
@@ -24,6 +23,8 @@ cargo run --bin dnscan [-v]
     - We already have projects_to_packages
     - Really care about what is the compilation order of our ecosystem.
 
+- InvalidInterestingFile is probably internal and should not be exposed
+  as a public error.
 - Tests for mentioned projects are completely inadequate.
 - Better settings for rustfmt
     - Longer lines!
