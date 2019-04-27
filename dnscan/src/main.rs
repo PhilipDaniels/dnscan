@@ -69,6 +69,18 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
         println!("CSV files written in {:?}", start.elapsed());
     }
 
+
+    use dnlib::graph::*;
+
+    let sd_graphs = make_solution_directory_graphs(&analysis);
+    let graph = &sd_graphs[0];
+    let root = graph.node_indices().nth(0).unwrap();
+    let mut visitor = DfsPostOrder::new(&graph, root);
+    while let Some(node_idx) = visitor.next(&graph) {
+        let node = &graph[node_idx];
+        println!("Visiting {}", node);
+    }
+
     Ok(())
 }
 

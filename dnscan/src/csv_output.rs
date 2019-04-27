@@ -10,7 +10,7 @@ pub fn write_files(analysis: &Analysis) -> AnalysisResult<()> {
     write_solutions(analysis)?;
     write_solutions_to_projects(analysis)?;
     write_projects_to_packages(analysis)?;
-    write_projects_to_projects(analysis)?;
+    write_projects_to_child_projects(analysis)?;
     Ok(())
 }
 
@@ -60,7 +60,7 @@ fn write_solutions_to_projects(analysis: &Analysis) -> AnalysisResult<()> {
         "ProjOwnership", "ProjPath", "ProjFile", "ProjIsValidUTF8", "ProjVersion", "ProjOutputType", "ProjXmlDoc", "ProjTTFile",
         "ProjEmbeddedDebugging", "ProjLinkedSolutionInfo", "ProjAutoGenerateBindingRedirects", "ProjTargetFrameworks",
         "ProjTestFramework", "ProjUsesSpecflow",
-        "ProjPackagesCount", "ProjAssembliesCount", "ProjReferencedProjectCount",
+        "ProjPackagesCount", "ProjAssembliesCount", "ProjChildCount",
         "ProjWebConfig", "ProjAppConfig", "ProjAppSettingsJson", "ProjPackageJson", "ProjPackagesConfig", "ProjProjectJson"
     ])?;
 
@@ -91,7 +91,7 @@ fn write_solutions_to_projects(analysis: &Analysis) -> AnalysisResult<()> {
                     bool_to_str(proj.uses_specflow),
                     &proj.packages.len().to_string(),
                     &proj.referenced_assemblies.len().to_string(),
-                    &proj.get_referenced_projects(sln).len().to_string(),
+                    &proj.get_child_projects(sln).len().to_string(),
                     proj.web_config.as_ref(),
                     proj.app_config.as_ref(),
                     proj.app_settings_json.as_ref(),
@@ -151,20 +151,20 @@ fn write_projects_to_packages(analysis: &Analysis) -> AnalysisResult<()> {
     Ok(())
 }
 
-fn write_projects_to_projects(analysis: &Analysis) -> AnalysisResult<()> {
-    let mut wtr = csv::Writer::from_path("projects_to_projects.csv")?;
+fn write_projects_to_child_projects(analysis: &Analysis) -> AnalysisResult<()> {
+    let mut wtr = csv::Writer::from_path("projects_to_child_projects.csv")?;
 
     wtr.write_record(&[
         "SlnDirectory", "SlnPath", "SlnFile",
         "ProjPath", "ProjFile", "ProjIsValidUTF8", "ProjVersion", "ProjOutputType",
-        "RefProjPath", "RefProjPath", "RefProjIsValidUTF8", "RefProjVersion", "RefProjOutputType",
+        "ChildProjPath", "ChildProjFile", "ChildProjIsValidUTF8", "ChildProjVersion", "ChildProjOutputType",
     ])?;
 
 
     for sd in &analysis.solution_directories {
         for sln in &sd.solutions {
             for owning_proj in &sln.projects {
-                for reffed_proj in &owning_proj.get_referenced_projects(sln) {
+                for child_proj in &owning_proj.get_child_projects(sln) {
                     wtr.write_record(&[
                         // sln columns
                         sd.directory.as_str(),
@@ -177,11 +177,11 @@ fn write_projects_to_projects(analysis: &Analysis) -> AnalysisResult<()> {
                         owning_proj.version.as_ref(),
                         owning_proj.output_type.as_ref(),
                         // referenced project columns
-                        reffed_proj.file_info.path_as_str(),
-                        reffed_proj.file_info.filename_as_str(),
-                        bool_to_str(reffed_proj.file_info.is_valid_utf8),
-                        reffed_proj.version.as_ref(),
-                        reffed_proj.output_type.as_ref(),
+                        child_proj.file_info.path_as_str(),
+                        child_proj.file_info.filename_as_str(),
+                        bool_to_str(child_proj.file_info.is_valid_utf8),
+                        child_proj.version.as_ref(),
+                        child_proj.output_type.as_ref(),
                     ])?;
                 }
             }

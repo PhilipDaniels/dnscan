@@ -516,7 +516,8 @@ pub struct Project {
     pub uses_specflow: bool,
 
     // This is a collection of the normalized 'foo.csproj' paths as extracted from this csproj file.
-    referenced_project_paths: Vec<PathBuf>,
+    // We call these 'child projects'.
+    child_project_paths: Vec<PathBuf>,
 }
 
 impl PartialEq for Project {
@@ -578,7 +579,7 @@ impl Project {
         proj.package_json = proj.has_file_of_interest(InterestingFile::PackageJson);
         proj.packages_config = proj.has_file_of_interest(InterestingFile::PackagesConfig);
         proj.project_json = proj.has_file_of_interest(InterestingFile::ProjectJson);
-        proj.referenced_project_paths = proj.extract_project_paths();
+        proj.child_project_paths = proj.extract_project_paths();
 
         // The things after here are dependent on having first determined the packages
         // that the project uses.
@@ -589,16 +590,38 @@ impl Project {
         proj
     }
 
-    pub fn get_referenced_projects<'s>(&self, sln: &'s Solution) -> Vec<&'s Project> {
+    /// Finds all the projects in the solution that this project references.
+    /// I.e. finds all the 'children' of this project.
+    pub fn get_child_projects<'s>(&self, sln: &'s Solution) -> Vec<&'s Project> {
         let mut result = vec![];
 
-        for rp in &sln.projects {
-            if self.referenced_project_paths.iter().find(|rpp| rp.file_info.path == **rpp).is_some() {
-                result.push(rp);
+        for potential_child in &sln.projects {
+            if self.refers_to(potential_child) {
+                result.push(potential_child);
             }
         }
 
         result
+    }
+
+    /// Finds all the projects in the solution that refer to this project.
+    /// I.e. finds all the 'parents' of this project.
+    pub fn get_parent_projects<'s>(&self, sln: &'s Solution) -> Vec<&'s Project> {
+        let mut result = vec![];
+
+        for potential_parent in &sln.projects {
+            if potential_parent.refers_to(self) {
+                result.push(potential_parent);
+            }
+        }
+
+        result
+    }
+
+    fn refers_to(&self, other: &Self) -> bool {
+        self.child_project_paths
+            .iter()
+            .find(|our_child_path| **our_child_path == other.file_info.path).is_some()
     }
 
     fn extract_tt_file(&self) -> bool {

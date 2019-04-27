@@ -1,5 +1,4 @@
 use std::fmt;
-use crate::errors::DnLibError;
 
 use lazy_static::lazy_static;
 use regex::Regex;
