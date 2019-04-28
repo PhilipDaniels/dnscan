@@ -24,6 +24,22 @@ pub struct Analysis {
     pub project_load_duration: Duration,
 }
 
+impl PartialEq for Analysis {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.root_path == other.root_path
+    }
+}
+
+impl Hash for Analysis {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.root_path.hash(state)
+    }
+}
+
+impl Eq for Analysis { }
+
 impl Analysis {
     pub fn new<P>(root_path: P, configuration: &Configuration) -> DnLibResult<Self>
     where

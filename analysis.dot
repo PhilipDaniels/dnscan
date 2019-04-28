@@ -1,0 +1,149 @@
+digraph {
+    0 [label="/home/phil/slow/From Work2/frval-case-service/ (analysis)"]
+    1 [label="frval-case-service (sln dir)"]
+    2 [label="frval-case-service.sln"]
+    3 [label="CaseGenerator.csproj"]
+    4 [label="CaseService.Client.csproj"]
+    5 [label="CaseService.Extensions.csproj"]
+    6 [label="CaseService.Host.csproj"]
+    7 [label="CaseService.Host.Sandbox.csproj"]
+    8 [label="CaseService.HostManager.csproj"]
+    9 [label="CaseService.Models.csproj"]
+    10 [label="CaseService.Tests.IntegrationTests.csproj"]
+    11 [label="CaseService.Tests.UnitTests.csproj"]
+    12 [label="CaseService.Tests.Utilities.csproj"]
+    13 [label="CaseService.WebApi.Services.csproj"]
+    14 [label="CaseService.Tests.WinFormsTestHarness.csproj"]
+    15 [label="Landmark.Quest.Common.Pervasive.csproj"]
+    16 [label="Landmark.Quest.Common.Pervasive.ConsoleTestHarness.csproj"]
+    17 [label="Landmark.Quest.Common.Pervasive.IntegrationTests.csproj"]
+    18 [label="Landmark.Quest.Common.Pervasive.OldTests.csproj"]
+    19 [label="Landmark.Quest.Common.Pervasive.Tests.csproj"]
+    20 [label="ValuationHub.CaseLoader.csproj"]
+    21 [label="ValuationHub.CaseRules.Activities.Countrywide.csproj"]
+    22 [label="ValuationHub.Core.csproj"]
+    23 [label="ValuationHub.Core.CaseGenerator.csproj"]
+    24 [label="ValuationHub.Core.Configuration.csproj"]
+    25 [label="ValuationHub.Core.Configuration.TemplateUpdater.csproj"]
+    26 [label="ValuationHub.Core.ConsoleTestHarness.csproj"]
+    27 [label="ValuationHub.Core.Forms.csproj"]
+    28 [label="ValuationHub.Core.Forms.Tests.csproj"]
+    29 [label="ValuationHub.Core.Integration.Data.csproj"]
+    30 [label="ValuationHub.Core.Tests.csproj"]
+    31 [label="ValuationHub.Core.Unity.csproj"]
+    32 [label="ValuationHub.Core.Unity.Tests.csproj"]
+    33 [label="ValuationHub.Database.csproj"]
+    34 [label="ValuationHub.Database.Core.csproj"]
+    35 [label="ValuationHub.Database.Queries.csproj"]
+    36 [label="ValuationHub.Database.Queries.IntegrationTests.csproj"]
+    37 [label="ValuationHub.Database.Queries.Tests.csproj"]
+    38 [label="ValuationHub.Pervasive.csproj"]
+    39 [label="ValuationHub.Pervasive.IntegrationTests.csproj"]
+    40 [label="ValuationHub.Pervasive.Tests.csproj"]
+    41 [label="ValuationHub.Repository.Csv.csproj"]
+    42 [label="ValuationHub.Repository.Csv.Tests.csproj"]
+    43 [label="ValuationHub.Repository.Postgres.csproj"]
+    44 [label="ValuationHub.Repository.Postgres.Database.csproj"]
+    45 [label="ValuationHub.Repository.Postgres.IntegrationTests.csproj"]
+    46 [label="ValuationHub.Repository.Postgres.Tests.csproj"]
+    0 -> 1
+    1 -> 2
+    2 -> 3
+    6 -> 4
+    10 -> 4
+    11 -> 4
+    14 -> 4
+    11 -> 5
+    13 -> 5
+    2 -> 6
+    2 -> 7
+    10 -> 8
+    5 -> 9
+    10 -> 9
+    2 -> 10
+    2 -> 11
+    8 -> 12
+    10 -> 12
+    4 -> 13
+    11 -> 13
+    2 -> 14
+    16 -> 15
+    17 -> 15
+    18 -> 15
+    19 -> 15
+    38 -> 15
+    2 -> 16
+    2 -> 17
+    2 -> 18
+    2 -> 19
+    2 -> 20
+    20 -> 21
+    4 -> 22
+    8 -> 22
+    23 -> 22
+    24 -> 22
+    27 -> 22
+    29 -> 22
+    30 -> 22
+    31 -> 22
+    35 -> 22
+    36 -> 22
+    37 -> 22
+    38 -> 22
+    41 -> 22
+    43 -> 22
+    3 -> 23
+    10 -> 23
+    11 -> 23
+    30 -> 23
+    36 -> 23
+    37 -> 23
+    25 -> 24
+    30 -> 24
+    36 -> 24
+    37 -> 24
+    2 -> 25
+    2 -> 26
+    28 -> 27
+    2 -> 28
+    39 -> 29
+    2 -> 30
+    6 -> 31
+    13 -> 31
+    14 -> 31
+    20 -> 31
+    26 -> 31
+    32 -> 31
+    39 -> 31
+    2 -> 32
+    2 -> 33
+    33 -> 34
+    36 -> 35
+    37 -> 35
+    2 -> 36
+    36 -> 37
+    6 -> 38
+    10 -> 38
+    11 -> 38
+    13 -> 38
+    20 -> 38
+    39 -> 38
+    40 -> 38
+    2 -> 39
+    2 -> 40
+    10 -> 41
+    14 -> 41
+    20 -> 41
+    42 -> 41
+    2 -> 42
+    10 -> 43
+    11 -> 43
+    13 -> 43
+    20 -> 43
+    36 -> 43
+    45 -> 43
+    46 -> 43
+    45 -> 44
+    2 -> 45
+    36 -> 46
+}

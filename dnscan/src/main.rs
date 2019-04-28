@@ -5,6 +5,9 @@ mod options;
 use errors::AnalysisResult;
 use options::Options;
 use dnlib::prelude::*;
+//use dnlib::graph::*;
+use std::fs;
+use std::collections::HashSet;
 
 fn main() {
     let options = options::get_options();
@@ -70,19 +73,30 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
     }
 
 
-    use dnlib::graph::*;
-
-    let sd_graphs = make_solution_directory_graphs(&analysis);
-    let graph = &sd_graphs[0];
-    let root = graph.node_indices().nth(0).unwrap();
-    let mut visitor = DfsPostOrder::new(&graph, root);
-    while let Some(node_idx) = visitor.next(&graph) {
-        let node = &graph[node_idx];
-        println!("Visiting {}", node);
+    let start = std::time::Instant::now();
+    let analysis_graph = make_analysis_graph(&analysis);
+    let analysis_dot = Dot::with_config(&analysis_graph, &[Config::EdgeNoLabel]);
+    fs::write("analysis.dot", analysis_dot.to_string())?;
+    if options.verbose {
+        println!("analysis.dot written in {:?}", start.elapsed());
     }
 
-    let dot = Dot::with_config(&graph, &[Config::EdgeNoLabel]);
-    println!("\n{:?}", dot);
+    let mst = min_spanning_tree(&analysis_graph);
+    let mut mst_edges = HashSet::new();
+    for elem in mst {
+        match elem {
+            Element::Edge { source, target, .. } => { mst_edges.insert((source, target)); },
+            _ => {},
+        }
+    }
+
+    for edge in analysis_graph.edge_references() {
+        //println!("Checking edge {:?}", edge);
+        let e = (edge.source().index(), edge.target().index());
+        if !mst_edges.contains(&e) {
+            println!("  Redundant edge = {:?}", e);
+        }
+    }
 
     Ok(())
 }

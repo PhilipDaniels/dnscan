@@ -5,7 +5,10 @@ use std::fmt;
 
 pub use petgraph::prelude::*;
 pub use petgraph::dot::*;
+pub use petgraph::algo::*;
+pub use petgraph::data::*;
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Node<'a> {
     Analysis(&'a Analysis),
     SolutionDirectory(&'a SolutionDirectory),
@@ -13,7 +16,7 @@ pub enum Node<'a> {
     Project(&'a Project),
 }
 
-impl<'a> std::fmt::Debug for Node<'a> {
+impl<'a> fmt::Debug for Node<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match *self {
             Node::Analysis(ref an) => write!(f, "{}", an.root_path.display()),
@@ -24,7 +27,7 @@ impl<'a> std::fmt::Debug for Node<'a> {
     }
 }
 
-impl<'a> std::fmt::Display for Node<'a> {
+impl<'a> fmt::Display for Node<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Node::Analysis(ref an) => write!(f, "{} (analysis)", an.root_path.display()),
@@ -36,18 +39,21 @@ impl<'a> std::fmt::Display for Node<'a> {
 }
 
 
-/// Construct a set of graphs, one graph for each solution directory. This
-/// is the type of structure that we need when we are analysing solutions
-/// for redundant dependencies.
-pub fn make_solution_directory_graphs(analysis: &Analysis) -> Vec<Graph<Node, u8>>
+/// Construct a graph of the entire analysis results.
+/// There are no relationships between the solutions in this graph.
+/// It can be used to find redundant project references.
+/// TODO: Add packages
+/// TODO: Want to do slndir->slndir analysis (more edges)
+pub fn make_analysis_graph(analysis: &Analysis) -> Graph<Node, u8>
 {
-    let mut result = vec![];
+    let mut graph = Graph::default();
+    let analysis_node = Node::Analysis(analysis);
+    let analysis_node_idx = graph.add_node(analysis_node);
 
     for sd in &analysis.solution_directories {
-        let mut graph = Graph::<Node, u8>::new();
-
         let sd_node = Node::SolutionDirectory(&sd);
         let sd_node_idx = graph.add_node(sd_node);
+        graph.add_edge(analysis_node_idx, sd_node_idx, 0);
 
         for sln in &sd.solutions {
             let sln_node = Node::Solution(&sln);
@@ -77,13 +83,7 @@ pub fn make_solution_directory_graphs(analysis: &Analysis) -> Vec<Graph<Node, u8
                 }
             }
         }
-
-        result.push(graph);
     }
 
-    result
+    graph
 }
-
-// Construct a single graph that shows the dependencies across all of
-// our projects. This is the kind of structure that we need when wanting
-// to know the compilation order.
