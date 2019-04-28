@@ -81,6 +81,22 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
         println!("analysis.dot written in {:?}", start.elapsed());
     }
 
+    // Do we go from the bottom up or from the top down?
+    // I think it has to be the top...
+    // Do we need to deal with projects on nodes? (Really they are the same thing).
+    // For a node N, the set of implied projects is the union of all the projects
+    // implied by its children.
+
+
+    // Get a working set of all the nodes, call it WS.
+    // Get all the leaves: analysis_graph.externals(dir::Outgoing)
+    // foreach L in LEAVES
+    //   Remove L from WS
+    //
+    // Remove all the leaves from WS.
+
+
+    /*
     let mst = min_spanning_tree(&analysis_graph);
     let mut mst_edges = HashSet::new();
     for elem in mst {
@@ -91,12 +107,12 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
     }
 
     for edge in analysis_graph.edge_references() {
-        //println!("Checking edge {:?}", edge);
         let e = (edge.source().index(), edge.target().index());
         if !mst_edges.contains(&e) {
             println!("  Redundant edge = {:?}", e);
         }
     }
+    */
 
     Ok(())
 }
