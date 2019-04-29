@@ -5,9 +5,8 @@ mod options;
 use errors::AnalysisResult;
 use options::Options;
 use dnlib::prelude::*;
-//use dnlib::graph::*;
 use std::fs;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
 fn main() {
     let options = options::get_options();
@@ -81,38 +80,51 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
         println!("analysis.dot written in {:?}", start.elapsed());
     }
 
-    // Do we go from the bottom up or from the top down?
-    // I think it has to be the top...
-    // Do we need to deal with projects on nodes? (Really they are the same thing).
-    // For a node N, the set of implied projects is the union of all the projects
-    // implied by its children.
+    // We start at the 'bottom' of the graph, and work up.
+    let mut sorted_nodes = toposort(&analysis_graph, None).unwrap();
+    sorted_nodes.reverse();
 
+    // Effectively: Project -> HashSet<Project>
+    let mut projects_to_children = HashMap::new();
 
-    // Get a working set of all the nodes, call it WS.
-    // Get all the leaves: analysis_graph.externals(dir::Outgoing)
-    // foreach L in LEAVES
-    //   Remove L from WS
-    //
-    // Remove all the leaves from WS.
+    for node_id in sorted_nodes.iter().take(5) {
+        let node = analysis_graph[*node_id];
+        if let Node::Project(p) = node {
+            println!("  Project Node = {:?}, {:?}", p, node_id);
 
+            let mut all_child_projects = HashSet::<NodeIndex>::new();
 
-    /*
-    let mst = min_spanning_tree(&analysis_graph);
-    let mut mst_edges = HashSet::new();
-    for elem in mst {
-        match elem {
-            Element::Edge { source, target, .. } => { mst_edges.insert((source, target)); },
-            _ => {},
+            let children = analysis_graph.neighbors(*node_id);
+            let children_2 = children.clone();
+            for child_idx in children {
+                let child = analysis_graph[child_idx];
+                println!("    child = {:?}, {:?}", child, child_idx);
+                match projects_to_children.get(&child_idx) {
+                    Some(cx) => {
+                        all_child_projects.extend(cx);
+                    },
+                    None => {},
+                }
+            }
+
+            // If p has a direct reference R to anything in all_child_projects, then
+            // R is transitively redundant.
+            for child_idx in children_2 {
+                if all_child_projects.contains(&child_idx) {
+                    let child = analysis_graph[child_idx];
+                    println!("    redundant child = {:?}, {:?}", child, child_idx);
+                }
+            }
+
+            // Must insert child itself as basis case. Otherwise entire
+            // set ends up empty...
+            all_child_projects.insert(*node_id);
+            // Store this for use when calculating for later nodes.
+            projects_to_children.insert(node_id, all_child_projects);
         }
     }
 
-    for edge in analysis_graph.edge_references() {
-        let e = (edge.source().index(), edge.target().index());
-        if !mst_edges.contains(&e) {
-            println!("  Redundant edge = {:?}", e);
-        }
-    }
-    */
+    println!("Mapping = {:#?}", projects_to_children);
 
     Ok(())
 }

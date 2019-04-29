@@ -22,7 +22,7 @@ impl<'a> fmt::Debug for Node<'a> {
             Node::Analysis(ref an) => write!(f, "{}", an.root_path.display()),
             Node::SolutionDirectory(ref sd) => write!(f, "{}", sd.directory.display()),
             Node::Solution(ref sln) => write!(f, "{}", sln.file_info.path.display()),
-            Node::Project(ref proj) => write!(f, "{}", proj.file_info.path.display()),
+            Node::Project(ref proj) => write!(f, "{:?}", proj),
         }
     }
 }

@@ -12,6 +12,7 @@ use std::time::{self, Duration};
 use std::ffi::OsStr;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
+use std::fmt;
 
 /// The set of all files found during analysis.
 #[derive(Debug, Default)]
@@ -506,7 +507,7 @@ impl Ord for FileInfo {
 
 
 /// The results of analyzing a project file.
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Project {
     pub file_info: FileInfo,
     pub ownership: ProjectOwnership,
@@ -534,6 +535,13 @@ pub struct Project {
     // This is a collection of the normalized 'foo.csproj' paths as extracted from this csproj file.
     // We call these 'child projects'.
     child_project_paths: Vec<PathBuf>,
+}
+
+
+impl fmt::Debug for Project {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.file_info.path.filename_as_str())
+    }
 }
 
 impl PartialEq for Project {
