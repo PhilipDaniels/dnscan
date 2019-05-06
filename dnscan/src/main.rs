@@ -129,3 +129,68 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
     Ok(())
 }
 
+
+#[cfg(test)]
+/// Perform a [transitive reduction](https://en.wikipedia.org/wiki/Transitive_reduction)
+/// on `graph`. A new graph is returned.
+fn transitive_reduction<N, E, Ty, Ix>(graph: &Graph<N, E, Ty, Ix>)
+-> (Graph<N, E, Ty, Ix>, u8)
+where
+    Ty: EdgeType,
+    Ix: IndexType
+
+{
+    let mut reduced_graph = Graph::<N, E, Ty, Ix>::with_capacity(
+        graph.node_count(), graph.edge_count()
+    );
+
+
+    // Sort the nodes topologically. We will work through the nodes
+    // from leafs (terminal nodes) ascending the graph until we
+    // reach the root(s). Note that petgraph puts the roots *first*
+    // in this vector, so we have to iterate it backwards (which is
+    // just as quick as iterating it forwards, and avoids a sort.)
+    let sorted_nodes = toposort(graph, None).expect("Graph must not have cycles.");
+
+
+
+    (reduced_graph, 0)
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    pub fn tred_empty_graph() {
+        let graph = Graph::<&str, ()>::new();
+        let reduction = transitive_reduction(&graph).0;
+        assert_eq!(reduction.node_count(), 0);
+        assert_eq!(reduction.edge_count(), 0);
+    }
+
+    #[test]
+    pub fn tred_singleton_graph_without_edge() {
+        let mut graph = Graph::<&str, ()>::new();
+        graph.add_node("a");
+        let reduction = transitive_reduction(&graph).0;
+        assert_eq!(reduction.node_count(), 1);
+        assert_eq!(reduction.edge_count(), 0);
+    }
+
+    /*
+    toposort requires the graph to be a DAG.
+    #[test]
+    pub fn tred_singleton_graph_with_edge() {
+        let mut graph = Graph::<&str, ()>::new();
+        let a_idx = graph.add_node("a");
+        input.add_edge(a_idx, a_idx, ());
+        let reduction = transitive_reduction(&graph).0;
+        assert_eq!(reduction.node_count(), 1);
+        assert_eq!(reduction.edge_count(), 1);
+    }
+    */
+
+
+}

@@ -7,6 +7,10 @@ pub use petgraph::prelude::*;
 pub use petgraph::dot::*;
 pub use petgraph::algo::*;
 pub use petgraph::data::*;
+// TODO: Only doing this 'pub use' so we can implement tred in dnscan.
+// Should not re-export like this.
+pub use petgraph::EdgeType;
+pub use petgraph::graph::IndexType;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Node<'a> {
