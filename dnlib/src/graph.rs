@@ -10,7 +10,11 @@ pub use petgraph::data::*;
 // TODO: Only doing this 'pub use' so we can implement tred in dnscan.
 // Should not re-export like this.
 pub use petgraph::EdgeType;
-pub use petgraph::graph::IndexType;
+pub use petgraph::graph::{IndexType};
+pub use petgraph::visit::*;
+pub use petgraph::visit::GetAdjacencyMatrix;
+
+pub use fixedbitset::FixedBitSet;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Node<'a> {
@@ -90,4 +94,127 @@ pub fn make_analysis_graph(analysis: &Analysis) -> Graph<Node, u8>
     }
 
     graph
+}
+
+/// Convert the adjacency matrix (also known as an edge matrix) to a path matrix.
+/// The adjacency matrix has a 1 if there is an edge from a to b; the path matrix
+/// has a 1 if there is a path (by any route) from a to b.
+/// The path matrix therefore represents the transitive closure of the graph.
+#[cfg(test)]
+fn calculate_path_matrix<N, E, Ty, Ix>(graph: &Graph<N, E, Ty, Ix>) -> FixedBitSet
+where
+    Ty: EdgeType,
+    Ix: IndexType
+{
+    // adjacency_matrix will have graph.node_count() ^ 2 elements.
+    let nc = graph.node_count();
+    let matrix = graph.adjacency_matrix();
+    assert_eq!(matrix.len(), nc * nc);
+
+    // Convert to a path matrix.
+    // https://github.com/jgrapht/jgrapht/blob/474db1fdc197ac253f1e543c7b087cffd255118e/jgrapht-core/src/main/java/org/jgrapht/alg/TransitiveReduction.java
+    // For edge a->b, the element in the bitset is at (a.index() * nc) + b.index(),
+    // counting from 0 at the rightmost end of the bitset.
+
+
+    matrix
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_bitset(graph: &Graph<&str, ()>, bits: usize) -> FixedBitSet {
+        let nc = graph.node_count();
+        let mut bitset = FixedBitSet::with_capacity(nc * nc);
+
+        for n in 0..bitset.len() {
+            let bit = (bits >> n)  & 1;
+            if bit == 1 {
+                bitset.set(n, true);
+            }
+        }
+
+        bitset
+    }
+
+    #[test]
+    pub fn cpm_graph_a() {
+        let mut graph = Graph::<&str, ()>::new();
+        graph.add_node("a");
+        let pm = calculate_path_matrix(&graph);
+
+        let expected = make_bitset(&graph, 0);
+        assert_eq!(pm, expected, "A graph with 1 node and no edge should have a blank matrix");
+    }
+
+    #[test]
+    pub fn cpm_graph_ab() {
+        let mut graph = Graph::<&str, ()>::new();
+        graph.add_node("a");
+        graph.add_node("b");
+        let pm = calculate_path_matrix(&graph);
+
+        let expected = make_bitset(&graph, 0);
+        assert_eq!(pm, expected);
+    }
+
+    #[test]
+    pub fn cpm_graph_ab_axb() {
+        let mut graph = Graph::<&str, ()>::new();
+        let a = graph.add_node("a");
+        let b = graph.add_node("b");
+        graph.add_edge(a, b, ());
+        let pm = calculate_path_matrix(&graph);
+
+        let expected = make_bitset(&graph, 0b10);
+        assert_eq!(pm, expected);
+    }
+
+    #[test]
+    pub fn cpm_graph_abc_axc() {
+        let mut graph = Graph::<&str, ()>::new();
+        let a = graph.add_node("a");
+        let b = graph.add_node("b");
+        let c = graph.add_node("c");
+        graph.add_edge(a, c, ());
+        let pm = calculate_path_matrix(&graph);
+
+        let expected = make_bitset(&graph, 0b100);
+
+        /* The matrix is square like this, an edge a->c is represented
+           with 'a' on the column and 'c' on the rows.
+
+          a b c
+        a 0 0 0
+        b 0 0 0
+        c 1 0 0
+
+        */
+        assert_eq!(pm, expected);
+    }
+
+        #[test]
+        pub fn cpm_graph_abc_axc_bxc() {
+        let mut graph = Graph::<&str, ()>::new();
+        let a = graph.add_node("a");
+        let b = graph.add_node("b");
+        let c = graph.add_node("c");
+        graph.add_edge(a, c, ());
+        graph.add_edge(b, c, ());
+        let pm = calculate_path_matrix(&graph);
+
+        let expected = make_bitset(&graph, 0b100100);
+
+        /* The matrix is square like this, an edge a->c is represented
+           with 'a' on the column and 'c' on the rows.
+
+          a b c
+        a 0 0 1
+        b 0 0 1
+        c 0 0 0
+
+        */
+        assert_eq!(pm, expected);
+    }
 }
