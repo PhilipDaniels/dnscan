@@ -96,6 +96,17 @@ pub fn make_analysis_graph(analysis: &Analysis) -> Graph<Node, u8>
     graph
 }
 
+pub trait FixedBitSetExtensions {
+    fn index(x: usize, y: usize) -> usize;
+}
+
+impl FixedBitSetExtensions for FixedBitSet {
+    #[inline]
+    fn index(x: usize, y: usize) -> usize {
+        0
+    }
+}
+
 /// Convert the adjacency matrix (also known as an edge matrix) to a path matrix.
 /// The adjacency matrix has a 1 if there is an edge from a to b; the path matrix
 /// has a 1 if there is a path (by any route) from a to b.
@@ -107,7 +118,7 @@ where
     Ix: IndexType
 {
     let nc = graph.node_count();
-    let matrix = graph.adjacency_matrix();
+    let mut matrix = graph.adjacency_matrix();
     assert_eq!(matrix.len(), nc * nc);
 
     // The adjacency matrix is square with nc * nc elements.
@@ -131,10 +142,26 @@ where
     // Therefore, for (a,c) we have:   0 * 3 + 2 = 2
     // Therefore, for (b,c) we have:   1 * 3 + 2 = 5
 
-    // Convert to a path matrix.
-    // https://github.com/jgrapht/jgrapht/blob/474db1fdc197ac253f1e543c7b087cffd255118e/jgrapht-core/src/main/java/org/jgrapht/alg/TransitiveReduction.java
 
+    // Now convert to a path matrix.
+    let calc_index = |x,y| x * nc + y;
 
+    for i in 0..nc {
+        for j in 0..nc {
+            // Ignore the diagonals
+            if i == j { continue };
+            let ji_idx = calc_index(j, i);
+            if matrix[ji_idx] {
+                for k in 0..nc {
+                    let jk_idx = calc_index(j, k);
+                    if !matrix[jk_idx] {
+                        let ik_idx = calc_index(i, k);
+                        matrix.set(jk_idx, matrix.contains(ik_idx));
+                    }
+                }
+            }
+        }
+    }
 
     matrix
 }
@@ -188,29 +215,19 @@ mod tests {
 
         let expected = make_bitset(&graph, 0b10);
         assert_eq!(pm, expected);
-        assert!(pm[1]);
-        assert_eq!(a.index(), 0);
-        assert_eq!(b.index(), 1);
     }
 
     #[test]
     pub fn cpm_graph_abc_axc() {
         let mut graph = Graph::<&str, ()>::new();
         let a = graph.add_node("a");
-        let b = graph.add_node("b");
+        graph.add_node("b");
         let c = graph.add_node("c");
         graph.add_edge(a, c, ());
-        let pm = calculate_path_matrix(&graph);  // pm = 4 = 0b100
+        let pm = calculate_path_matrix(&graph);
 
         let expected = make_bitset(&graph, 0b100);
-
-        // An edge (a,c) is represented with 'a' on the rows and 'c' on the columns.
-        //        c b a
-        //      c 0 0 0
-        //      b 0 0 0
-        //      a 1 0 0
         assert_eq!(pm, expected);
-        assert!(pm[2]);
     }
 
     #[test]
@@ -221,18 +238,10 @@ mod tests {
         let c = graph.add_node("c");
         graph.add_edge(a, c, ());
         graph.add_edge(b, c, ());
-        let pm = calculate_path_matrix(&graph); // pm = 36 = 0b100100
+        let pm = calculate_path_matrix(&graph);
 
         let expected = make_bitset(&graph, 0b100100);
-
-        // An edge (a,c) is represented with 'a' on the rows and 'c' on the columns.
-        //        c b a
-        //      c 0 0 0
-        //      b 1 0 0
-        //      a 1 0 0
         assert_eq!(pm, expected);
-        assert!(pm[2]);
-        assert!(pm[5]);
     }
 
     #[test]
@@ -244,18 +253,75 @@ mod tests {
         graph.add_edge(a, c, ());
         graph.add_edge(b, c, ());
         graph.add_edge(c, a, ());
-        let pm = calculate_path_matrix(&graph); // pm = 100 = 0b1100100
+        let pm = calculate_path_matrix(&graph);
 
-        let expected = make_bitset(&graph, 0b1100100);
-
-        // An edge (a,c) is represented with 'a' on the rows and 'c' on the columns.
+        // For edge matrix:
         //        c b a
         //      c 0 0 1        (c,a)
         //      b 1 0 0        (b,c)
         //      a 1 0 0        (a,c)
+
+        // For path matrix:
+        //        c b a
+        //      c 1 0 1        (c,a)  (c,c)
+        //      b 1 0 1        (b,c)  (b,a)
+        //      a 1 0 1        (a,c)  (a,a)
+        //
+        // The cycle between a and c adds these extra edges.
+        let expected = make_bitset(&graph, 0b101101101);
         assert_eq!(pm, expected);
-        assert!(pm[2]);
-        assert!(pm[5]);
-        assert!(pm[6]);
+    }
+
+    #[test]
+    pub fn cpm_graph_abc_axb_bxc() {
+        let mut graph = Graph::<&str, ()>::new();
+        let a = graph.add_node("a");
+        let b = graph.add_node("b");
+        let c = graph.add_node("c");
+        graph.add_edge(a, b, ());
+        graph.add_edge(b, c, ());
+        let pm = calculate_path_matrix(&graph);
+
+        let expected = make_bitset(&graph, 0b100110);
+        assert_eq!(pm, expected, "The pm should add edge (a,c)");
+    }
+
+
+    #[test]
+    pub fn cpm_graph_abcdef() {
+        let mut graph = Graph::<&str, ()>::new();
+        let a = graph.add_node("a");
+        let b = graph.add_node("b");
+        let c = graph.add_node("c");
+        let d = graph.add_node("d");
+        let e = graph.add_node("e");
+        let f = graph.add_node("f");
+        graph.add_edge(a, b, ());
+        graph.add_edge(b, c, ());
+        graph.add_edge(c, d, ());
+        graph.add_edge(c, e, ());
+        graph.add_edge(b, f, ());
+        let pm = calculate_path_matrix(&graph);
+
+        // Edge matrix:
+        //        f e d c b a
+        //      f 0 0 0 0 0 0
+        //      e 0 0 0 0 0 0
+        //      d 0 0 0 0 0 0
+        //      c 0 1 1 0 0 0
+        //      b 1 0 0 1 0 0
+        //      a 0 0 0 0 1 0
+
+        // Path matrix:
+        //        f e d c b a
+        //      f 0 0 0 0 0 0
+        //      e 0 0 0 0 0 0
+        //      d 0 0 0 0 0 0
+        //      c 0 1 1 0 0 0
+        //      b 1 1 1 1 0 0
+        //      a 1 1 1 1 1 0
+
+        let expected = make_bitset(&graph, 0b011000_111100_111110);
+        assert_eq!(pm, expected);
     }
 }
