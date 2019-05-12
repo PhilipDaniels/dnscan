@@ -96,14 +96,22 @@ pub fn make_analysis_graph(analysis: &Analysis) -> Graph<Node, u8>
     graph
 }
 
-pub trait FixedBitSetExtensions {
-    fn index(x: usize, y: usize) -> usize;
+// Helper functions because the API of this thing is appalling.
+trait FixedBitSetExtensions {
+    fn contains_rc(&self, nc: usize, x: usize, y: usize) -> bool;
+    fn set_rc(&mut self, nc: usize, x: usize, y: usize, enabled: bool);
 }
 
 impl FixedBitSetExtensions for FixedBitSet {
     #[inline]
-    fn index(x: usize, y: usize) -> usize {
-        0
+    fn contains_rc(&self, nc: usize, x: usize, y: usize) -> bool {
+        let idx = x * nc + y;
+        self.contains(idx)
+    }
+
+    fn set_rc(&mut self, nc: usize, x: usize, y: usize, enabled: bool) {
+        let idx = x * nc + y;
+        self.set(idx, enabled);
     }
 }
 
@@ -142,21 +150,17 @@ where
     // Therefore, for (a,c) we have:   0 * 3 + 2 = 2
     // Therefore, for (b,c) we have:   1 * 3 + 2 = 5
 
-
     // Now convert to a path matrix.
-    let calc_index = |x,y| x * nc + y;
-
     for i in 0..nc {
         for j in 0..nc {
-            // Ignore the diagonals
+            // Ignore the diagonals.
             if i == j { continue };
-            let ji_idx = calc_index(j, i);
-            if matrix[ji_idx] {
+
+            if matrix.contains_rc(nc, j, i) {
                 for k in 0..nc {
-                    let jk_idx = calc_index(j, k);
-                    if !matrix[jk_idx] {
-                        let ik_idx = calc_index(i, k);
-                        matrix.set(jk_idx, matrix.contains(ik_idx));
+                    if !matrix.contains_rc(nc, j, k) {
+                        let flag = matrix.contains_rc(nc, i, k);
+                        matrix.set_rc(nc, j, k, flag);
                     }
                 }
             }
