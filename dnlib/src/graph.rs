@@ -171,11 +171,43 @@ where
 }
 
 #[cfg(test)]
+fn calculate_transitive_reduction_of_path_matrix(mut path_matrix: FixedBitSet, nc: usize) -> FixedBitSet
+{
+    // Fromm https://stackoverflow.com/questions/1690953/transitive-reduction-algorithm-pseudocode
+    // See Harry Hsu. "An algorithm for finding a minimal equivalent graph of a digraph.", Journal
+    // of the ACM, 22(1):11-16, January 1975. The simple cubic algorithm below (using an N x N path matrix)
+    // suffices for DAGs, but Hsu generalizes it to cyclic graphs.
+
+    for j in 0..nc {
+        for i in 0..nc {
+            if path_matrix.contains_rc(nc, i, j) {
+                for k in 0..nc {
+                    if path_matrix.contains_rc(nc, j, k) {
+                        path_matrix.set_rc(nc, i, k, false);
+                    }
+                }
+            }
+        }
+    }
+
+    path_matrix
+}
+
+#[cfg(test)]
+fn calculate_transitive_reduction<N, E, Ty, Ix>(graph: &Graph<N, E, Ty, Ix>)
+where
+    Ty: EdgeType,
+    Ix: IndexType
+{
+    let path_matrix = calculate_path_matrix(graph);
+}
+
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
-    fn make_bitset(graph: &Graph<&str, ()>, bits: usize) -> FixedBitSet {
-        let nc = graph.node_count();
+    fn make_bitset(nc: usize, bits: usize) -> FixedBitSet {
         let mut bitset = FixedBitSet::with_capacity(nc * nc);
 
         for n in 0..bitset.len() {
@@ -188,68 +220,47 @@ mod tests {
         bitset
     }
 
-    #[test]
-    pub fn cpm_graph_a() {
+    fn graph_a() -> Graph<&'static str, ()> {
         let mut graph = Graph::<&str, ()>::new();
         graph.add_node("a");
-        let pm = calculate_path_matrix(&graph);
-
-        let expected = make_bitset(&graph, 0);
-        assert_eq!(pm, expected, "A graph with 1 node and no edge should have a blank matrix");
+        graph
     }
 
-    #[test]
-    pub fn cpm_graph_ab() {
+    fn graph_ab() -> Graph<&'static str, ()> {
         let mut graph = Graph::<&str, ()>::new();
         graph.add_node("a");
         graph.add_node("b");
-        let pm = calculate_path_matrix(&graph);
-
-        let expected = make_bitset(&graph, 0);
-        assert_eq!(pm, expected);
+        graph
     }
 
-    #[test]
-    pub fn cpm_graph_ab_axb() {
+    fn graph_ab_edges_ab() -> Graph<&'static str, ()> {
         let mut graph = Graph::<&str, ()>::new();
         let a = graph.add_node("a");
         let b = graph.add_node("b");
         graph.add_edge(a, b, ());
-        let pm = calculate_path_matrix(&graph);
-
-        let expected = make_bitset(&graph, 0b10);
-        assert_eq!(pm, expected);
+        graph
     }
 
-    #[test]
-    pub fn cpm_graph_abc_axc() {
+    fn graph_abc_edges_ac() -> Graph<&'static str, ()> {
         let mut graph = Graph::<&str, ()>::new();
         let a = graph.add_node("a");
         graph.add_node("b");
         let c = graph.add_node("c");
         graph.add_edge(a, c, ());
-        let pm = calculate_path_matrix(&graph);
-
-        let expected = make_bitset(&graph, 0b100);
-        assert_eq!(pm, expected);
+        graph
     }
 
-    #[test]
-    pub fn cpm_graph_abc_axc_bxc() {
+    fn graph_abc_edges_ac_bc() -> Graph<&'static str, ()> {
         let mut graph = Graph::<&str, ()>::new();
         let a = graph.add_node("a");
         let b = graph.add_node("b");
         let c = graph.add_node("c");
         graph.add_edge(a, c, ());
         graph.add_edge(b, c, ());
-        let pm = calculate_path_matrix(&graph);
-
-        let expected = make_bitset(&graph, 0b100100);
-        assert_eq!(pm, expected);
+        graph
     }
 
-    #[test]
-    pub fn cpm_graph_abc_axc_bxc_cxa() {
+    fn graph_abc_edges_ac_bc_ca() -> Graph<&'static str, ()> {
         let mut graph = Graph::<&str, ()>::new();
         let a = graph.add_node("a");
         let b = graph.add_node("b");
@@ -257,42 +268,20 @@ mod tests {
         graph.add_edge(a, c, ());
         graph.add_edge(b, c, ());
         graph.add_edge(c, a, ());
-        let pm = calculate_path_matrix(&graph);
-
-        // For edge matrix:
-        //        c b a
-        //      c 0 0 1        (c,a)
-        //      b 1 0 0        (b,c)
-        //      a 1 0 0        (a,c)
-
-        // For path matrix:
-        //        c b a
-        //      c 1 0 1        (c,a)  (c,c)
-        //      b 1 0 1        (b,c)  (b,a)
-        //      a 1 0 1        (a,c)  (a,a)
-        //
-        // The cycle between a and c adds these extra edges.
-        let expected = make_bitset(&graph, 0b101101101);
-        assert_eq!(pm, expected);
+        graph
     }
 
-    #[test]
-    pub fn cpm_graph_abc_axb_bxc() {
+    fn graph_abc_edges_ab_bc() -> Graph<&'static str, ()> {
         let mut graph = Graph::<&str, ()>::new();
         let a = graph.add_node("a");
         let b = graph.add_node("b");
         let c = graph.add_node("c");
         graph.add_edge(a, b, ());
         graph.add_edge(b, c, ());
-        let pm = calculate_path_matrix(&graph);
-
-        let expected = make_bitset(&graph, 0b100110);
-        assert_eq!(pm, expected, "The pm should add edge (a,c)");
+        graph
     }
 
-
-    #[test]
-    pub fn cpm_graph_abcdef() {
+    fn graph_abcdef_edges_ab_bc_cd_ce_bf() -> Graph<&'static str, ()> {
         let mut graph = Graph::<&str, ()>::new();
         let a = graph.add_node("a");
         let b = graph.add_node("b");
@@ -305,27 +294,104 @@ mod tests {
         graph.add_edge(c, d, ());
         graph.add_edge(c, e, ());
         graph.add_edge(b, f, ());
-        let pm = calculate_path_matrix(&graph);
+        graph
+    }
 
-        // Edge matrix:
-        //        f e d c b a
-        //      f 0 0 0 0 0 0
-        //      e 0 0 0 0 0 0
-        //      d 0 0 0 0 0 0
-        //      c 0 1 1 0 0 0
-        //      b 1 0 0 1 0 0
-        //      a 0 0 0 0 1 0
+    fn assert_matrix(matrix: &FixedBitSet, nc: usize, bits: usize) {
+        let expected = make_bitset(nc, bits);
+        assert_eq!(matrix, &expected);
+    }
 
-        // Path matrix:
-        //        f e d c b a
-        //      f 0 0 0 0 0 0
-        //      e 0 0 0 0 0 0
-        //      d 0 0 0 0 0 0
-        //      c 0 1 1 0 0 0
-        //      b 1 1 1 1 0 0
-        //      a 1 1 1 1 1 0
+    mod path_matrix_tests {
+        use super::*;
 
-        let expected = make_bitset(&graph, 0b011000_111100_111110);
-        assert_eq!(pm, expected);
+        #[test]
+        pub fn cpm_graph_a() {
+            let graph = graph_a();
+            let pm = calculate_path_matrix(&graph);
+            assert_matrix(&pm, graph.node_count(), 0);
+        }
+
+        #[test]
+        pub fn cpm_graph_ab() {
+            let graph = graph_ab();
+            let pm = calculate_path_matrix(&graph);
+            assert_matrix(&pm, graph.node_count(), 0);
+        }
+
+        #[test]
+        pub fn cpm_graph_ab_edges_ab() {
+            let graph = graph_ab_edges_ab();
+            let pm = calculate_path_matrix(&graph);
+            assert_matrix(&pm, graph.node_count(), 0b_10);
+        }
+
+        #[test]
+        pub fn cpm_graph_abc_edges_ac() {
+            let graph = graph_abc_edges_ac();
+            let pm = calculate_path_matrix(&graph);
+            assert_matrix(&pm, graph.node_count(), 0b_100);
+        }
+
+        #[test]
+        pub fn cpm_graph_abc_edges_ac_bc() {
+            let graph = graph_abc_edges_ac_bc();
+            let pm = calculate_path_matrix(&graph);
+            assert_matrix(&pm, graph.node_count(), 0b_100_100);
+        }
+
+        #[test]
+        pub fn cpm_graph_abc_axc_bxc_cxa() {
+            let graph = graph_abc_edges_ac_bc_ca();
+            let pm = calculate_path_matrix(&graph);
+
+            // For edge matrix:
+            //        c b a
+            //      c 0 0 1        (c,a)
+            //      b 1 0 0        (b,c)
+            //      a 1 0 0        (a,c)
+
+            // For path matrix:
+            //        c b a
+            //      c 1 0 1        (c,a)  (c,c)
+            //      b 1 0 1        (b,c)  (b,a)
+            //      a 1 0 1        (a,c)  (a,a)
+            //
+            // The cycle between a and c adds these extra edges.
+            assert_matrix(&pm, graph.node_count(), 0b_101_101_101);
+        }
+
+        #[test]
+        pub fn cpm_graph_abc_axb_bxc() {
+            let graph = graph_abc_edges_ab_bc();
+            let pm = calculate_path_matrix(&graph);
+            assert_matrix(&pm, graph.node_count(), 0b_100_110);
+        }
+
+        #[test]
+        pub fn cpm_graph_abcdef() {
+            let graph = graph_abcdef_edges_ab_bc_cd_ce_bf();
+            let pm = calculate_path_matrix(&graph);
+
+            // Edge matrix:
+            //        f e d c b a
+            //      f 0 0 0 0 0 0
+            //      e 0 0 0 0 0 0
+            //      d 0 0 0 0 0 0
+            //      c 0 1 1 0 0 0
+            //      b 1 0 0 1 0 0
+            //      a 0 0 0 0 1 0
+
+            // Path matrix:
+            //        f e d c b a
+            //      f 0 0 0 0 0 0
+            //      e 0 0 0 0 0 0
+            //      d 0 0 0 0 0 0
+            //      c 0 1 1 0 0 0
+            //      b 1 1 1 1 0 0
+            //      a 1 1 1 1 1 0
+
+            assert_matrix(&pm, graph.node_count(), 0b_011000_111100_111110);
+        }
     }
 }
