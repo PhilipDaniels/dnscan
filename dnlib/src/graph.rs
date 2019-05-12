@@ -106,15 +106,34 @@ where
     Ty: EdgeType,
     Ix: IndexType
 {
-    // adjacency_matrix will have graph.node_count() ^ 2 elements.
     let nc = graph.node_count();
     let matrix = graph.adjacency_matrix();
     assert_eq!(matrix.len(), nc * nc);
 
+    // The adjacency matrix is square with nc * nc elements.
+    // An edge (a,c) is represented with 'a' on the rows and 'c' on the columns.
+    //
+    //        c b a
+    //      c 0 0 0
+    //      b 1 0 0        (b,c)
+    //      a 1 0 0        (a,c)
+    //
+    // In this matrix, bits 2 and 5 are set, corresponding to edges (a,c) and (b,c).
+    // The bits are counted from the bottom right corner (bit 0) moving leftwards and then
+    // up to the end of the previous row, until we reach the top left corner (c,c).
+    //
+    // The nodex indexes are:
+    //      a.index() == 0
+    //      b.index() == 1
+    //      c.index() == 2
+    //
+    // For edge (x,y), the element in the bitset is at x.index() * nc + y.index(),
+    // Therefore, for (a,c) we have:   0 * 3 + 2 = 2
+    // Therefore, for (b,c) we have:   1 * 3 + 2 = 5
+
     // Convert to a path matrix.
     // https://github.com/jgrapht/jgrapht/blob/474db1fdc197ac253f1e543c7b087cffd255118e/jgrapht-core/src/main/java/org/jgrapht/alg/TransitiveReduction.java
-    // For edge a->b, the element in the bitset is at (a.index() * nc) + b.index(),
-    // counting from 0 at the rightmost end of the bitset.
+
 
 
     matrix
@@ -169,6 +188,9 @@ mod tests {
 
         let expected = make_bitset(&graph, 0b10);
         assert_eq!(pm, expected);
+        assert!(pm[1]);
+        assert_eq!(a.index(), 0);
+        assert_eq!(b.index(), 1);
     }
 
     #[test]
@@ -178,43 +200,62 @@ mod tests {
         let b = graph.add_node("b");
         let c = graph.add_node("c");
         graph.add_edge(a, c, ());
-        let pm = calculate_path_matrix(&graph);
+        let pm = calculate_path_matrix(&graph);  // pm = 4 = 0b100
 
         let expected = make_bitset(&graph, 0b100);
 
-        /* The matrix is square like this, an edge a->c is represented
-           with 'a' on the column and 'c' on the rows.
-
-          a b c
-        a 0 0 0
-        b 0 0 0
-        c 1 0 0
-
-        */
+        // An edge (a,c) is represented with 'a' on the rows and 'c' on the columns.
+        //        c b a
+        //      c 0 0 0
+        //      b 0 0 0
+        //      a 1 0 0
         assert_eq!(pm, expected);
+        assert!(pm[2]);
     }
 
-        #[test]
-        pub fn cpm_graph_abc_axc_bxc() {
+    #[test]
+    pub fn cpm_graph_abc_axc_bxc() {
         let mut graph = Graph::<&str, ()>::new();
         let a = graph.add_node("a");
         let b = graph.add_node("b");
         let c = graph.add_node("c");
         graph.add_edge(a, c, ());
         graph.add_edge(b, c, ());
-        let pm = calculate_path_matrix(&graph);
+        let pm = calculate_path_matrix(&graph); // pm = 36 = 0b100100
 
         let expected = make_bitset(&graph, 0b100100);
 
-        /* The matrix is square like this, an edge a->c is represented
-           with 'a' on the column and 'c' on the rows.
-
-          a b c
-        a 0 0 1
-        b 0 0 1
-        c 0 0 0
-
-        */
+        // An edge (a,c) is represented with 'a' on the rows and 'c' on the columns.
+        //        c b a
+        //      c 0 0 0
+        //      b 1 0 0
+        //      a 1 0 0
         assert_eq!(pm, expected);
+        assert!(pm[2]);
+        assert!(pm[5]);
+    }
+
+    #[test]
+    pub fn cpm_graph_abc_axc_bxc_cxa() {
+        let mut graph = Graph::<&str, ()>::new();
+        let a = graph.add_node("a");
+        let b = graph.add_node("b");
+        let c = graph.add_node("c");
+        graph.add_edge(a, c, ());
+        graph.add_edge(b, c, ());
+        graph.add_edge(c, a, ());
+        let pm = calculate_path_matrix(&graph); // pm = 100 = 0b1100100
+
+        let expected = make_bitset(&graph, 0b1100100);
+
+        // An edge (a,c) is represented with 'a' on the rows and 'c' on the columns.
+        //        c b a
+        //      c 0 0 1        (c,a)
+        //      b 1 0 0        (b,c)
+        //      a 1 0 0        (a,c)
+        assert_eq!(pm, expected);
+        assert!(pm[2]);
+        assert!(pm[5]);
+        assert!(pm[6]);
     }
 }
