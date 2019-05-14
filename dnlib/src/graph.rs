@@ -116,12 +116,7 @@ impl FixedBitSetExtensions for FixedBitSet {
     }
 }
 
-/// Convert the adjacency matrix (also known as an edge matrix) to a path matrix.
-/// The adjacency matrix has a 1 if there is an edge from a to b; the path matrix
-/// has a 1 if there is a path (by any route) from a to b.
-/// The path matrix therefore represents the transitive closure of the graph.
-#[cfg(test)]
-fn calculate_path_matrix<N, E, Ty, Ix>(graph: &Graph<N, E, Ty, Ix>) -> FixedBitSet
+fn get_path_matrix<N, E, Ty, Ix>(graph: &Graph<N, E, Ty, Ix>) -> FixedBitSet
 where
     Ty: EdgeType,
     Ix: IndexType
@@ -129,8 +124,29 @@ where
     let nc = graph.node_count();
     let mut matrix = graph.adjacency_matrix();
     assert_eq!(matrix.len(), nc * nc);
+    calculate_path_matrix(&mut matrix, nc);
+    matrix
+}
 
-    // The adjacency matrix is square with nc * nc elements.
+fn get_path_matrix_stable<N, E, Ty, Ix>(graph: &StableGraph<N, E, Ty, Ix>) -> FixedBitSet
+where
+    Ty: EdgeType,
+    Ix: IndexType
+{
+    let nc = graph.node_count();
+    let mut matrix = graph.adjacency_matrix();
+    assert_eq!(matrix.len(), nc * nc);
+    calculate_path_matrix(&mut matrix, nc);
+    matrix
+}
+
+/// Convert the adjacency matrix (also known as an edge matrix) to a path matrix.
+/// The adjacency matrix has a 1 if there is an edge from a to b; the path matrix
+/// has a 1 if there is a path (by any route) from a to b.
+/// The path matrix therefore represents the transitive closure of the graph.
+fn calculate_path_matrix(edge_matrix: &mut FixedBitSet, nc: usize) {
+
+    // The edge matrix (aka adjacency matrix) is square with nc * nc elements.
     // An edge (a,c) is represented with 'a' on the rows and 'c' on the columns.
     //
     //        c b a
@@ -157,23 +173,19 @@ where
             // Ignore the diagonals.
             if i == j { continue };
 
-            if matrix.contains_rc(nc, j, i) {
+            if edge_matrix.contains_rc(nc, j, i) {
                 for k in 0..nc {
-                    if !matrix.contains_rc(nc, j, k) {
-                        let flag = matrix.contains_rc(nc, i, k);
-                        matrix.set_rc(nc, j, k, flag);
+                    if !edge_matrix.contains_rc(nc, j, k) {
+                        let flag = edge_matrix.contains_rc(nc, i, k);
+                        edge_matrix.set_rc(nc, j, k, flag);
                     }
                 }
             }
         }
     }
-
-    matrix
 }
 
-#[cfg(test)]
-fn calculate_transitive_reduction_of_path_matrix(mut path_matrix: FixedBitSet, nc: usize) -> FixedBitSet
-{
+fn calculate_transitive_reduction_of_path_matrix(mut path_matrix: FixedBitSet, nc: usize) -> FixedBitSet {
     // Fromm https://stackoverflow.com/questions/1690953/transitive-reduction-algorithm-pseudocode
     // See Harry Hsu. "An algorithm for finding a minimal equivalent graph of a digraph.", Journal
     // of the ACM, 22(1):11-16, January 1975. The simple cubic algorithm below (using an N x N path
@@ -194,16 +206,15 @@ fn calculate_transitive_reduction_of_path_matrix(mut path_matrix: FixedBitSet, n
     path_matrix
 }
 
-#[cfg(test)]
-fn calculate_transitive_reduction<N, E, Ty, Ix>(graph: &Graph<N, E, Ty, Ix>)
--> Graph<N, E, Ty, Ix>
+
+pub fn transitive_reduction<N, E, Ty, Ix>(graph: &Graph<N, E, Ty, Ix>) -> Graph<N, E, Ty, Ix>
 where
     Ty: EdgeType,
     Ix: IndexType,
     N: Clone,
     E: Clone
 {
-    let path_matrix = calculate_path_matrix(graph);
+    let path_matrix = get_path_matrix(graph);
     let tred = calculate_transitive_reduction_of_path_matrix(path_matrix, graph.node_count());
 
     //let result = graph.clone(); N:Clone makes this possible.
@@ -228,6 +239,35 @@ where
 
     result
 }
+
+pub fn transitive_reduction_stable<N, E, Ty, Ix>(graph: &mut StableGraph<N, E, Ty, Ix>)
+-> Vec<(usize, usize)>
+where
+    Ty: EdgeType,
+    Ix: IndexType,
+    N: Clone,
+    E: Clone
+{
+    let path_matrix = get_path_matrix_stable(graph);
+    let tred = calculate_transitive_reduction_of_path_matrix(path_matrix, graph.node_count());
+
+    // Now remove edges if they are not in the transitive reduction.
+    let nc = graph.node_count();
+    let edge_indices: Vec<_> = graph.edge_indices().collect();
+
+    let mut removed_edges = vec![];
+    for e in edge_indices {
+        if let Some((i, j)) = graph.edge_endpoints(e) {
+            if !tred.contains_rc(nc, i.index(), j.index()) {
+                graph.remove_edge(e);
+                removed_edges.push((i.index(), j.index()));
+            }
+        }
+    }
+
+    removed_edges
+}
+
 
 
 #[cfg(test)]
@@ -255,33 +295,33 @@ mod tests {
         // added in the order a,b,c...It makes the code a lot simpler.
         #[test]
         pub fn tred_graph_a() {
-            let graph = calculate_transitive_reduction(&graph_a());
+            let graph = transitive_reduction(&graph_a());
             assert_eq!(graph.edge_count(), 0);
         }
 
         #[test]
         pub fn tred_graph_ab() {
-            let graph = calculate_transitive_reduction(&graph_ab());
+            let graph = transitive_reduction(&graph_ab());
             assert_eq!(graph.edge_count(), 0);
         }
 
         #[test]
         pub fn tred_graph_ab_edges_ab() {
-            let graph = calculate_transitive_reduction(&graph_ab_edges_ab());
+            let graph = transitive_reduction(&graph_ab_edges_ab());
             assert_eq!(graph.edge_count(), 1);
             assert!(graph.contains_edge(0.into(), 1.into()));
         }
 
         #[test]
         pub fn tred_graph_abc_edges_ac() {
-            let graph = calculate_transitive_reduction(&graph_abc_edges_ac());
+            let graph = transitive_reduction(&graph_abc_edges_ac());
             assert_eq!(graph.edge_count(), 1);
             assert!(graph.contains_edge(0.into(), 2.into()));
         }
 
         #[test]
         pub fn tred_graph_abc_edges_ac_bc() {
-            let graph = calculate_transitive_reduction(&graph_abc_edges_ac_bc());
+            let graph = transitive_reduction(&graph_abc_edges_ac_bc());
             assert_eq!(graph.edge_count(), 2);
             assert!(graph.contains_edge(0.into(), 2.into()));
             assert!(graph.contains_edge(1.into(), 2.into()));
@@ -291,7 +331,7 @@ mod tests {
         pub fn tred_graph_abc_edges_ac_bc_ca() {
             // This graph has a cycle a <-> c, and tred is not well defined.
             // We should return a Cycle error in this case.
-            let graph = calculate_transitive_reduction(&graph_abc_edges_ac_bc_ca());
+            let graph = transitive_reduction(&graph_abc_edges_ac_bc_ca());
             assert_eq!(graph.edge_count(), 3);
             assert!(graph.contains_edge(0.into(), 2.into()));
             assert!(graph.contains_edge(1.into(), 2.into()));
@@ -300,7 +340,7 @@ mod tests {
 
         #[test]
         pub fn tred_graph_abc_edges_ab_bc() {
-            let graph = calculate_transitive_reduction(&graph_abc_edges_ab_bc());
+            let graph = transitive_reduction(&graph_abc_edges_ab_bc());
             assert_eq!(graph.edge_count(), 2);
             assert!(graph.contains_edge(0.into(), 1.into()));
             assert!(graph.contains_edge(1.into(), 2.into()));
@@ -308,7 +348,7 @@ mod tests {
 
         #[test]
         pub fn tred_graph_abcdef_edges_ab_bc_cd_ce_bf() {
-            let graph = calculate_transitive_reduction(&graph_abcdef_edges_ab_bc_cd_ce_bf());
+            let graph = transitive_reduction(&graph_abcdef_edges_ab_bc_cd_ce_bf());
             assert_eq!(graph.edge_count(), 5);
             assert!(graph.contains_edge(0.into(), 1.into()));
             assert!(graph.contains_edge(1.into(), 2.into()));
@@ -321,7 +361,7 @@ mod tests {
 
         #[test]
         pub fn tred_graph_abc_edges_ab_bc_ac() {
-            let graph = calculate_transitive_reduction(&graph_abc_edges_ab_bc_ac());
+            let graph = transitive_reduction(&graph_abc_edges_ab_bc_ac());
             assert_eq!(graph.edge_count(), 2);
             assert!(graph.contains_edge(0.into(), 1.into()));
             assert!(graph.contains_edge(1.into(), 2.into()));
@@ -329,7 +369,7 @@ mod tests {
 
         #[test]
         pub fn tred_graph_wikipedia() {
-            let graph = calculate_transitive_reduction(&graph_wikipedia());
+            let graph = transitive_reduction(&graph_wikipedia());
             assert_eq!(graph.edge_count(), 5);
             assert!(graph.contains_edge(0.into(), 1.into()));
             assert!(graph.contains_edge(0.into(), 2.into()));
@@ -340,7 +380,7 @@ mod tests {
 
         #[test]
         pub fn tred_graph_abcd_edges_ab_ac_bd_cd() {
-            let graph = calculate_transitive_reduction(&graph_abcd_edges_ab_ac_bd_cd());
+            let graph = transitive_reduction(&graph_abcd_edges_ab_ac_bd_cd());
             assert_eq!(graph.edge_count(), 4);
             assert!(graph.contains_edge(0.into(), 1.into()));
             assert!(graph.contains_edge(0.into(), 2.into()));
@@ -484,42 +524,42 @@ mod tests {
         #[test]
         pub fn cpm_graph_a() {
             let graph = graph_a();
-            let pm = calculate_path_matrix(&graph);
+            let pm = get_path_matrix(&graph);
             assert_matrix(&pm, graph.node_count(), 0);
         }
 
         #[test]
         pub fn cpm_graph_ab() {
             let graph = graph_ab();
-            let pm = calculate_path_matrix(&graph);
+            let pm = get_path_matrix(&graph);
             assert_matrix(&pm, graph.node_count(), 0);
         }
 
         #[test]
         pub fn cpm_graph_ab_edges_ab() {
             let graph = graph_ab_edges_ab();
-            let pm = calculate_path_matrix(&graph);
+            let pm = get_path_matrix(&graph);
             assert_matrix(&pm, graph.node_count(), 0b_10);
         }
 
         #[test]
         pub fn cpm_graph_abc_edges_ac() {
             let graph = graph_abc_edges_ac();
-            let pm = calculate_path_matrix(&graph);
+            let pm = get_path_matrix(&graph);
             assert_matrix(&pm, graph.node_count(), 0b_100);
         }
 
         #[test]
         pub fn cpm_graph_abc_edges_ac_bc() {
             let graph = graph_abc_edges_ac_bc();
-            let pm = calculate_path_matrix(&graph);
+            let pm = get_path_matrix(&graph);
             assert_matrix(&pm, graph.node_count(), 0b_100_100);
         }
 
         #[test]
         pub fn cpm_graph_abc_axc_bxc_cxa() {
             let graph = graph_abc_edges_ac_bc_ca();
-            let pm = calculate_path_matrix(&graph);
+            let pm = get_path_matrix(&graph);
 
             // For edge matrix:
             //        c b a
@@ -540,14 +580,14 @@ mod tests {
         #[test]
         pub fn cpm_graph_abc_axb_bxc() {
             let graph = graph_abc_edges_ab_bc();
-            let pm = calculate_path_matrix(&graph);
+            let pm = get_path_matrix(&graph);
             assert_matrix(&pm, graph.node_count(), 0b_100_110);
         }
 
         #[test]
         pub fn cpm_graph_abcdef() {
             let graph = graph_abcdef_edges_ab_bc_cd_ce_bf();
-            let pm = calculate_path_matrix(&graph);
+            let pm = get_path_matrix(&graph);
 
             // Edge matrix:
             //        f e d c b a
