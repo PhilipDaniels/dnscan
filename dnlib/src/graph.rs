@@ -109,6 +109,7 @@ impl FixedBitSetExtensions for FixedBitSet {
         self.contains(idx)
     }
 
+    #[inline]
     fn set_rc(&mut self, nc: usize, x: usize, y: usize, enabled: bool) {
         let idx = x * nc + y;
         self.set(idx, enabled);
@@ -175,8 +176,8 @@ fn calculate_transitive_reduction_of_path_matrix(mut path_matrix: FixedBitSet, n
 {
     // Fromm https://stackoverflow.com/questions/1690953/transitive-reduction-algorithm-pseudocode
     // See Harry Hsu. "An algorithm for finding a minimal equivalent graph of a digraph.", Journal
-    // of the ACM, 22(1):11-16, January 1975. The simple cubic algorithm below (using an N x N path matrix)
-    // suffices for DAGs, but Hsu generalizes it to cyclic graphs.
+    // of the ACM, 22(1):11-16, January 1975. The simple cubic algorithm below (using an N x N path
+    // matrix) suffices for DAGs, but Hsu generalizes it to cyclic graphs.
 
     for j in 0..nc {
         for i in 0..nc {
@@ -195,11 +196,37 @@ fn calculate_transitive_reduction_of_path_matrix(mut path_matrix: FixedBitSet, n
 
 #[cfg(test)]
 fn calculate_transitive_reduction<N, E, Ty, Ix>(graph: &Graph<N, E, Ty, Ix>)
+-> Graph<N, E, Ty, Ix>
 where
     Ty: EdgeType,
-    Ix: IndexType
+    Ix: IndexType,
+    N: Clone,
+    E: Clone
 {
     let path_matrix = calculate_path_matrix(graph);
+    let tred = calculate_transitive_reduction_of_path_matrix(path_matrix, graph.node_count());
+
+    //let result = graph.clone(); N:Clone makes this possible.
+
+    // Clone all the nodes.
+    let mut result = Graph::<N, E, Ty, Ix>::with_capacity(graph.node_count(), graph.edge_count());
+    for (_ix, n) in graph.node_references() {
+        result.add_node(n.clone());
+    }
+
+    // Now add edges if they are in the transitive reduction.
+    let nc = graph.node_count();
+    for e in graph.edge_references() {
+        let i = e.source().index();
+        let j = e.target().index();
+        if tred.contains_rc(nc, i, j) {
+            let ni = NodeIndex::new(i);
+            let nj = NodeIndex::new(j);
+            result.add_edge(ni, nj, e.weight().clone());
+        }
+    }
+
+    result
 }
 
 
@@ -218,6 +245,109 @@ mod tests {
         }
 
         bitset
+    }
+
+
+    mod tred_tests {
+        use super::*;
+
+        // For the contains_edge expressions, we are assuming that the nodes are
+        // added in the order a,b,c...It makes the code a lot simpler.
+        #[test]
+        pub fn tred_graph_a() {
+            let graph = calculate_transitive_reduction(&graph_a());
+            assert_eq!(graph.edge_count(), 0);
+        }
+
+        #[test]
+        pub fn tred_graph_ab() {
+            let graph = calculate_transitive_reduction(&graph_ab());
+            assert_eq!(graph.edge_count(), 0);
+        }
+
+        #[test]
+        pub fn tred_graph_ab_edges_ab() {
+            let graph = calculate_transitive_reduction(&graph_ab_edges_ab());
+            assert_eq!(graph.edge_count(), 1);
+            assert!(graph.contains_edge(0.into(), 1.into()));
+        }
+
+        #[test]
+        pub fn tred_graph_abc_edges_ac() {
+            let graph = calculate_transitive_reduction(&graph_abc_edges_ac());
+            assert_eq!(graph.edge_count(), 1);
+            assert!(graph.contains_edge(0.into(), 2.into()));
+        }
+
+        #[test]
+        pub fn tred_graph_abc_edges_ac_bc() {
+            let graph = calculate_transitive_reduction(&graph_abc_edges_ac_bc());
+            assert_eq!(graph.edge_count(), 2);
+            assert!(graph.contains_edge(0.into(), 2.into()));
+            assert!(graph.contains_edge(1.into(), 2.into()));
+        }
+
+        #[test]
+        pub fn tred_graph_abc_edges_ac_bc_ca() {
+            // This graph has a cycle a <-> c, and tred is not well defined.
+            // We should return a Cycle error in this case.
+            let graph = calculate_transitive_reduction(&graph_abc_edges_ac_bc_ca());
+            assert_eq!(graph.edge_count(), 3);
+            assert!(graph.contains_edge(0.into(), 2.into()));
+            assert!(graph.contains_edge(1.into(), 2.into()));
+            assert!(graph.contains_edge(2.into(), 0.into()));
+        }
+
+        #[test]
+        pub fn tred_graph_abc_edges_ab_bc() {
+            let graph = calculate_transitive_reduction(&graph_abc_edges_ab_bc());
+            assert_eq!(graph.edge_count(), 2);
+            assert!(graph.contains_edge(0.into(), 1.into()));
+            assert!(graph.contains_edge(1.into(), 2.into()));
+        }
+
+        #[test]
+        pub fn tred_graph_abcdef_edges_ab_bc_cd_ce_bf() {
+            let graph = calculate_transitive_reduction(&graph_abcdef_edges_ab_bc_cd_ce_bf());
+            assert_eq!(graph.edge_count(), 5);
+            assert!(graph.contains_edge(0.into(), 1.into()));
+            assert!(graph.contains_edge(1.into(), 2.into()));
+            assert!(graph.contains_edge(2.into(), 3.into()));
+            assert!(graph.contains_edge(2.into(), 4.into()));
+            assert!(graph.contains_edge(1.into(), 5.into()));
+        }
+
+        // None of the above actually remove any edges.
+
+        #[test]
+        pub fn tred_graph_abc_edges_ab_bc_ac() {
+            let graph = calculate_transitive_reduction(&graph_abc_edges_ab_bc_ac());
+            assert_eq!(graph.edge_count(), 2);
+            assert!(graph.contains_edge(0.into(), 1.into()));
+            assert!(graph.contains_edge(1.into(), 2.into()));
+        }
+
+        #[test]
+        pub fn tred_graph_wikipedia() {
+            let graph = calculate_transitive_reduction(&graph_wikipedia());
+            assert_eq!(graph.edge_count(), 5);
+            assert!(graph.contains_edge(0.into(), 1.into()));
+            assert!(graph.contains_edge(0.into(), 2.into()));
+            assert!(graph.contains_edge(1.into(), 3.into()));
+            assert!(graph.contains_edge(2.into(), 3.into()));
+            assert!(graph.contains_edge(3.into(), 4.into()));
+        }
+
+        #[test]
+        pub fn tred_graph_abcd_edges_ab_ac_bd_cd() {
+            let graph = calculate_transitive_reduction(&graph_abcd_edges_ab_ac_bd_cd());
+            assert_eq!(graph.edge_count(), 4);
+            assert!(graph.contains_edge(0.into(), 1.into()));
+            assert!(graph.contains_edge(0.into(), 2.into()));
+            assert!(graph.contains_edge(1.into(), 3.into()));
+            assert!(graph.contains_edge(2.into(), 3.into()));
+        }
+
     }
 
     fn graph_a() -> Graph<&'static str, ()> {
@@ -294,6 +424,52 @@ mod tests {
         graph.add_edge(c, d, ());
         graph.add_edge(c, e, ());
         graph.add_edge(b, f, ());
+        graph
+    }
+
+    fn graph_abc_edges_ab_bc_ac() -> Graph<&'static str, ()> {
+        let mut graph = Graph::<&str, ()>::new();
+        let a = graph.add_node("a");
+        let b = graph.add_node("b");
+        let c = graph.add_node("c");
+        graph.add_edge(a, b, ());
+        graph.add_edge(b, c, ());
+        graph.add_edge(a, c, ());
+        graph
+    }
+
+    fn graph_wikipedia() -> Graph<&'static str, ()> {
+        // The graph from the Wikipedia article at
+        // https://en.wikipedia.org/wiki/Transitive_reduction
+        let mut graph = Graph::<&str, ()>::new();
+        let a = graph.add_node("a");
+        let b = graph.add_node("b");
+        let c = graph.add_node("c");
+        let d = graph.add_node("d");
+        let e = graph.add_node("e");
+        graph.add_edge(a, b, ());
+        graph.add_edge(a, c, ());
+        graph.add_edge(a, d, ());
+        graph.add_edge(a, e, ());
+        graph.add_edge(b, d, ());
+        graph.add_edge(c, d, ());
+        graph.add_edge(c, e, ());
+        graph.add_edge(d, e, ());
+        graph
+    }
+
+    fn graph_abcd_edges_ab_ac_bd_cd() -> Graph<&'static str, ()> {
+        // The graph from the Wikipedia article at
+        // https://en.wikipedia.org/wiki/Transitive_reduction
+        let mut graph = Graph::<&str, ()>::new();
+        let a = graph.add_node("a");
+        let b = graph.add_node("b");
+        let c = graph.add_node("c");
+        let d = graph.add_node("d");
+        graph.add_edge(a, b, ());
+        graph.add_edge(a, c, ());
+        graph.add_edge(b, d, ());
+        graph.add_edge(c, d, ());
         graph
     }
 
