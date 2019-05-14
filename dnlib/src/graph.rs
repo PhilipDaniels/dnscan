@@ -52,9 +52,9 @@ impl<'a> fmt::Display for Node<'a> {
 /// It can be used to find redundant project references.
 /// TODO: Add packages
 /// TODO: Want to do slndir->slndir analysis (more edges)
-pub fn make_analysis_graph(analysis: &Analysis) -> Graph<Node, u8>
+pub fn make_analysis_graph(analysis: &Analysis) -> StableGraph<Node, u8>
 {
-    let mut graph = Graph::default();
+    let mut graph = StableGraph::default();
     let analysis_node = Node::Analysis(analysis);
     let analysis_node_idx = graph.add_node(analysis_node);
 
