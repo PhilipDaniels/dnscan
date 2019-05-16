@@ -2,3 +2,5 @@
 **/*.rs.bk
 *.csv
 *.dot
+*.png
+*.svg
