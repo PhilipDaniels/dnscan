@@ -6,15 +6,7 @@ fn bool_to_str(b: bool) -> &'static str {
     if b { "true" } else { "false" }
 }
 
-pub fn write_files(analysis: &Analysis) -> AnalysisResult<()> {
-    write_solutions(analysis)?;
-    write_solutions_to_projects(analysis)?;
-    write_projects_to_packages(analysis)?;
-    write_projects_to_child_projects(analysis)?;
-    Ok(())
-}
-
-fn write_solutions(analysis: &Analysis) -> AnalysisResult<()> {
+pub fn write_solutions(analysis: &Analysis) -> AnalysisResult<()> {
     let mut wtr = csv::Writer::from_path("solutions.csv")?;
 
     wtr.write_record(&[
@@ -52,7 +44,7 @@ fn write_solutions(analysis: &Analysis) -> AnalysisResult<()> {
     Ok(())
 }
 
-fn write_solutions_to_projects(analysis: &Analysis) -> AnalysisResult<()> {
+pub fn write_solutions_to_projects(analysis: &Analysis) -> AnalysisResult<()> {
     let mut wtr = csv::Writer::from_path("solutions_to_projects.csv")?;
 
     wtr.write_record(&[
@@ -107,7 +99,7 @@ fn write_solutions_to_projects(analysis: &Analysis) -> AnalysisResult<()> {
     Ok(())
 }
 
-fn write_projects_to_packages(analysis: &Analysis) -> AnalysisResult<()> {
+pub fn write_projects_to_packages(analysis: &Analysis) -> AnalysisResult<()> {
     let mut wtr = csv::Writer::from_path("projects_to_packages.csv")?;
 
     wtr.write_record(&[
@@ -151,7 +143,7 @@ fn write_projects_to_packages(analysis: &Analysis) -> AnalysisResult<()> {
     Ok(())
 }
 
-fn write_projects_to_child_projects(analysis: &Analysis) -> AnalysisResult<()> {
+pub fn write_projects_to_child_projects(analysis: &Analysis) -> AnalysisResult<()> {
     let mut wtr = csv::Writer::from_path("projects_to_child_projects.csv")?;
 
     wtr.write_record(&[

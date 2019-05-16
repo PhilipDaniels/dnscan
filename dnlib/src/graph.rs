@@ -1,14 +1,13 @@
 use crate::analysis::{Analysis, SolutionDirectory, Solution, Project};
 use crate::io::PathExtensions;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 pub use petgraph::prelude::*;
 pub use petgraph::dot::*;
 pub use petgraph::algo::*;
 pub use petgraph::data::*;
-// TODO: Only doing this 'pub use' so we can implement tred in dnscan.
-// Should not re-export like this.
+// TODO: Should not re-export like this.
 pub use petgraph::EdgeType;
 pub use petgraph::graph::{IndexType};
 pub use petgraph::visit::*;
@@ -241,7 +240,7 @@ where
 }
 
 pub fn transitive_reduction_stable<N, E, Ty, Ix>(graph: &mut StableGraph<N, E, Ty, Ix>)
--> Vec<(usize, usize)>
+-> HashSet<(usize, usize)>
 where
     Ty: EdgeType,
     Ix: IndexType,
@@ -255,12 +254,12 @@ where
     let nc = graph.node_count();
     let edge_indices: Vec<_> = graph.edge_indices().collect();
 
-    let mut removed_edges = vec![];
+    let mut removed_edges = HashSet::new();
     for e in edge_indices {
         if let Some((i, j)) = graph.edge_endpoints(e) {
             if !tred.contains_rc(nc, i.index(), j.index()) {
                 graph.remove_edge(e);
-                removed_edges.push((i.index(), j.index()));
+                removed_edges.insert((i.index(), j.index()));
             }
         }
     }

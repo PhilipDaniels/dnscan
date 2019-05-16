@@ -1,13 +1,11 @@
 mod csv_output;
 mod errors;
 mod options;
+mod graph_output;
 
 use errors::AnalysisResult;
 use options::Options;
 use dnlib::prelude::*;
-use std::fs;
-use std::collections::{HashSet, HashMap};
-use fixedbitset::FixedBitSet;
 
 fn main() {
     let options = options::get_options();
@@ -67,22 +65,22 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
     }
 
     let start = std::time::Instant::now();
-    csv_output::write_files(&analysis)?;
+    let mut analysis_graph = make_analysis_graph(&analysis);
+    let removed_edges = transitive_reduction_stable(&mut analysis_graph);
     if options.verbose {
-        println!("CSV files written in {:?}", start.elapsed());
+        println!("Project graph and redundant projects found in {:?}", start.elapsed());
     }
-
 
     let start = std::time::Instant::now();
-    let mut analysis_graph = make_analysis_graph(&analysis);
-    let analysis_dot = Dot::with_config(&analysis_graph, &[Config::EdgeNoLabel]);
-    fs::write("analysis.dot", analysis_dot.to_string())?;
-    if options.verbose {
-        println!("analysis.dot written in {:?}", start.elapsed());
-    }
+    csv_output::write_solutions(&analysis)?;
+    csv_output::write_solutions_to_projects(&analysis)?;
+    csv_output::write_projects_to_packages(&analysis)?;
+    csv_output::write_projects_to_child_projects(&analysis)?;
+    graph_output::write_project_dot_file(&analysis_graph, &removed_edges)?;
 
-    let removed_edges = transitive_reduction_stable(&mut analysis_graph);
-    println!("Removed edges = {:?}", removed_edges);
+    if options.verbose {
+        println!("Output files written in {:?}", start.elapsed());
+    }
 
     Ok(())
 }
