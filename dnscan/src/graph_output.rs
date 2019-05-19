@@ -29,7 +29,8 @@ where
     writeln!(writer, "digraph {{")?;
 
     for (node_idx, node_ref) in graph.node_references() {
-        writeln!(writer, "    {} [label=\"{}\",color=blue,shape=ellipse,fontcolor=red,penwidth=4,style=filled,fillcolor=grey]", node_idx.index(), node_ref)?;
+        writeln!(writer, "    {} [label=\"{}\",{}]",
+            node_idx.index(), node_ref, node_ref.dot_attributes())?;
     }
 
     println!("Removed edges = {:?}", removed_edges);
@@ -43,7 +44,7 @@ where
     for edge in removed_edges {
         writeln!(
             writer,
-            "    {} -> {} [color=red;style=dotted]",
+            "    {} -> {} [color=red,style=dotted,penwidth=2]",
             edge.0, edge.1
         )?;
     }
@@ -56,7 +57,4 @@ where
     Ok(())
 }
 
-// TODO: Implement a 'name' method for a node, e.g. to trim the .csproj.
-// TODO: Implement an 'attributes' method for a node.
-// TODO: Use different shapes for different node types, including orphaned projects.
 // TODO: Write redundant projects to csv also.

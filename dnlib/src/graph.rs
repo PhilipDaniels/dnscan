@@ -37,20 +37,39 @@ impl<'a> fmt::Debug for Node<'a> {
 impl<'a> fmt::Display for Node<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Node::Analysis(ref an) => write!(f, "{} (analysis)", an.root_path.display()),
-            Node::SolutionDirectory(ref sd) => write!(f, "{} (sln dir)", sd.directory.filename_as_str()),
-            Node::Solution(ref sln) => write!(f, "{}", sln.file_info.path.filename_as_str()),
-            Node::Project(ref proj) => write!(f, "{}", proj.file_info.path.filename_as_str()),
+            Node::Analysis(ref an) => write!(f, "{} (root dir)", an.root_path.display()),
+            Node::SolutionDirectory(ref sd) => write!(f, "{} (sln dir)", sd.directory.file_stem_as_str()),
+            Node::Solution(ref sln) => write!(f, "{}", sln.file_info.path.file_stem_as_str()),
+            Node::Project(ref proj) => write!(f, "{}", proj.file_info.path.file_stem_as_str()),
         }
     }
 }
 
+impl<'a> Node<'a> {
+
+    pub fn dot_attributes(&self) -> &'static str {
+        use crate::enums::ProjectOwnership;
+
+        // [color=blue,,fontcolor=red]"
+
+        // We are using X11 colors.
+        // https://graphviz.gitlab.io/_pages/doc/info/shapes.html#d:style
+        // https://graphviz.gitlab.io/_pages/doc/info/attrs.html#k:color
+
+        match *self {
+            Node::Analysis(_) =>          "shape=invhouse,style=filled,fillcolor=gold,penwidth=3",
+            Node::SolutionDirectory(_) => "shape=octagon,style=filled,fillcolor=turquoise,penwidth=3",
+            Node::Solution(_) =>          "shape=ellipse,style=filled,fillcolor=grey,penwidth=3",
+            Node::Project(ref p) if p.ownership == ProjectOwnership::Orphaned => "shape=rectangle,style=\"filled,rounded\",fillcolor=firebrick1",
+            Node::Project(_) => "shape=rectangle,style=rounded",
+        }
+    }
+}
 
 /// Construct a graph of the entire analysis results.
 /// There are no relationships between the solutions in this graph.
 /// It can be used to find redundant project references.
-/// TODO: Add packages
-/// TODO: Want to do slndir->slndir analysis (more edges)
+/// TODO: Add packages, allow specifying what should be included.
 pub fn make_analysis_graph(analysis: &Analysis) -> StableGraph<Node, u8>
 {
     let mut graph = StableGraph::default();

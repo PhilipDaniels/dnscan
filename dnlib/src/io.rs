@@ -104,6 +104,8 @@ pub trait PathExtensions {
     fn as_str(&self) -> &str;
     // Returns the final filename component as a str, or "" if it cannot be converted.
     fn filename_as_str(&self) -> &str;
+    // Returns the final filename component excluding extension as a str, or "" if it cannot be converted.
+    fn file_stem_as_str(&self) -> &str;
     // Returns the directory as a str, or "" if it cannot be converted.
     fn directory_as_str(&self) -> &str;
     // Returns the extension as a str, or "" if it cannot be converted.
@@ -134,6 +136,16 @@ impl PathExtensions for Path {
 
     fn filename_as_str(&self) -> &str {
         match self.file_name() {
+            None => "",
+            Some(osstr) => match osstr.to_str() {
+                None => "",
+                Some(s) => s,
+            },
+        }
+    }
+
+    fn file_stem_as_str(&self) -> &str {
+        match self.file_stem() {
             None => "",
             Some(osstr) => match osstr.to_str() {
                 None => "",

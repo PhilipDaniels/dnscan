@@ -328,8 +328,6 @@ fn get_confirmation() -> bool {
     do_delete
 }
 
-// TODO: Time these in release mode to see if there is any difference in speed with the checks removed.
-// TODO: Is there a faster way of removing a directory, e.g. using a crate?
 fn delete_file(path: &Path, verbose: bool) -> io::Result<()> {
     if path.is_file() {
         make_deletable(path)?;
