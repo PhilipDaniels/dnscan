@@ -77,8 +77,9 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
     csv_output::write_solutions_to_projects(&analysis)?;
     csv_output::write_projects_to_packages(&analysis)?;
 
-    let redundant_project_relationships = convert_removed_edges_to_node_references(&analysis_graph, &removed_edges);
-    csv_output::write_projects_to_child_projects(&analysis, &redundant_project_relationships)?;
+    let red_node_refs = convert_removed_edges_to_node_references(&analysis_graph, &removed_edges);
+    let red_proj_refs = convert_node_references_to_project_references(&red_node_refs);
+    csv_output::write_projects_to_child_projects(&analysis, &red_proj_refs)?;
     graph_output::write_project_dot_file(&analysis_graph, &removed_edges)?;
 
     if options.verbose {

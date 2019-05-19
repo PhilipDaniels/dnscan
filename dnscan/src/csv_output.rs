@@ -198,7 +198,7 @@ use std::collections::HashSet;
 
 pub fn write_projects_to_child_projects(
     analysis: &Analysis,
-    redundant_project_relationships: &HashSet<(&Node, &Node)>
+    redundant_project_relationships: &HashSet<(&Project, &Project)>
     ) -> AnalysisResult<()>
 {
     let mut wtr = csv::Writer::from_path("projects_to_child_projects.csv")?;
@@ -217,6 +217,7 @@ pub fn write_projects_to_child_projects(
         "ChildProjIsValidUTF8",
         "ChildProjVersion",
         "ChildProjOutputType",
+        "IsRedundant"
     ])?;
 
     for sd in &analysis.solution_directories {
@@ -240,6 +241,11 @@ pub fn write_projects_to_child_projects(
                         bool_to_str(child_proj.file_info.is_valid_utf8),
                         child_proj.version.as_ref(),
                         child_proj.output_type.as_ref(),
+                        if redundant_project_relationships.contains(&(owning_proj, child_proj)) {
+                            "Redundant"
+                        } else {
+                            ""
+                        }
                     ])?;
                 }
             }

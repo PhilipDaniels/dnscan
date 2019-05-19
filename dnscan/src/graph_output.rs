@@ -51,10 +51,6 @@ where
 
     writeln!(writer, "}}")?;
 
-    let analysis_dot = Dot::with_config(&graph, &[Config::EdgeNoLabel]);
-    std::fs::write("default.dot", analysis_dot.to_string())?;
-
     Ok(())
 }
 
-// TODO: Write redundant projects to csv also.

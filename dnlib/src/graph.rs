@@ -286,6 +286,10 @@ where
     removed_edges
 }
 
+// TODO: For this function and convert_node_references_to_project_references, it
+// might be better if instead of returning a (usize, usize) we returned a
+// (&N, &N) from the tred algorithm. You can always call index() on an N to
+// get the index number, which is really only needed when writing the dot file.
 pub fn convert_removed_edges_to_node_references<'a, N, E, Ty, Ix>(
     graph: &'a StableGraph<N, E, Ty, Ix>,
     removed_edges: &HashSet<(usize, usize)>
@@ -310,6 +314,23 @@ where
     node_refs
 }
 
+pub fn convert_node_references_to_project_references<'a>(
+    node_references: &HashSet<(&'a Node, &'a Node)>
+) ->  HashSet<(&'a Project, &'a Project)>
+{
+    let mut proj_refs = HashSet::with_capacity(node_references.len());
+
+    for (src_node, target_node) in node_references {
+        match (src_node, target_node) {
+            (Node::Project(src_project), Node::Project(target_project)) => {
+                proj_refs.insert((*src_project, *target_project));
+            },
+            _ => {}
+        }
+    }
+
+    proj_refs
+}
 
 #[cfg(test)]
 mod tests {
