@@ -6,7 +6,6 @@ mod graph_output;
 use errors::AnalysisResult;
 use options::Options;
 use dnlib::prelude::*;
-use std::collections::HashSet;
 
 fn main() {
     let options = options::get_options();
@@ -66,7 +65,8 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
     }
 
     let start = std::time::Instant::now();
-    let mut analysis_graph = make_analysis_graph(&analysis, GraphFlags::WithAll);
+    let graph_flags = GraphFlags::PROJECTS;
+    let mut analysis_graph = make_analysis_graph(&analysis, graph_flags);
     let removed_edges = transitive_reduction_stable(&mut analysis_graph);
     if options.verbose {
         println!("Project graph and redundant projects found in {:?}", start.elapsed());

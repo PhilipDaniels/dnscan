@@ -69,17 +69,20 @@ impl<'a> Node<'a> {
 
 bitflags! {
     pub struct GraphFlags: u32 {
-        const WithAnalysisRoot = 0b00000001;
-        const WithSolutionDirectory = 0b00000010;
-        const WithPackages = 0b00000100;
-        const WithAll = Self::WithAnalysisRoot.bits | Self::WithSolutionDirectory.bits | Self::WithPackages.bits;
+        const ANALYSIS_ROOT = 0b00000001;
+        const SOLUTION_DIRECTORY = 0b00000010;
+        const PROJECTS = 0b00000100;
+        const PACKAGES = 0b00001000;
+        const ALL = Self::ANALYSIS_ROOT.bits |
+                    Self::SOLUTION_DIRECTORY.bits |
+                    Self::PROJECTS.bits |
+                    Self::PACKAGES.bits;
     }
 }
 
 /// Construct a graph of the entire analysis results.
 /// There are no relationships between the solutions in this graph.
 /// It can be used to find redundant project references.
-/// TODO: Add packages, allow specifying what should be included.
 pub fn make_analysis_graph(
     analysis: &Analysis,
     graph_flags: GraphFlags
@@ -87,25 +90,36 @@ pub fn make_analysis_graph(
 -> StableGraph<Node, u8>
 {
     let mut graph = StableGraph::default();
-    let analysis_node = Node::Analysis(analysis);
-    let analysis_node_idx = graph.add_node(analysis_node);
+    let analysis_node_idx = if graph_flags.contains(GraphFlags::ANALYSIS_ROOT) {
+        Some(graph.add_node(Node::Analysis(analysis)))
+    } else {
+        None
+    };
 
     for sd in &analysis.solution_directories {
-        let sd_node = Node::SolutionDirectory(&sd);
-        let sd_node_idx = graph.add_node(sd_node);
-        graph.add_edge(analysis_node_idx, sd_node_idx, 0);
+        let sd_node_idx = if graph_flags.contains(GraphFlags::SOLUTION_DIRECTORY) {
+            Some(graph.add_node(Node::SolutionDirectory(&sd)))
+        } else {
+            None
+        };
+
+        if let Some(analysis_node_idx) = analysis_node_idx {
+            if let Some(sd_node_idx) = sd_node_idx {
+                graph.add_edge(analysis_node_idx, sd_node_idx, 0);
+            }
+        }
 
         for sln in &sd.solutions {
-            let sln_node = Node::Solution(&sln);
-            let sln_node_idx = graph.add_node(sln_node);
-            graph.add_edge(sd_node_idx, sln_node_idx, 0);
+            let sln_node_idx = graph.add_node(Node::Solution(&sln));
+            if let Some(sd_node_idx) = sd_node_idx {
+                graph.add_edge(sd_node_idx, sln_node_idx, 0);
+            }
 
             // Get all projects and add them to the graph as nodes.
             // We will work out the edges in a moment.
             let mut proj_node_mapping = HashMap::new();
             for proj in &sln.projects {
-                let proj_node = Node::Project(&proj);
-                let proj_node_idx = graph.add_node(proj_node);
+                let proj_node_idx = graph.add_node(Node::Project(&proj));
                 proj_node_mapping.insert(proj, proj_node_idx);
             }
 
