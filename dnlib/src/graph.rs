@@ -2,19 +2,14 @@ use crate::analysis::{Analysis, SolutionDirectory, Solution, Project};
 use crate::io::PathExtensions;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-
-pub use petgraph::prelude::*;
-pub use petgraph::dot::*;
-pub use petgraph::algo::*;
-pub use petgraph::data::*;
-// TODO: Should not re-export like this.
-pub use petgraph::EdgeType;
-pub use petgraph::graph::{IndexType};
-pub use petgraph::visit::*;
-pub use petgraph::visit::GetAdjacencyMatrix;
-
-pub use fixedbitset::FixedBitSet;
 use bitflags::bitflags;
+
+use petgraph::prelude::*;
+use petgraph::EdgeType;
+use petgraph::graph::{IndexType};
+use petgraph::visit::*;
+use petgraph::visit::GetAdjacencyMatrix;
+use fixedbitset::FixedBitSet;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Node<'a> {

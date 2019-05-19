@@ -1,7 +1,6 @@
 mod csv_output;
 mod errors;
 mod options;
-mod graph_output;
 
 use errors::AnalysisResult;
 use options::Options;
@@ -80,7 +79,7 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
     let red_node_refs = convert_removed_edges_to_node_references(&analysis_graph, &removed_edges);
     let red_proj_refs = convert_node_references_to_project_references(&red_node_refs);
     csv_output::write_projects_to_child_projects(&analysis, &red_proj_refs)?;
-    graph_output::write_project_dot_file(&analysis_graph, &removed_edges)?;
+    dnlib::graph_output::write_project_dot_file(&analysis_graph, &removed_edges)?;
 
     if options.verbose {
         println!("Output files written in {:?}", start.elapsed());

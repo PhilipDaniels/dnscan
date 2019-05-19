@@ -7,6 +7,7 @@ pub mod io;
 pub mod analysis;
 pub mod git_info;
 pub mod graph;
+pub mod graph_output;
 
 pub mod prelude {
     pub use crate::errors::*;
