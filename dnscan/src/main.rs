@@ -6,6 +6,7 @@ mod graph_output;
 use errors::AnalysisResult;
 use options::Options;
 use dnlib::prelude::*;
+use std::collections::HashSet;
 
 fn main() {
     let options = options::get_options();
@@ -75,7 +76,9 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
     csv_output::write_solutions(&analysis)?;
     csv_output::write_solutions_to_projects(&analysis)?;
     csv_output::write_projects_to_packages(&analysis)?;
-    csv_output::write_projects_to_child_projects(&analysis)?;
+
+    let redundant_project_relationships = convert_removed_edges_to_node_references(&analysis_graph, &removed_edges);
+    csv_output::write_projects_to_child_projects(&analysis, &redundant_project_relationships)?;
     graph_output::write_project_dot_file(&analysis_graph, &removed_edges)?;
 
     if options.verbose {
@@ -84,4 +87,3 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
 
     Ok(())
 }
-

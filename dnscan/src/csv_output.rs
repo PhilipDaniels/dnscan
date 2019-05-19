@@ -1,9 +1,13 @@
+use crate::errors::AnalysisResult;
 use csv;
 use dnlib::prelude::*;
-use crate::errors::AnalysisResult;
 
 fn bool_to_str(b: bool) -> &'static str {
-    if b { "true" } else { "false" }
+    if b {
+        "true"
+    } else {
+        "false"
+    }
 }
 
 pub fn write_solutions(analysis: &Analysis) -> AnalysisResult<()> {
@@ -11,9 +15,20 @@ pub fn write_solutions(analysis: &Analysis) -> AnalysisResult<()> {
 
     wtr.write_record(&[
         "SlnDirectory",
-        "GitBranch", "GitSha", "GitSummary", "GitCommitTime", "GitAuthor", "GitAuthorEmail", "GitRemoteName", "GitRemoteUrl",
-        "SlnPath", "SlnFile", "SlnIsValidUTF8", "SlnVersion",
-        "LinkedProjectsCount", "OrphanedProjectsCount"
+        "GitBranch",
+        "GitSha",
+        "GitSummary",
+        "GitCommitTime",
+        "GitAuthor",
+        "GitAuthorEmail",
+        "GitRemoteName",
+        "GitRemoteUrl",
+        "SlnPath",
+        "SlnFile",
+        "SlnIsValidUTF8",
+        "SlnVersion",
+        "LinkedProjectsCount",
+        "OrphanedProjectsCount",
     ])?;
 
     for sd in &analysis.solution_directories {
@@ -48,12 +63,34 @@ pub fn write_solutions_to_projects(analysis: &Analysis) -> AnalysisResult<()> {
     let mut wtr = csv::Writer::from_path("solutions_to_projects.csv")?;
 
     wtr.write_record(&[
-        "SlnDirectory", "SlnPath", "SlnFile", "SlnIsValidUTF8", "SlnVersion",
-        "ProjOwnership", "ProjPath", "ProjFile", "ProjIsValidUTF8", "ProjVersion", "ProjOutputType", "ProjXmlDoc", "ProjTTFile",
-        "ProjEmbeddedDebugging", "ProjLinkedSolutionInfo", "ProjAutoGenerateBindingRedirects", "ProjTargetFrameworks",
-        "ProjTestFramework", "ProjUsesSpecflow",
-        "ProjPackagesCount", "ProjAssembliesCount", "ProjChildCount",
-        "ProjWebConfig", "ProjAppConfig", "ProjAppSettingsJson", "ProjPackageJson", "ProjPackagesConfig", "ProjProjectJson"
+        "SlnDirectory",
+        "SlnPath",
+        "SlnFile",
+        "SlnIsValidUTF8",
+        "SlnVersion",
+        "ProjOwnership",
+        "ProjPath",
+        "ProjFile",
+        "ProjIsValidUTF8",
+        "ProjVersion",
+        "ProjOutputType",
+        "ProjXmlDoc",
+        "ProjTTFile",
+        "ProjEmbeddedDebugging",
+        "ProjLinkedSolutionInfo",
+        "ProjAutoGenerateBindingRedirects",
+        "ProjTargetFrameworks",
+        "ProjTestFramework",
+        "ProjUsesSpecflow",
+        "ProjPackagesCount",
+        "ProjAssembliesCount",
+        "ProjChildCount",
+        "ProjWebConfig",
+        "ProjAppConfig",
+        "ProjAppSettingsJson",
+        "ProjPackageJson",
+        "ProjPackagesConfig",
+        "ProjProjectJson",
     ])?;
 
     for sd in &analysis.solution_directories {
@@ -103,9 +140,23 @@ pub fn write_projects_to_packages(analysis: &Analysis) -> AnalysisResult<()> {
     let mut wtr = csv::Writer::from_path("projects_to_packages.csv")?;
 
     wtr.write_record(&[
-        "SlnDirectory", "SlnPath", "SlnFile", "SlnIsValidUTF8", "SlnVersion",
-        "ProjOwnership", "ProjPath", "ProjFile", "ProjIsValidUTF8", "ProjVersion", "ProjOutputType", "ProjTargetFrameworks",
-        "PkgName", "PkgClass", "PkgVersion", "PkgIsDevelopment", "PkgIsPreview"
+        "SlnDirectory",
+        "SlnPath",
+        "SlnFile",
+        "SlnIsValidUTF8",
+        "SlnVersion",
+        "ProjOwnership",
+        "ProjPath",
+        "ProjFile",
+        "ProjIsValidUTF8",
+        "ProjVersion",
+        "ProjOutputType",
+        "ProjTargetFrameworks",
+        "PkgName",
+        "PkgClass",
+        "PkgVersion",
+        "PkgIsDevelopment",
+        "PkgIsPreview",
     ])?;
 
     for sd in &analysis.solution_directories {
@@ -143,15 +194,30 @@ pub fn write_projects_to_packages(analysis: &Analysis) -> AnalysisResult<()> {
     Ok(())
 }
 
-pub fn write_projects_to_child_projects(analysis: &Analysis) -> AnalysisResult<()> {
+use std::collections::HashSet;
+
+pub fn write_projects_to_child_projects(
+    analysis: &Analysis,
+    redundant_project_relationships: &HashSet<(&Node, &Node)>
+    ) -> AnalysisResult<()>
+{
     let mut wtr = csv::Writer::from_path("projects_to_child_projects.csv")?;
 
     wtr.write_record(&[
-        "SlnDirectory", "SlnPath", "SlnFile",
-        "ProjPath", "ProjFile", "ProjIsValidUTF8", "ProjVersion", "ProjOutputType",
-        "ChildProjPath", "ChildProjFile", "ChildProjIsValidUTF8", "ChildProjVersion", "ChildProjOutputType",
+        "SlnDirectory",
+        "SlnPath",
+        "SlnFile",
+        "ProjPath",
+        "ProjFile",
+        "ProjIsValidUTF8",
+        "ProjVersion",
+        "ProjOutputType",
+        "ChildProjPath",
+        "ChildProjFile",
+        "ChildProjIsValidUTF8",
+        "ChildProjVersion",
+        "ChildProjOutputType",
     ])?;
-
 
     for sd in &analysis.solution_directories {
         for sln in &sd.solutions {

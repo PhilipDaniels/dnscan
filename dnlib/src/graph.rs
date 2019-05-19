@@ -286,6 +286,29 @@ where
     removed_edges
 }
 
+pub fn convert_removed_edges_to_node_references<'a, N, E, Ty, Ix>(
+    graph: &'a StableGraph<N, E, Ty, Ix>,
+    removed_edges: &HashSet<(usize, usize)>
+) ->  HashSet<(&'a N, &'a N)>
+where
+    Ty: EdgeType,
+    Ix: IndexType,
+    N: Eq + std::hash::Hash
+{
+    let mut node_refs = HashSet::with_capacity(removed_edges.len());
+
+    use petgraph::stable_graph::node_index;
+
+    for (src_idx, target_idx) in removed_edges {
+        let src_idx = node_index(*src_idx);
+        let target_idx = node_index(*target_idx);
+        let source_node = &graph[src_idx];
+        let target_node = &graph[target_idx];
+        node_refs.insert((source_node, target_node));
+    }
+
+    node_refs
+}
 
 
 #[cfg(test)]
