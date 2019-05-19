@@ -14,6 +14,7 @@ pub use petgraph::visit::*;
 pub use petgraph::visit::GetAdjacencyMatrix;
 
 pub use fixedbitset::FixedBitSet;
+use bitflags::bitflags;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Node<'a> {
@@ -66,11 +67,24 @@ impl<'a> Node<'a> {
     }
 }
 
+bitflags! {
+    pub struct GraphFlags: u32 {
+        const WithAnalysisRoot = 0b00000001;
+        const WithSolutionDirectory = 0b00000010;
+        const WithPackages = 0b00000100;
+        const WithAll = Self::WithAnalysisRoot.bits | Self::WithSolutionDirectory.bits | Self::WithPackages.bits;
+    }
+}
+
 /// Construct a graph of the entire analysis results.
 /// There are no relationships between the solutions in this graph.
 /// It can be used to find redundant project references.
 /// TODO: Add packages, allow specifying what should be included.
-pub fn make_analysis_graph(analysis: &Analysis) -> StableGraph<Node, u8>
+pub fn make_analysis_graph(
+    analysis: &Analysis,
+    graph_flags: GraphFlags
+    )
+-> StableGraph<Node, u8>
 {
     let mut graph = StableGraph::default();
     let analysis_node = Node::Analysis(analysis);

@@ -21,6 +21,7 @@ git2 = "0.8"
 chrono = "0.4"
 petgraph = "0.4"
 fixedbitset = "0.1.9"
+bitflags = "1.0"
 
 [dev-dependencies]
 tempfile = "3.0"
