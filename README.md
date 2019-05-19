@@ -14,20 +14,18 @@ cargo run --bin dnscan [-v]
 ```
 
 ## TODO
-
-- Find projects that are redundant
+- Redo the config file system to use `~/.dnscan/config` and `~/.dnscan/packages/newtonsoft_1.3.13`
+  - Remove LM-specific package classifications from config defaults
+- Add logging.
 - Find packages that are redundant
     - First level is to find redundant installs within a solution (caused by project references brining them in)
     - Second level is to analyze the NuGet package itself, find redundancies within a project and then transitively
 - Find what-uses-what
     - We already have projects_to_packages
     - Really care about what is the compilation order of our ecosystem.
-
 - Tests for mentioned projects are completely inadequate.
-- Better settings for rustfmt
-    - Longer lines!
-    - Preserve vertical space, do not wrap everything
-    - Maybe look in ripgrep repo
 - Build a REST API ('serve mode') for getting at the data
   - Consider some sort of 'reporting data structure'
+  - Allow the ability to filter the graph down to a single solution even if you have
+    analyzed the entire directory
 - A web site built on the REST API

@@ -58,9 +58,9 @@ impl<'a> Node<'a> {
         // https://graphviz.gitlab.io/_pages/doc/info/attrs.html#k:color
 
         match *self {
-            Node::Analysis(_) =>          "shape=invhouse,style=filled,fillcolor=gold,penwidth=3",
+            Node::Analysis(_) => "shape=invhouse,style=filled,fillcolor=gold,penwidth=3",
             Node::SolutionDirectory(_) => "shape=octagon,style=filled,fillcolor=turquoise,penwidth=3",
-            Node::Solution(_) =>          "shape=ellipse,style=filled,fillcolor=grey,penwidth=3",
+            Node::Solution(_) => "shape=ellipse,style=filled,fillcolor=grey,penwidth=3",
             Node::Project(ref p) if p.ownership == ProjectOwnership::Orphaned => "shape=rectangle,style=\"filled,rounded\",fillcolor=firebrick1",
             Node::Project(_) => "shape=rectangle,style=rounded",
         }
