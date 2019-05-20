@@ -145,7 +145,7 @@ pub fn make_analysis_graph(
 
 
 pub trait TredExtensions {
-    fn get_path_matrix(&self) -> FixedBitSet;
+    fn get_path_matrix(&self) -> GraphMatrix;
     fn transitive_reduction(&mut self) -> HashSet<(usize, usize)>;
 }
 
@@ -154,18 +154,16 @@ where
     Ty: EdgeType,
     Ix: IndexType
 {
-    fn get_path_matrix(&self) -> FixedBitSet {
-        let nc = self.node_count();
-        let mut matrix = self.adjacency_matrix();
-        assert_eq!(matrix.len(), nc * nc);
-        matrix.calculate_path_matrix(nc);
+    fn get_path_matrix(&self) -> GraphMatrix {
+        let mut matrix = GraphMatrix::new(self.adjacency_matrix(), self.node_count());
+        matrix.calculate_path_matrix();
         matrix
     }
 
     fn transitive_reduction(&mut self) -> HashSet<(usize, usize)> {
         let mut matrix = self.get_path_matrix();
-        let nc = self.node_count();
-        matrix.calculate_transitive_reduction_of_path_matrix(nc);
+        //let nc = self.node_count();
+        matrix.calculate_transitive_reduction_of_path_matrix();
 
         // Now remove edges if they are not in the transitive reduction.
         let edge_indices: Vec<_> = self.edge_indices().collect();
@@ -173,7 +171,7 @@ where
         let mut removed_edges = HashSet::new();
         for e in edge_indices {
             if let Some((i, j)) = self.edge_endpoints(e) {
-                if !matrix.contains_rc(nc, i.index(), j.index()) {
+                if !matrix.contains(i.index(), j.index()) {
                     self.remove_edge(e);
                     removed_edges.insert((i.index(), j.index()));
                 }
@@ -184,11 +182,8 @@ where
     }
 }
 
-
-// ============== BEGIN NOT NEEDED ==============
-
-// ============== END NOT NEEDED ==============
-
+/// Helper type because the API of the FixedBitSet is appalling
+/// for this use-case.
 pub struct GraphMatrix {
     bitset: FixedBitSet,
     num_columns: usize
@@ -210,44 +205,16 @@ impl GraphMatrix {
         self.bitset.contains(idx)
     }
 
-    fn set(&mut self, nc: usize, x: usize, y: usize, enabled: bool) {
+    fn set(&mut self, x: usize, y: usize, enabled: bool) {
         let idx = self.idx(x, y);
         self.bitset.set(idx, enabled)
-    }
-
-    fn calculate_path_matrix(&mut self) {
-    }
-
-    fn calculate_transitive_reduction_of_path_matrix(&mut self) {
-    }
-}
-
-// Helper functions because the API of this thing is appalling.
-trait FixedBitSetExtensions {
-    fn contains_rc(&self, nc: usize, x: usize, y: usize) -> bool;
-    fn set_rc(&mut self, nc: usize, x: usize, y: usize, enabled: bool);
-    fn calculate_path_matrix(&mut self, nc: usize);
-    fn calculate_transitive_reduction_of_path_matrix(&mut self, nc: usize);
-}
-
-impl FixedBitSetExtensions for FixedBitSet {
-    #[inline]
-    fn contains_rc(&self, nc: usize, x: usize, y: usize) -> bool {
-        let idx = x * nc + y;
-        self.contains(idx)
-    }
-
-    #[inline]
-    fn set_rc(&mut self, nc: usize, x: usize, y: usize, enabled: bool) {
-        let idx = x * nc + y;
-        self.set(idx, enabled);
     }
 
     /// Convert the adjacency matrix (also known as an edge matrix) to a path matrix.
     /// The adjacency matrix has a 1 if there is an edge from a to b; the path matrix
     /// has a 1 if there is a path (by any route) from a to b.
     /// The path matrix therefore represents the transitive closure of the graph.
-    fn calculate_path_matrix(&mut self, nc: usize) {
+    fn calculate_path_matrix(&mut self) {
         // The edge matrix (aka adjacency matrix) is square with nc * nc elements.
         // An edge (a,c) is represented with 'a' on the rows and 'c' on the columns.
         //
@@ -270,16 +237,16 @@ impl FixedBitSetExtensions for FixedBitSet {
         // Therefore, for (b,c) we have:   1 * 3 + 2 = 5
 
         // Now convert to a path matrix.
-        for i in 0..nc {
-            for j in 0..nc {
+        for i in 0..self.num_columns {
+            for j in 0..self.num_columns {
                 // Ignore the diagonals.
                 if i == j { continue };
 
-                if self.contains_rc(nc, j, i) {
-                    for k in 0..nc {
-                        if !self.contains_rc(nc, j, k) {
-                            let flag = self.contains_rc(nc, i, k);
-                            self.set_rc(nc, j, k, flag);
+                if self.contains(j, i) {
+                    for k in 0..self.num_columns {
+                        if !self.contains(j, k) {
+                            let flag = self.contains(i, k);
+                            self.set(j, k, flag);
                         }
                     }
                 }
@@ -287,17 +254,17 @@ impl FixedBitSetExtensions for FixedBitSet {
         }
     }
 
-    fn calculate_transitive_reduction_of_path_matrix(&mut self, nc: usize) {
+    fn calculate_transitive_reduction_of_path_matrix(&mut self) {
         // From https://stackoverflow.com/questions/1690953/transitive-reduction-algorithm-pseudocode
         // See Harry Hsu. "An algorithm for finding a minimal equivalent graph of a digraph.", Journal
         // of the ACM, 22(1):11-16, January 1975. The simple cubic algorithm below (using an N x N path
         // matrix) suffices for DAGs, but Hsu generalizes it to cyclic graphs.
-        for j in 0..nc {
-            for i in 0..nc {
-                if self.contains_rc(nc, i, j) {
-                    for k in 0..nc {
-                        if self.contains_rc(nc, j, k) {
-                            self.set_rc(nc, i, k, false);
+        for j in 0..self.num_columns {
+            for i in 0..self.num_columns {
+                if self.contains(i, j) {
+                    for k in 0..self.num_columns {
+                        if self.contains(j, k) {
+                            self.set(i, k, false);
                         }
                     }
                 }
@@ -305,7 +272,6 @@ impl FixedBitSetExtensions for FixedBitSet {
         }
     }
 }
-
 
 
 
