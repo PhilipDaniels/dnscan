@@ -19,6 +19,25 @@ pub enum Node<'a> {
     Project(&'a Project),
 }
 
+/// This library generates directed graphs of `Node` with indexes that are stable
+/// across removals and unweighted edges.
+pub type DnGraph<'a> = StableGraph<Node<'a>, u8, Directed, u32>;
+
+bitflags! {
+    pub struct GraphFlags: u32 {
+        const ANALYSIS_ROOT = 0b00000001;
+        const SOLUTION_DIRECTORY = 0b00000010;
+        const PROJECTS = 0b00000100;
+        const PACKAGES = 0b00001000;
+        const ALL = Self::ANALYSIS_ROOT.bits |
+                    Self::SOLUTION_DIRECTORY.bits |
+                    Self::PROJECTS.bits |
+                    Self::PACKAGES.bits;
+    }
+}
+
+
+
 impl<'a> fmt::Debug for Node<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match *self {
@@ -42,7 +61,6 @@ impl<'a> fmt::Display for Node<'a> {
 }
 
 impl<'a> Node<'a> {
-
     pub fn dot_attributes(&self) -> &'static str {
         use crate::enums::ProjectOwnership;
 
@@ -62,19 +80,6 @@ impl<'a> Node<'a> {
     }
 }
 
-bitflags! {
-    pub struct GraphFlags: u32 {
-        const ANALYSIS_ROOT = 0b00000001;
-        const SOLUTION_DIRECTORY = 0b00000010;
-        const PROJECTS = 0b00000100;
-        const PACKAGES = 0b00001000;
-        const ALL = Self::ANALYSIS_ROOT.bits |
-                    Self::SOLUTION_DIRECTORY.bits |
-                    Self::PROJECTS.bits |
-                    Self::PACKAGES.bits;
-    }
-}
-
 /// Construct a graph of the entire analysis results.
 /// There are no relationships between the solutions in this graph.
 /// It can be used to find redundant project references.
@@ -82,9 +87,10 @@ pub fn make_analysis_graph(
     analysis: &Analysis,
     graph_flags: GraphFlags
     )
--> StableGraph<Node, u8>
+-> DnGraph
 {
-    let mut graph = StableGraph::default();
+    let mut graph = DnGraph::default();
+
     let analysis_node_idx = if graph_flags.contains(GraphFlags::ANALYSIS_ROOT) {
         Some(graph.add_node(Node::Analysis(analysis)))
     } else {
@@ -137,10 +143,59 @@ pub fn make_analysis_graph(
     graph
 }
 
+pub trait TredExtensions {
+    fn get_path_matrix(&self) -> FixedBitSet;
+    fn transitive_reduction(&mut self) -> HashSet<(usize, usize)>;
+}
+
+impl<N, E, Ty, Ix> TredExtensions for StableGraph<N, E, Ty, Ix>
+where
+    Ty: EdgeType,
+    Ix: IndexType
+{
+    fn get_path_matrix(&self) -> FixedBitSet {
+        let nc = self.node_count();
+        let mut matrix = self.adjacency_matrix();
+        assert_eq!(matrix.len(), nc * nc);
+        matrix.calculate_path_matrix(nc);
+        matrix
+    }
+
+    fn transitive_reduction(&mut self) -> HashSet<(usize, usize)> {
+        let mut matrix = self.get_path_matrix();
+        let nc = self.node_count();
+        matrix.calculate_transitive_reduction_of_path_matrix(nc);
+
+        // Now remove edges if they are not in the transitive reduction.
+        let edge_indices: Vec<_> = self.edge_indices().collect();
+
+        let mut removed_edges = HashSet::new();
+        for e in edge_indices {
+            if let Some((i, j)) = self.edge_endpoints(e) {
+                if !matrix.contains_rc(nc, i.index(), j.index()) {
+                    self.remove_edge(e);
+                    removed_edges.insert((i.index(), j.index()));
+                }
+            }
+        }
+
+        removed_edges
+    }
+}
+
+
+// ============== BEGIN NOT NEEDED ==============
+
+// ============== END NOT NEEDED ==============
+
+
+
 // Helper functions because the API of this thing is appalling.
 trait FixedBitSetExtensions {
     fn contains_rc(&self, nc: usize, x: usize, y: usize) -> bool;
     fn set_rc(&mut self, nc: usize, x: usize, y: usize, enabled: bool);
+    fn calculate_path_matrix(&mut self, nc: usize);
+    fn calculate_transitive_reduction_of_path_matrix(&mut self, nc: usize);
 }
 
 impl FixedBitSetExtensions for FixedBitSet {
@@ -155,159 +210,72 @@ impl FixedBitSetExtensions for FixedBitSet {
         let idx = x * nc + y;
         self.set(idx, enabled);
     }
-}
 
-fn get_path_matrix<N, E, Ty, Ix>(graph: &Graph<N, E, Ty, Ix>) -> FixedBitSet
-where
-    Ty: EdgeType,
-    Ix: IndexType
-{
-    let nc = graph.node_count();
-    let mut matrix = graph.adjacency_matrix();
-    assert_eq!(matrix.len(), nc * nc);
-    calculate_path_matrix(&mut matrix, nc);
-    matrix
-}
+    /// Convert the adjacency matrix (also known as an edge matrix) to a path matrix.
+    /// The adjacency matrix has a 1 if there is an edge from a to b; the path matrix
+    /// has a 1 if there is a path (by any route) from a to b.
+    /// The path matrix therefore represents the transitive closure of the graph.
+    fn calculate_path_matrix(&mut self, nc: usize) {
+        // The edge matrix (aka adjacency matrix) is square with nc * nc elements.
+        // An edge (a,c) is represented with 'a' on the rows and 'c' on the columns.
+        //
+        //        c b a
+        //      c 0 0 0
+        //      b 1 0 0        (b,c)
+        //      a 1 0 0        (a,c)
+        //
+        // In this matrix, bits 2 and 5 are set, corresponding to edges (a,c) and (b,c).
+        // The bits are counted from the bottom right corner (bit 0) moving leftwards and then
+        // up to the end of the previous row, until we reach the top left corner (c,c).
+        //
+        // The nodex indexes are:
+        //      a.index() == 0
+        //      b.index() == 1
+        //      c.index() == 2
+        //
+        // For edge (x,y), the element in the bitset is at x.index() * nc + y.index(),
+        // Therefore, for (a,c) we have:   0 * 3 + 2 = 2
+        // Therefore, for (b,c) we have:   1 * 3 + 2 = 5
 
-fn get_path_matrix_stable<N, E, Ty, Ix>(graph: &StableGraph<N, E, Ty, Ix>) -> FixedBitSet
-where
-    Ty: EdgeType,
-    Ix: IndexType
-{
-    let nc = graph.node_count();
-    let mut matrix = graph.adjacency_matrix();
-    assert_eq!(matrix.len(), nc * nc);
-    calculate_path_matrix(&mut matrix, nc);
-    matrix
-}
-
-/// Convert the adjacency matrix (also known as an edge matrix) to a path matrix.
-/// The adjacency matrix has a 1 if there is an edge from a to b; the path matrix
-/// has a 1 if there is a path (by any route) from a to b.
-/// The path matrix therefore represents the transitive closure of the graph.
-fn calculate_path_matrix(edge_matrix: &mut FixedBitSet, nc: usize) {
-
-    // The edge matrix (aka adjacency matrix) is square with nc * nc elements.
-    // An edge (a,c) is represented with 'a' on the rows and 'c' on the columns.
-    //
-    //        c b a
-    //      c 0 0 0
-    //      b 1 0 0        (b,c)
-    //      a 1 0 0        (a,c)
-    //
-    // In this matrix, bits 2 and 5 are set, corresponding to edges (a,c) and (b,c).
-    // The bits are counted from the bottom right corner (bit 0) moving leftwards and then
-    // up to the end of the previous row, until we reach the top left corner (c,c).
-    //
-    // The nodex indexes are:
-    //      a.index() == 0
-    //      b.index() == 1
-    //      c.index() == 2
-    //
-    // For edge (x,y), the element in the bitset is at x.index() * nc + y.index(),
-    // Therefore, for (a,c) we have:   0 * 3 + 2 = 2
-    // Therefore, for (b,c) we have:   1 * 3 + 2 = 5
-
-    // Now convert to a path matrix.
-    for i in 0..nc {
-        for j in 0..nc {
-            // Ignore the diagonals.
-            if i == j { continue };
-
-            if edge_matrix.contains_rc(nc, j, i) {
-                for k in 0..nc {
-                    if !edge_matrix.contains_rc(nc, j, k) {
-                        let flag = edge_matrix.contains_rc(nc, i, k);
-                        edge_matrix.set_rc(nc, j, k, flag);
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn calculate_transitive_reduction_of_path_matrix(mut path_matrix: FixedBitSet, nc: usize) -> FixedBitSet {
-    // Fromm https://stackoverflow.com/questions/1690953/transitive-reduction-algorithm-pseudocode
-    // See Harry Hsu. "An algorithm for finding a minimal equivalent graph of a digraph.", Journal
-    // of the ACM, 22(1):11-16, January 1975. The simple cubic algorithm below (using an N x N path
-    // matrix) suffices for DAGs, but Hsu generalizes it to cyclic graphs.
-
-    for j in 0..nc {
+        // Now convert to a path matrix.
         for i in 0..nc {
-            if path_matrix.contains_rc(nc, i, j) {
-                for k in 0..nc {
-                    if path_matrix.contains_rc(nc, j, k) {
-                        path_matrix.set_rc(nc, i, k, false);
+            for j in 0..nc {
+                // Ignore the diagonals.
+                if i == j { continue };
+
+                if self.contains_rc(nc, j, i) {
+                    for k in 0..nc {
+                        if !self.contains_rc(nc, j, k) {
+                            let flag = self.contains_rc(nc, i, k);
+                            self.set_rc(nc, j, k, flag);
+                        }
                     }
                 }
             }
         }
     }
 
-    path_matrix
-}
-
-
-pub fn transitive_reduction<N, E, Ty, Ix>(graph: &Graph<N, E, Ty, Ix>) -> Graph<N, E, Ty, Ix>
-where
-    Ty: EdgeType,
-    Ix: IndexType,
-    N: Clone,
-    E: Clone
-{
-    let path_matrix = get_path_matrix(graph);
-    let tred = calculate_transitive_reduction_of_path_matrix(path_matrix, graph.node_count());
-
-    //let result = graph.clone(); N:Clone makes this possible.
-
-    // Clone all the nodes.
-    let mut result = Graph::<N, E, Ty, Ix>::with_capacity(graph.node_count(), graph.edge_count());
-    for (_ix, n) in graph.node_references() {
-        result.add_node(n.clone());
-    }
-
-    // Now add edges if they are in the transitive reduction.
-    let nc = graph.node_count();
-    for e in graph.edge_references() {
-        let i = e.source().index();
-        let j = e.target().index();
-        if tred.contains_rc(nc, i, j) {
-            let ni = NodeIndex::new(i);
-            let nj = NodeIndex::new(j);
-            result.add_edge(ni, nj, e.weight().clone());
-        }
-    }
-
-    result
-}
-
-pub fn transitive_reduction_stable<N, E, Ty, Ix>(graph: &mut StableGraph<N, E, Ty, Ix>)
--> HashSet<(usize, usize)>
-where
-    Ty: EdgeType,
-    Ix: IndexType,
-    N: Clone,
-    E: Clone
-{
-    let path_matrix = get_path_matrix_stable(graph);
-    let tred = calculate_transitive_reduction_of_path_matrix(path_matrix, graph.node_count());
-
-    // Now remove edges if they are not in the transitive reduction.
-    let nc = graph.node_count();
-    let edge_indices: Vec<_> = graph.edge_indices().collect();
-
-    let mut removed_edges = HashSet::new();
-    for e in edge_indices {
-        if let Some((i, j)) = graph.edge_endpoints(e) {
-            if !tred.contains_rc(nc, i.index(), j.index()) {
-                graph.remove_edge(e);
-                removed_edges.insert((i.index(), j.index()));
+    fn calculate_transitive_reduction_of_path_matrix(&mut self, nc: usize) {
+        // From https://stackoverflow.com/questions/1690953/transitive-reduction-algorithm-pseudocode
+        // See Harry Hsu. "An algorithm for finding a minimal equivalent graph of a digraph.", Journal
+        // of the ACM, 22(1):11-16, January 1975. The simple cubic algorithm below (using an N x N path
+        // matrix) suffices for DAGs, but Hsu generalizes it to cyclic graphs.
+        for j in 0..nc {
+            for i in 0..nc {
+                if self.contains_rc(nc, i, j) {
+                    for k in 0..nc {
+                        if self.contains_rc(nc, j, k) {
+                            self.set_rc(nc, i, k, false);
+                        }
+                    }
+                }
             }
         }
     }
-
-    removed_edges
 }
+
+
+
 
 // TODO: For this function and convert_node_references_to_project_references, it
 // might be better if instead of returning a (usize, usize) we returned a

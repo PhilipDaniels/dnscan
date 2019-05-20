@@ -66,7 +66,7 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
     let start = std::time::Instant::now();
     let graph_flags = GraphFlags::PROJECTS;
     let mut analysis_graph = make_analysis_graph(&analysis, graph_flags);
-    let removed_edges = transitive_reduction_stable(&mut analysis_graph);
+    let removed_edges = analysis_graph.transitive_reduction();
     if options.verbose {
         println!("Project graph and redundant projects found in {:?}", start.elapsed());
     }
