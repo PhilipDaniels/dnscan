@@ -143,6 +143,7 @@ pub fn make_analysis_graph(
     graph
 }
 
+
 pub trait TredExtensions {
     fn get_path_matrix(&self) -> FixedBitSet;
     fn transitive_reduction(&mut self) -> HashSet<(usize, usize)>;
@@ -188,7 +189,38 @@ where
 
 // ============== END NOT NEEDED ==============
 
+pub struct GraphMatrix {
+    bitset: FixedBitSet,
+    num_columns: usize
+}
 
+impl GraphMatrix {
+    fn new(bitset: FixedBitSet, num_columns: usize) -> Self {
+        Self { bitset, num_columns }
+    }
+
+    #[inline]
+    fn idx(&self, x: usize, y: usize) -> usize {
+        x * self.num_columns + y
+    }
+
+    #[inline]
+    fn contains(&self, x: usize, y: usize) -> bool {
+        let idx = self.idx(x, y);
+        self.bitset.contains(idx)
+    }
+
+    fn set(&mut self, nc: usize, x: usize, y: usize, enabled: bool) {
+        let idx = self.idx(x, y);
+        self.bitset.set(idx, enabled)
+    }
+
+    fn calculate_path_matrix(&mut self) {
+    }
+
+    fn calculate_transitive_reduction_of_path_matrix(&mut self) {
+    }
+}
 
 // Helper functions because the API of this thing is appalling.
 trait FixedBitSetExtensions {
