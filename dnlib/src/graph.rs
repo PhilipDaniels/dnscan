@@ -143,26 +143,27 @@ pub fn make_analysis_graph(
     graph
 }
 
-
-pub trait TredExtensions {
+// TODO: Only the method needs to be generic? But that causes a shadowing when we impl it.
+pub trait TredExtensions<Ix> {
     fn get_path_matrix(&self) -> GraphMatrix;
-    fn transitive_reduction(&mut self) -> HashSet<(usize, usize)>;
+    fn transitive_reduction(&mut self) -> HashSet<(NodeIndex<Ix>, NodeIndex<Ix>)>;
 }
 
-impl<N, E, Ty, Ix> TredExtensions for StableGraph<N, E, Ty, Ix>
+impl<N, E, Ty, Ix> TredExtensions<Ix> for StableGraph<N, E, Ty, Ix>
 where
     Ty: EdgeType,
     Ix: IndexType
 {
+    /// Returns the path matrix for a graph. This has a 1 in any cell where there
+    /// is a path, of any length, between 2 nodes.
     fn get_path_matrix(&self) -> GraphMatrix {
         let mut matrix = GraphMatrix::new(self.adjacency_matrix(), self.node_count());
         matrix.calculate_path_matrix();
         matrix
     }
 
-    fn transitive_reduction(&mut self) -> HashSet<(usize, usize)> {
+    fn transitive_reduction(&mut self) -> HashSet<(NodeIndex<Ix>, NodeIndex<Ix>)> {
         let mut matrix = self.get_path_matrix();
-        //let nc = self.node_count();
         matrix.calculate_transitive_reduction_of_path_matrix();
 
         // Now remove edges if they are not in the transitive reduction.
@@ -173,7 +174,7 @@ where
             if let Some((i, j)) = self.edge_endpoints(e) {
                 if !matrix.contains(i.index(), j.index()) {
                     self.remove_edge(e);
-                    removed_edges.insert((i.index(), j.index()));
+                    removed_edges.insert((i, j));
                 }
             }
         }
@@ -181,6 +182,8 @@ where
         removed_edges
     }
 }
+
+
 
 /// Helper type because the API of the FixedBitSet is appalling
 /// for this use-case.
@@ -273,53 +276,56 @@ impl GraphMatrix {
     }
 }
 
+fn get_node_contents(graph: &DnGraph, idx: NodeIndex) {
+
+}
 
 
 // TODO: For this function and convert_node_references_to_project_references, it
 // might be better if instead of returning a (usize, usize) we returned a
 // (&N, &N) from the tred algorithm. You can always call index() on an N to
 // get the index number, which is really only needed when writing the dot file.
-pub fn convert_removed_edges_to_node_references<'a, N, E, Ty, Ix>(
-    graph: &'a StableGraph<N, E, Ty, Ix>,
-    removed_edges: &HashSet<(usize, usize)>
-) ->  HashSet<(&'a N, &'a N)>
-where
-    Ty: EdgeType,
-    Ix: IndexType,
-    N: Eq + std::hash::Hash
-{
-    let mut node_refs = HashSet::with_capacity(removed_edges.len());
+// pub fn convert_removed_edges_to_node_references<'a, N, E, Ty, Ix>(
+//     graph: &'a StableGraph<N, E, Ty, Ix>,
+//     removed_edges: &HashSet<(usize, usize)>
+// ) ->  HashSet<(&'a N, &'a N)>
+// where
+//     Ty: EdgeType,
+//     Ix: IndexType,
+//     N: Eq + std::hash::Hash
+// {
+//     let mut node_refs = HashSet::with_capacity(removed_edges.len());
 
-    use petgraph::stable_graph::node_index;
+//     use petgraph::stable_graph::node_index;
 
-    for (src_idx, target_idx) in removed_edges {
-        let src_idx = node_index(*src_idx);
-        let target_idx = node_index(*target_idx);
-        let source_node = &graph[src_idx];
-        let target_node = &graph[target_idx];
-        node_refs.insert((source_node, target_node));
-    }
+//     for (src_idx, target_idx) in removed_edges {
+//         let src_idx = node_index(*src_idx);
+//         let target_idx = node_index(*target_idx);
+//         let source_node = &graph[src_idx];
+//         let target_node = &graph[target_idx];
+//         node_refs.insert((source_node, target_node));
+//     }
 
-    node_refs
-}
+//     node_refs
+// }
 
-pub fn convert_node_references_to_project_references<'a>(
-    node_references: &HashSet<(&'a Node, &'a Node)>
-) ->  HashSet<(&'a Project, &'a Project)>
-{
-    let mut proj_refs = HashSet::with_capacity(node_references.len());
+// pub fn convert_node_references_to_project_references<'a>(
+//     node_references: &HashSet<(&'a Node, &'a Node)>
+// ) ->  HashSet<(&'a Project, &'a Project)>
+// {
+//     let mut proj_refs = HashSet::with_capacity(node_references.len());
 
-    for (src_node, target_node) in node_references {
-        match (src_node, target_node) {
-            (Node::Project(src_project), Node::Project(target_project)) => {
-                proj_refs.insert((*src_project, *target_project));
-            },
-            _ => {}
-        }
-    }
+//     for (src_node, target_node) in node_references {
+//         match (src_node, target_node) {
+//             (Node::Project(src_project), Node::Project(target_project)) => {
+//                 proj_refs.insert((*src_project, *target_project));
+//             },
+//             _ => {}
+//         }
+//     }
 
-    proj_refs
-}
+//     proj_refs
+// }
 
 #[cfg(test)]
 mod tests {
