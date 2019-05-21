@@ -144,15 +144,16 @@ pub fn make_analysis_graph(
 }
 
 // TODO: Only the method needs to be generic? But that causes a shadowing when we impl it.
-pub trait TredExtensions<Ix> {
+pub trait TredExtensions<N, Ix> {
     fn get_path_matrix(&self) -> GraphMatrix;
     fn transitive_reduction(&mut self) -> HashSet<(NodeIndex<Ix>, NodeIndex<Ix>)>;
+    fn get_node(&self, node_index: NodeIndex<Ix>) -> &N;
 }
 
-impl<N, E, Ty, Ix> TredExtensions<Ix> for StableGraph<N, E, Ty, Ix>
+impl<N, E, Ty, Ix> TredExtensions<N, Ix> for StableGraph<N, E, Ty, Ix>
 where
     Ty: EdgeType,
-    Ix: IndexType
+    Ix: IndexType,
 {
     /// Returns the path matrix for a graph. This has a 1 in any cell where there
     /// is a path, of any length, between 2 nodes.
@@ -181,9 +182,13 @@ where
 
         removed_edges
     }
+
+    /// This returns a &Node(...) for DnGraph and is the equivalent of
+    /// convert_removed_edges_to_node_references.
+    fn get_node(&self, node_index: NodeIndex<Ix>) -> &N {
+        &self[node_index]
+    }
 }
-
-
 
 /// Helper type because the API of the FixedBitSet is appalling
 /// for this use-case.
@@ -276,8 +281,23 @@ impl GraphMatrix {
     }
 }
 
-fn get_node_contents(graph: &DnGraph, idx: NodeIndex) {
 
+pub fn get_node_project<'a>(graph: &'a DnGraph, node_index: NodeIndex) -> &'a Project {
+    let node = &graph[node_index];
+
+    match node {
+        Node::Project(project) => return project,
+        _ => panic!("Asked for a project on a non-project node")
+    }
+}
+
+pub fn convert_nodes_to_projects<'a> (graph: &'a DnGraph, node_pairs: &HashSet<(NodeIndex, NodeIndex)>)
+-> HashSet<(&'a Project, &'a Project)>
+{
+    node_pairs
+    .iter()
+    .map(|(source, target)| (get_node_project(graph, *source), get_node_project(graph, *target)))
+    .collect()
 }
 
 
