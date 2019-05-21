@@ -20,7 +20,6 @@ pub enum Node<'a> {
 
 /// This library generates directed graphs of `Node` with indexes that are stable
 /// across removals and unweighted edges.
-/// TODO: Use ()
 pub type DnGraph<'a> = StableGraph<Node<'a>, (), Directed, u32>;
 
 bitflags! {
@@ -81,7 +80,7 @@ impl<'a> Node<'a> {
 /// Construct a graph of the entire analysis results.
 /// There are no relationships between the solutions in this graph.
 /// It can be used to find redundant project references.
-pub fn make_analysis_graph(
+pub fn make_project_graph(
     analysis: &Analysis,
     graph_flags: GraphFlags
     )
@@ -142,13 +141,12 @@ pub fn make_analysis_graph(
 }
 
 // TODO: Only the method needs to be generic? But that causes a shadowing when we impl it.
-pub trait TredExtensions<N, Ix> {
+pub trait TredExtensions<Ix> {
     fn get_path_matrix(&self) -> GraphMatrix;
     fn transitive_reduction(&mut self) -> HashSet<(NodeIndex<Ix>, NodeIndex<Ix>)>;
-    fn get_node(&self, node_index: NodeIndex<Ix>) -> &N;
 }
 
-impl<N, E, Ty, Ix> TredExtensions<N, Ix> for StableGraph<N, E, Ty, Ix>
+impl<N, E, Ty, Ix> TredExtensions<Ix> for StableGraph<N, E, Ty, Ix>
 where
     Ty: EdgeType,
     Ix: IndexType,
@@ -179,12 +177,6 @@ where
         }
 
         removed_edges
-    }
-
-    /// This returns a &Node(...) for DnGraph and is the equivalent of
-    /// convert_removed_edges_to_node_references.
-    fn get_node(&self, node_index: NodeIndex<Ix>) -> &N {
-        &self[node_index]
     }
 }
 

@@ -16,6 +16,7 @@ cargo run --bin dnscan [-v]
 ## TODO
 - Redo the config file system to use `~/.dnscan/config` and `~/.dnscan/packages/newtonsoft_1.3.13`
   - Remove LM-specific package classifications from config defaults
+  - Add abbreviations for the graph
 - Add logging.
 - Find packages that are redundant
     - First level is to find redundant installs within a solution (caused by project references brining them in)

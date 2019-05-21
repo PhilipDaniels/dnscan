@@ -65,7 +65,7 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
 
     let start = std::time::Instant::now();
     let graph_flags = GraphFlags::PROJECTS;
-    let mut analysis_graph = make_analysis_graph(&analysis, graph_flags);
+    let mut analysis_graph = make_project_graph(&analysis, graph_flags);
     let removed_edges = analysis_graph.transitive_reduction();
     if options.verbose {
         println!("Project graph and redundant projects found in {:?}", start.elapsed());
@@ -78,9 +78,6 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
 
     let redundant_projects = convert_nodes_to_projects(&analysis_graph, &removed_edges);
     csv_output::write_projects_to_child_projects(&analysis, &redundant_projects)?;
-
-
-    // let red_proj_refs = convert_node_references_to_project_references(&red_node_refs);
     dnlib::graph_output::write_project_dot_file(&analysis_graph, &removed_edges)?;
 
     if options.verbose {
