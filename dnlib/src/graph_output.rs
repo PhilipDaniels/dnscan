@@ -7,11 +7,6 @@ use std::io::{BufWriter, Write};
 use petgraph::prelude::*;
 use petgraph::visit::{IntoNodeReferences, IntoEdgeReferences};
 
-// This is how you get a node given an index. You have to use &...
-// which is about as clear as mud from the 'documentation'.
-// let source_node = &graph[edge.source()];
-// let target_node = &graph[edge.target()];
-
 pub fn write_project_dot_file(
     graph: &DnGraph,
     removed_edges: &HashSet<(NodeIndex, NodeIndex)>,
@@ -56,4 +51,3 @@ where
 
     Ok(())
 }
-

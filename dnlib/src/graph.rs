@@ -20,6 +20,7 @@ pub enum Node<'a> {
 
 /// This library generates directed graphs of `Node` with indexes that are stable
 /// across removals and unweighted edges.
+/// TODO: Use ()
 pub type DnGraph<'a> = StableGraph<Node<'a>, u8, Directed, u32>;
 
 bitflags! {
@@ -280,7 +281,6 @@ impl GraphMatrix {
     }
 }
 
-
 pub fn get_node_project<'a>(graph: &'a DnGraph, node_index: NodeIndex) -> &'a Project {
     let node = &graph[node_index];
 
@@ -290,7 +290,7 @@ pub fn get_node_project<'a>(graph: &'a DnGraph, node_index: NodeIndex) -> &'a Pr
     }
 }
 
-pub fn convert_nodes_to_projects<'a> (graph: &'a DnGraph, node_pairs: &HashSet<(NodeIndex, NodeIndex)>)
+pub fn convert_nodes_to_projects<'a>(graph: &'a DnGraph, node_pairs: &HashSet<(NodeIndex, NodeIndex)>)
 -> HashSet<(&'a Project, &'a Project)>
 {
     node_pairs
@@ -299,52 +299,6 @@ pub fn convert_nodes_to_projects<'a> (graph: &'a DnGraph, node_pairs: &HashSet<(
     .collect()
 }
 
-
-// TODO: For this function and convert_node_references_to_project_references, it
-// might be better if instead of returning a (usize, usize) we returned a
-// (&N, &N) from the tred algorithm. You can always call index() on an N to
-// get the index number, which is really only needed when writing the dot file.
-// pub fn convert_removed_edges_to_node_references<'a, N, E, Ty, Ix>(
-//     graph: &'a StableGraph<N, E, Ty, Ix>,
-//     removed_edges: &HashSet<(usize, usize)>
-// ) ->  HashSet<(&'a N, &'a N)>
-// where
-//     Ty: EdgeType,
-//     Ix: IndexType,
-//     N: Eq + std::hash::Hash
-// {
-//     let mut node_refs = HashSet::with_capacity(removed_edges.len());
-
-//     use petgraph::stable_graph::node_index;
-
-//     for (src_idx, target_idx) in removed_edges {
-//         let src_idx = node_index(*src_idx);
-//         let target_idx = node_index(*target_idx);
-//         let source_node = &graph[src_idx];
-//         let target_node = &graph[target_idx];
-//         node_refs.insert((source_node, target_node));
-//     }
-
-//     node_refs
-// }
-
-// pub fn convert_node_references_to_project_references<'a>(
-//     node_references: &HashSet<(&'a Node, &'a Node)>
-// ) ->  HashSet<(&'a Project, &'a Project)>
-// {
-//     let mut proj_refs = HashSet::with_capacity(node_references.len());
-
-//     for (src_node, target_node) in node_references {
-//         match (src_node, target_node) {
-//             (Node::Project(src_project), Node::Project(target_project)) => {
-//                 proj_refs.insert((*src_project, *target_project));
-//             },
-//             _ => {}
-//         }
-//     }
-
-//     proj_refs
-// }
 
 #[cfg(test)]
 mod tests {
