@@ -7,7 +7,6 @@ use bitflags::bitflags;
 use petgraph::prelude::*;
 use petgraph::EdgeType;
 use petgraph::graph::{IndexType};
-use petgraph::visit::*;
 use petgraph::visit::GetAdjacencyMatrix;
 use fixedbitset::FixedBitSet;
 

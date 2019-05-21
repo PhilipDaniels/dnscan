@@ -81,7 +81,7 @@ pub fn run_analysis(options: &Options, configuration: &Configuration) -> Analysi
 
 
     // let red_proj_refs = convert_node_references_to_project_references(&red_node_refs);
-    // dnlib::graph_output::write_project_dot_file(&analysis_graph, &removed_edges)?;
+    dnlib::graph_output::write_project_dot_file(&analysis_graph, &removed_edges)?;
 
     if options.verbose {
         println!("Output files written in {:?}", start.elapsed());

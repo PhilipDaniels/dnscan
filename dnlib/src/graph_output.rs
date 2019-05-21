@@ -1,5 +1,5 @@
 use crate::errors::DnLibResult;
-use crate::graph::Node;
+use crate::graph::{Node, DnGraph};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -13,8 +13,8 @@ use petgraph::visit::{IntoNodeReferences, IntoEdgeReferences};
 // let target_node = &graph[edge.target()];
 
 pub fn write_project_dot_file(
-    graph: &StableGraph<Node, u8>,
-    removed_edges: &HashSet<(usize, usize)>,
+    graph: &DnGraph,
+    removed_edges: &HashSet<(NodeIndex, NodeIndex)>,
 ) -> DnLibResult<()> {
     let file = File::create("analysis.dot")?;
     let mut writer = BufWriter::new(file);
@@ -24,7 +24,7 @@ pub fn write_project_dot_file(
 pub fn write_project_dot<W>(
     writer: &mut W,
     graph: &StableGraph<Node, u8>,
-    removed_edges: &HashSet<(usize, usize)>,
+    removed_edges: &HashSet<(NodeIndex, NodeIndex)>,
 ) -> DnLibResult<()>
 where
     W: Write,
@@ -48,7 +48,7 @@ where
         writeln!(
             writer,
             "    {} -> {} [color=red,style=dotted,penwidth=2]",
-            edge.0, edge.1
+            edge.0.index(), edge.1.index()
         )?;
     }
 
