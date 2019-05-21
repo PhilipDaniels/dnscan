@@ -21,7 +21,7 @@ pub enum Node<'a> {
 /// This library generates directed graphs of `Node` with indexes that are stable
 /// across removals and unweighted edges.
 /// TODO: Use ()
-pub type DnGraph<'a> = StableGraph<Node<'a>, u8, Directed, u32>;
+pub type DnGraph<'a> = StableGraph<Node<'a>, (), Directed, u32>;
 
 bitflags! {
     pub struct GraphFlags: u32 {
@@ -35,8 +35,6 @@ bitflags! {
                     Self::PACKAGES.bits;
     }
 }
-
-
 
 impl<'a> fmt::Debug for Node<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
@@ -106,14 +104,14 @@ pub fn make_analysis_graph(
 
         if let Some(analysis_node_idx) = analysis_node_idx {
             if let Some(sd_node_idx) = sd_node_idx {
-                graph.add_edge(analysis_node_idx, sd_node_idx, 0);
+                graph.add_edge(analysis_node_idx, sd_node_idx, ());
             }
         }
 
         for sln in &sd.solutions {
             let sln_node_idx = graph.add_node(Node::Solution(&sln));
             if let Some(sd_node_idx) = sd_node_idx {
-                graph.add_edge(sd_node_idx, sln_node_idx, 0);
+                graph.add_edge(sd_node_idx, sln_node_idx, ());
             }
 
             // Get all projects and add them to the graph as nodes.
@@ -130,10 +128,10 @@ pub fn make_analysis_graph(
             for proj in &sln.projects {
                 let parent_projects = proj.get_parent_projects(sln);
                 if parent_projects.is_empty() {
-                    graph.add_edge(sln_node_idx, proj_node_mapping[proj], 0);
+                    graph.add_edge(sln_node_idx, proj_node_mapping[proj], ());
                 } else {
                     for parent in parent_projects {
-                        graph.add_edge(proj_node_mapping[parent], proj_node_mapping[proj], 0);
+                        graph.add_edge(proj_node_mapping[parent], proj_node_mapping[proj], ());
                     }
                 }
             }

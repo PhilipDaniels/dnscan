@@ -1,5 +1,5 @@
 use crate::errors::DnLibResult;
-use crate::graph::{Node, DnGraph};
+use crate::graph::DnGraph;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -18,7 +18,7 @@ pub fn write_project_dot_file(
 
 pub fn write_project_dot<W>(
     writer: &mut W,
-    graph: &StableGraph<Node, u8>,
+    graph: &DnGraph,
     removed_edges: &HashSet<(NodeIndex, NodeIndex)>,
 ) -> DnLibResult<()>
 where
