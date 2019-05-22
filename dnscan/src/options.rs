@@ -7,6 +7,7 @@ pub struct Options {
     pub verbose: bool,
     pub dump_config: bool,
     pub dir: Option<PathBuf>,
+    pub output_directory: Option<PathBuf>,
 }
 
 pub fn get_options() -> Options {
@@ -26,6 +27,11 @@ pub fn get_options() -> Options {
                 .conflicts_with_all(&["DIR", "verbose"]),
         )
         .arg(
+            Arg::with_name("output-directory")
+                .short("o")
+                .help("Specifies the output directory where CSV and graphs will be written. Can be relative or absolute.")
+        )
+        .arg(
             Arg::with_name("DIR")
                 .help("Specifies the directory to start scanning from")
         )
@@ -33,7 +39,8 @@ pub fn get_options() -> Options {
 
     Options {
         verbose: matches.is_present("verbose"),
-        dump_config: matches.is_present("dump-example-config"), 
+        dump_config: matches.is_present("dump-example-config"),
         dir: matches.value_of("DIR").map(|d| Some(PathBuf::from(d))).unwrap_or_default(),
+        output_directory: matches.value_of("output-directory").map(|d| Some(PathBuf::from(d))).unwrap_or_default(),
     }
 }

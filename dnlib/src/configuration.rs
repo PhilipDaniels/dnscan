@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::{io, fs};
+use std::collections::HashMap;
 
 use regex::Regex;
 use serde::{Serialize, Deserialize};
@@ -26,13 +27,18 @@ impl PackageGroup {
 }
 
 /// Represents the contents of our configuration file.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Configuration {
-    pub package_groups: Vec<PackageGroup>
+    pub package_groups: Vec<PackageGroup>,
+    pub abbreviations: HashMap<String, Vec<String>>,
+    pub output_directory: String,
 }
 
 impl Default for Configuration {
     fn default() -> Self {
+        let mut abbrevs = HashMap::<String, Vec<String>>::new();
+        abbrevs.insert("MS".to_string(), vec!["Microsoft".to_string()]);
+
         Configuration {
             package_groups: vec![
                 // The order matters here. Attempts are made to match package names in the order that these
@@ -41,7 +47,9 @@ impl Default for Configuration {
                 PackageGroup::new("Third Party", r#"^System\.IO\.Abstractions.*|^Owin\.Metrics|^EntityFramework6\.Npgsql"#),
                 PackageGroup::new("Microsoft", r#"^CommonServiceLocator|^NETStandard\..*|^EntityFramework*|^Microsoft\..*|^MSTest.*|^Owin.*|^System\..*|^AspNet\..*|^WindowsAzure\..*|^EnterpriseLibrary.*"#),
                 PackageGroup::new("Third Party", r#".*"#),
-            ]
+            ],
+            abbreviations: abbrevs,
+            output_directory: "dnscan-output".into()
         }
     }
 }
