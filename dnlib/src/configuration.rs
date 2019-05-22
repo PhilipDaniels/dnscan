@@ -31,7 +31,8 @@ impl PackageGroup {
 pub struct Configuration {
     pub package_groups: Vec<PackageGroup>,
     pub abbreviations: HashMap<String, Vec<String>>,
-    pub output_directory: String,
+    pub input_directory: PathBuf,
+    pub output_directory: PathBuf,
 }
 
 impl Default for Configuration {
@@ -49,7 +50,8 @@ impl Default for Configuration {
                 PackageGroup::new("Third Party", r#".*"#),
             ],
             abbreviations: abbrevs,
-            output_directory: "dnscan-output".into()
+            output_directory: "dnscan-output".into(),
+            input_directory: "".into()
         }
     }
 }
@@ -58,9 +60,11 @@ impl Configuration {
     pub fn new<P>(directory_to_scan: P) -> Self
     where P: Into<PathBuf>
     {
+        const CONFIG_FILE: &str = ".dnscan.json";
+
         // Look for a config file in the path to scan.
         let mut dir_to_scan = directory_to_scan.into();
-        dir_to_scan.push(".dnscan.json");
+        dir_to_scan.push(CONFIG_FILE);
         if let Some(cfg) = Self::load_from_file(&dir_to_scan) {
             return cfg;
         }
@@ -71,7 +75,7 @@ impl Configuration {
 
         // If we have one, look for our standard config directory.
         home_dir.push(".dnscan");
-        home_dir.push("config.json");
+        home_dir.push(CONFIG_FILE);
         if let Some(cfg) = Self::load_from_file(&home_dir) {
             return cfg;
         }

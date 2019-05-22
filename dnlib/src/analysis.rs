@@ -42,16 +42,13 @@ impl Hash for Analysis {
 impl Eq for Analysis { }
 
 impl Analysis {
-    pub fn new<P>(root_path: P, configuration: &Configuration) -> DnLibResult<Self>
-    where
-        P: Into<PathBuf>,
+    pub fn new(configuration: &Configuration) -> DnLibResult<Self>
     {
         let disk_walk_start_time = time::Instant::now();
-        let root_path = root_path.into();
-        let pta = find_files(&root_path)?;
+        let pta = find_files(&configuration.input_directory)?;
 
         let mut af = Self {
-            root_path: root_path,
+            root_path: configuration.input_directory.clone(),
             paths_analyzed: pta,
             disk_walk_duration: disk_walk_start_time.elapsed(),
             ..Default::default()
