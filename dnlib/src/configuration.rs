@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::{io, fs, env};
+use std::{io, fs};
 
 use regex::Regex;
 use serde::{Serialize, Deserialize};
@@ -39,8 +39,6 @@ impl Default for Configuration {
                 // elements appear in (which matters if patterns are not mutually exclusive).
                 // A catch all assigns 'Third Party' to anything not yet matched.
                 PackageGroup::new("Third Party", r#"^System\.IO\.Abstractions.*|^Owin\.Metrics|^EntityFramework6\.Npgsql"#),
-                PackageGroup::new("VRM", r#"^VRM\..*|^WorkflowService\..*|^WorkflowRunner\.."#),
-                PackageGroup::new("ValHub", r#"^AuthZ.*|^Landmark\..*|^DataMaintenance.*|^ValuationHub\..*|^CaseService\..*|^CaseActivities\..*|^NotificationService\..*|^Unity\.WF|^QIFCore"#),
                 PackageGroup::new("Microsoft", r#"^CommonServiceLocator|^NETStandard\..*|^EntityFramework*|^Microsoft\..*|^MSTest.*|^Owin.*|^System\..*|^AspNet\..*|^WindowsAzure\..*|^EnterpriseLibrary.*"#),
                 PackageGroup::new("Third Party", r#".*"#),
             ]
@@ -52,30 +50,22 @@ impl Configuration {
     pub fn new<P>(directory_to_scan: P) -> Self
     where P: Into<PathBuf>
     {
-        const CONFIG_FILE: &str = ".dnscan.json";
-
         // Look for a config file in the path to scan.
         let mut dir_to_scan = directory_to_scan.into();
-        dir_to_scan.push(CONFIG_FILE);
+        dir_to_scan.push(".dnscan.json");
         if let Some(cfg) = Self::load_from_file(&dir_to_scan) {
             return cfg;
         }
 
-        // If not found, look for a file in the same directory as the exe.
-        if let Ok(exe_path) = env::current_exe() {
-            let mut exe_dir = exe_path.parent().unwrap().to_owned();
-            exe_dir.push(CONFIG_FILE);
-            if let Some(cfg) = Self::load_from_file(&exe_dir) {
-                return cfg;
-            }
-        }
+        // We really need a home-dir, that is where we will store the NuGet package metadata.
+        // I feel it's reasonable to bomb out if there isn't one.
+        let mut home_dir = dirs::home_dir().expect("Cannot determine home dir; required for storage of NuGet metadata.");
 
-        // If not found, look for a file in the home dir.
-        if let Some(mut home_dir) = dirs::home_dir() {
-            home_dir.push(CONFIG_FILE);
-            if let Some(cfg) = Self::load_from_file(&home_dir) {
-                return cfg;
-            }
+        // If we have one, look for our standard config directory.
+        home_dir.push(".dnscan");
+        home_dir.push("config.json");
+        if let Some(cfg) = Self::load_from_file(&home_dir) {
+            return cfg;
         }
 
         // If not found, use default settings.
@@ -98,7 +88,10 @@ impl Configuration {
     fn load_from_file(path: &Path) -> Option<Configuration> {
         match fs::File::open(path) {
             Ok(f) => match serde_json::from_reader(f) {
-                Ok(r) => Some(r),
+                Ok(r) => {
+                    println!("Loaded configuration from {}", path.display());
+                    Some(r)
+                },
                 Err(e) => { eprintln!("Could not parse JSON {:?}", e); None },
             },
             Err(ref e) if e.kind() == io::ErrorKind::NotFound => None,
