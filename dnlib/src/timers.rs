@@ -36,29 +36,11 @@ impl<'a> Drop for ExecutionTimer<'a> {
 /// Creates a timer that logs a starting and completed message.
 #[macro_export]
 macro_rules! timer {
-    ($str:expr) => { ::execution_timer::ExecutionTimer::with_start_message($str) }
+    ($str:expr) => { crate::ExecutionTimer::with_start_message($str) }
 }
 
 /// Creates a quiet timer that does not log a starting message, only a completed one.
 #[macro_export]
 macro_rules! quiet_timer {
-    ($str:expr) => { ::execution_timer::ExecutionTimer::new($str) }
+    ($str:expr) => { crate::ExecutionTimer::new($str) }
 }
-
-
-
-
-// #[macro_use]
-// mod macros {
-//     /// Creates a timer that logs a starting and completed message.
-//     #[macro_export]
-//     macro_rules! timer {
-//         ($str:expr) => { ::execution_timer::ExecutionTimer::with_start_message($str) }
-//     }
-
-//     /// Creates a quiet timer that does not log a starting message, only a completed one.
-//     #[macro_export]
-//     macro_rules! quiet_timer {
-//         ($str:expr) => { ::execution_timer::ExecutionTimer::new($str) }
-//     }
-// }

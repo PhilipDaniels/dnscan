@@ -3,7 +3,7 @@ use crate::git_info::GitInfo;
 use crate::enums::*;
 use crate::io::{PathExtensions, PathsToAnalyze, DiskFileLoader, find_files, FileLoader};
 use crate::configuration::Configuration;
-#[macro_use] use crate::timers::ExecutionTimer;
+use crate::timer;
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
@@ -46,8 +46,10 @@ impl Analysis {
     pub fn new(configuration: &Configuration) -> DnLibResult<Self>
     {
         let disk_walk_start_time = time::Instant::now();
-        let _tmr = timer!("Find Files");
+        let tmr = timer!("Find Files");
         let pta = find_files(&configuration.input_directory)?;
+        drop(tmr);
+
 
         let mut af = Self {
             root_path: configuration.input_directory.clone(),

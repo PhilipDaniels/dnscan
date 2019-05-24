@@ -8,6 +8,7 @@ use options::Options;
 use dnlib::prelude::*;
 
 fn main() {
+    env_logger::init();
     let options = options::get_options();
 
     if options.dump_example_config {
