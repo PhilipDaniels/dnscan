@@ -82,11 +82,6 @@ pub fn run_analysis(configuration: &Configuration) -> AnalysisResult<()> {
         );
     }
 
-    println!("Loaded {} linked projects and {} orphaned projects",
-        analysis.num_linked_projects(),
-        analysis.num_orphaned_projects()
-        );
-
     let _tmr = timer!("Calculate project graph and redundant projects");
     let graph_flags = GraphFlags::PROJECTS;
     let mut analysis_graph = make_project_graph(&analysis, graph_flags);

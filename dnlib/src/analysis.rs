@@ -3,7 +3,7 @@ use crate::git_info::GitInfo;
 use crate::enums::*;
 use crate::io::{PathExtensions, PathsToAnalyze, DiskFileLoader, find_files, FileLoader};
 use crate::configuration::Configuration;
-use crate::{timer, stimer};
+use crate::{timer, stimer, finish, progress};
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
@@ -55,10 +55,10 @@ impl Analysis {
         let tmr = timer!("Analyze Found Files");
         let fs_loader = DiskFileLoader::default();
         af.analyze(configuration, fs_loader)?;
-        tmr.finish(format_args!("Loaded {} linked projects and {} orphaned projects",
+        finish!(tmr, "Loaded {} linked projects and {} orphaned projects",
             af.num_linked_projects(),
             af.num_orphaned_projects()
-            ));
+            );
 
         Ok(af)
     }

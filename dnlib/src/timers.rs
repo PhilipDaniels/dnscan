@@ -14,9 +14,6 @@ pub struct LoggingTimer<'a> {
     finished: AtomicBool,
 }
 
-const TARGET: &'static str = "Timer";
-const LOG_LEVEL: Level = Level::Debug;
-
 impl<'a> LoggingTimer<'a> {
     pub fn new(name: &'a str,
         file: &'static str,
@@ -45,16 +42,7 @@ impl<'a> LoggingTimer<'a> {
         // itself, i.e. it is overhead that can confuse timings.
         let start_time = Instant::now();
 
-        log::logger().log(&
-            RecordBuilder::new()
-                .level(LOG_LEVEL)
-                .target(TARGET)
-                .file(Some(file))
-                .module_path(Some(module_path))
-                .line(Some(line))
-                .args(format_args!("Starting: {}", name))
-                .build()
-        );
+        inner_log(file, module_path, line, format_args!("Starting: {}", name));
 
         LoggingTimer {
             start_time: start_time,
@@ -70,70 +58,62 @@ impl<'a> LoggingTimer<'a> {
         self.start_time.elapsed()
     }
 
-    /// Outputs a log message showing the current elapsed time,
-    /// but does not stop the timer. This method can be called multiple times
-    /// until the timer is dropped.
+    /// Outputs a log message showing the current elapsed time, but does not stop the timer.
+    /// This method can be called multiple times until the timer is dropped.
+    /// The message includes only the elapsed time. To include more informmation, use
+    /// the 'progress!' macro or the progress() method.
     pub fn log(&self) {
-        let elapsed = self.start_time.elapsed();
-
-        log::logger().log(&
-            RecordBuilder::new()
-                .level(LOG_LEVEL)
-                .target(TARGET)
-                .file(Some(self.file))
-                .module_path(Some(self.module_path))
-                .line(Some(self.line))
-                .args(format_args!("Executing: {}, Elapsed={:?}", self.name, elapsed))
-                .build()
-        );
+        inner_log(self.file,
+            self.module_path,
+            self.line,
+            format_args!("Executing: {}, Elapsed={:?}", self.name, self.elapsed()));
     }
 
+    pub fn progress(&self, args: fmt::Arguments) {
+        inner_log(self.file,
+            self.module_path,
+            self.line,
+            format_args!("Executing: {}, Elapsed={:?} {}", self.name, self.elapsed(), args));
+    }
+
+    /// Outputs a 'Completed' log message and suppresses the normal message that is
+    /// output when the timer is dropped. This method is normally called using the
+    /// 'finish!' macro. Calling finish again will have no effect.
     pub fn finish(&self, args: fmt::Arguments) {
-        self.finished.store(true, Ordering::SeqCst);
+        if !self.finished.load(Ordering::SeqCst) {
+            self.finished.store(true, Ordering::SeqCst);
 
-        log::logger().log(&
-            RecordBuilder::new()
-                .level(LOG_LEVEL)
-                .target(TARGET)
-                .file(Some(self.file))
-                .module_path(Some(self.module_path))
-                .line(Some(self.line))
-                .args(args)
-                .build()
-        );
-
-        // log::logger().log(&
-        //     RecordBuilder::new()
-        //         .level(LOG_LEVEL)
-        //         .target(TARGET)
-        //         .file(Some(self.file))
-        //         .module_path(Some(self.module_path))
-        //         .line(Some(self.line))
-        //         .args(format_args!("Completed: {}, Elapsed={:?}", self.name, elapsed))
-        //         .build()
-        // );
+            inner_log(self.file,
+                self.module_path,
+                self.line,
+                format_args!("Completed: {}, Elapsed={:?} {}", self.name, self.elapsed(), args));
+        }
     }
 }
 
 impl<'a> Drop for LoggingTimer<'a> {
     fn drop(&mut self) {
-        if !self.finished.load(Ordering::SeqCst) {
-            self.finish(format_args!("Completed: {}, Elapsed={:?}", self.name, self.elapsed()));
-        }
-
-        //
-
-        // log::logger().log(&
-        //     RecordBuilder::new()
-        //         .level(LOG_LEVEL)
-        //         .target(TARGET)
-        //         .file(Some(self.file))
-        //         .module_path(Some(self.module_path))
-        //         .line(Some(self.line))
-        //         .args(format_args!("Completed: {}, Elapsed={:?}", self.name, elapsed))
-        //         .build()
-        // );
+        self.finish(format_args!(""));
     }
+}
+
+#[inline]
+fn inner_log(
+    file: &str,
+    module_path: &str,
+    line: u32,
+    args: fmt::Arguments)
+{
+    log::logger().log(&
+        RecordBuilder::new()
+            .level(Level::Debug)
+            .target("Timer")
+            .file(Some(file))
+            .module_path(Some(module_path))
+            .line(Some(line))
+            .args(args)
+            .build()
+    );
 }
 
 /// Creates a timer that does not log a starting message, only a completed one.
@@ -164,4 +144,34 @@ macro_rules! stimer {
                 )
         }
     }
+}
+
+#[macro_export]
+macro_rules! finish {
+    ($timer:expr) => ({
+        $timer.finish(format_args!(""))
+    });
+
+    ($timer:expr, $format:tt) => ({
+        $timer.finish(format_args!($format))
+    });
+
+    ($timer:expr, $format:tt, $($arg:expr),*) => ({
+        $timer.finish(format_args!($format, $($arg), *))
+    })
+}
+
+#[macro_export]
+macro_rules! progress {
+    ($timer:expr) => ({
+        $timer.progress(format_args!(""))
+    });
+
+    ($timer:expr, $format:tt) => ({
+        $timer.progress(format_args!($format))
+    });
+
+    ($timer:expr, $format:tt, $($arg:expr),*) => ({
+        $timer.progress(format_args!($format, $($arg), *))
+    })
 }
