@@ -10,7 +10,7 @@ use log::{warn};
 use std::io::Write;
 use chrono::{DateTime, Utc};
 use env_logger::Builder;
-use dnlib::stimer;
+use dnlib::{timer, stimer};
 
 fn configure_logging() {
     let mut builder = Builder::from_default_env();
@@ -67,12 +67,9 @@ fn main() {
 }
 
 pub fn run_analysis_and_print_result(configuration: &Configuration) {
-    match run_analysis(configuration) {
-        Ok(_) => println!("Analysis completed without errors"),
-        Err(e) => {
+    if let Err(e) = run_analysis(configuration) {
             eprintln!("Error occurred {:#?}", e);
             std::process::exit(1);
-        }
     }
 }
 
@@ -90,13 +87,14 @@ pub fn run_analysis(configuration: &Configuration) -> AnalysisResult<()> {
         analysis.num_orphaned_projects()
         );
 
-    let start = std::time::Instant::now();
+    let _tmr = timer!("Calculate project graph and redundant projects");
     let graph_flags = GraphFlags::PROJECTS;
     let mut analysis_graph = make_project_graph(&analysis, graph_flags);
     let removed_edges = analysis_graph.transitive_reduction();
-    println!("Project graph and redundant projects found in {:?}", start.elapsed());
+    drop(_tmr);
 
-    let start = std::time::Instant::now();
+
+    let _tmr = timer!("Write output files");
     csv_output::write_solutions(&analysis)?;
     csv_output::write_solutions_to_projects(&analysis)?;
     csv_output::write_projects_to_packages(&analysis)?;
@@ -104,8 +102,6 @@ pub fn run_analysis(configuration: &Configuration) -> AnalysisResult<()> {
     let redundant_projects = convert_nodes_to_projects(&analysis_graph, &removed_edges);
     csv_output::write_projects_to_child_projects(&analysis, &redundant_projects)?;
     dnlib::graph_output::write_project_dot_file(&analysis_graph, &removed_edges)?;
-
-    println!("Output files written in {:?}", start.elapsed());
 
     Ok(())
 }

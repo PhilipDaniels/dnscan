@@ -1,5 +1,7 @@
 use std::time::Instant;
+use std::fmt;
 use log::{RecordBuilder, Level};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// When this struct is dropped, it logs a message stating its name and how long, in seconds,
 /// execution time was. Can be used to time functions or other critical areas.
@@ -8,7 +10,8 @@ pub struct LoggingTimer<'a> {
     file: &'static str,
     module_path: &'static str,
     line: u32,
-    name: &'a str
+    name: &'a str,
+    finished: AtomicBool,
 }
 
 const TARGET: &'static str = "Timer";
@@ -26,7 +29,8 @@ impl<'a> LoggingTimer<'a> {
             file: file,
             module_path: module_path,
             line: line,
-            name: name
+            name: name,
+            finished: AtomicBool::new(false),
         }
     }
 
@@ -57,8 +61,13 @@ impl<'a> LoggingTimer<'a> {
             file: file,
             module_path: module_path,
             line: line,
-            name: name
+            name: name,
+            finished: AtomicBool::new(false),
         }
+    }
+
+    pub fn elapsed(&self) -> std::time::Duration {
+        self.start_time.elapsed()
     }
 
     /// Outputs a log message showing the current elapsed time,
@@ -78,11 +87,9 @@ impl<'a> LoggingTimer<'a> {
                 .build()
         );
     }
-}
 
-impl<'a> Drop for LoggingTimer<'a> {
-    fn drop(&mut self) {
-        let elapsed = self.start_time.elapsed();
+    pub fn finish(&self, args: fmt::Arguments) {
+        self.finished.store(true, Ordering::SeqCst);
 
         log::logger().log(&
             RecordBuilder::new()
@@ -91,9 +98,41 @@ impl<'a> Drop for LoggingTimer<'a> {
                 .file(Some(self.file))
                 .module_path(Some(self.module_path))
                 .line(Some(self.line))
-                .args(format_args!("Completed: {}, Elapsed={:?}", self.name, elapsed))
+                .args(args)
                 .build()
         );
+
+        // log::logger().log(&
+        //     RecordBuilder::new()
+        //         .level(LOG_LEVEL)
+        //         .target(TARGET)
+        //         .file(Some(self.file))
+        //         .module_path(Some(self.module_path))
+        //         .line(Some(self.line))
+        //         .args(format_args!("Completed: {}, Elapsed={:?}", self.name, elapsed))
+        //         .build()
+        // );
+    }
+}
+
+impl<'a> Drop for LoggingTimer<'a> {
+    fn drop(&mut self) {
+        if !self.finished.load(Ordering::SeqCst) {
+            self.finish(format_args!("Completed: {}, Elapsed={:?}", self.name, self.elapsed()));
+        }
+
+        //
+
+        // log::logger().log(&
+        //     RecordBuilder::new()
+        //         .level(LOG_LEVEL)
+        //         .target(TARGET)
+        //         .file(Some(self.file))
+        //         .module_path(Some(self.module_path))
+        //         .line(Some(self.line))
+        //         .args(format_args!("Completed: {}, Elapsed={:?}", self.name, elapsed))
+        //         .build()
+        // );
     }
 }
 

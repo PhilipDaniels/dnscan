@@ -42,10 +42,9 @@ impl Eq for Analysis { }
 impl Analysis {
     pub fn new(configuration: &Configuration) -> DnLibResult<Self>
     {
-        let pta = {
-            let _ = timer!("Find Files");
-            find_files(&configuration.input_directory)?
-        };
+        let tmr = timer!("Find Files");
+        let pta = find_files(&configuration.input_directory)?;
+        drop(tmr);
 
         let mut af = Self {
             root_path: configuration.input_directory.clone(),
@@ -53,9 +52,14 @@ impl Analysis {
             ..Default::default()
         };
 
+        let tmr = timer!("Analyze Found Files");
         let fs_loader = DiskFileLoader::default();
         af.analyze(configuration, fs_loader)?;
-        info!("Analysis complete");
+        tmr.finish(format_args!("Loaded {} linked projects and {} orphaned projects",
+            af.num_linked_projects(),
+            af.num_orphaned_projects()
+            ));
+
         Ok(af)
     }
 
