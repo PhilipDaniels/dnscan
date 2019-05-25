@@ -6,10 +6,11 @@ mod configuration;
 use errors::AnalysisResult;
 use options::Options;
 use dnlib::prelude::*;
-use log::{info, warn};
+use log::{warn};
 use std::io::Write;
 use chrono::{DateTime, Utc};
 use env_logger::Builder;
+use dnlib::stimer;
 
 fn configure_logging() {
     let mut builder = Builder::from_default_env();
@@ -58,14 +59,11 @@ fn main() {
         }
     }
 
+    let _tmr = stimer!("Beginning Analysis");
     let dir = options.input_directory.as_ref().unwrap();
-    info!("Analysing {}", dir.display());
     let configuration = Configuration::new(dir);
     let configuration = merge_configuration_and_options(configuration, options);
-
-    let start = std::time::Instant::now();
     run_analysis_and_print_result(&configuration);
-    println!("Total Time = {:?}", start.elapsed());
 }
 
 pub fn run_analysis_and_print_result(configuration: &Configuration) {

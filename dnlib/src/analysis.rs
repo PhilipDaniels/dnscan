@@ -3,7 +3,7 @@ use crate::git_info::GitInfo;
 use crate::enums::*;
 use crate::io::{PathExtensions, PathsToAnalyze, DiskFileLoader, find_files, FileLoader};
 use crate::configuration::Configuration;
-use crate::{timer, qtimer};
+use crate::{timer, stimer};
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
@@ -43,7 +43,7 @@ impl Analysis {
     pub fn new(configuration: &Configuration) -> DnLibResult<Self>
     {
         let pta = {
-            let _ = qtimer!("Find Files");
+            let _ = timer!("Find Files");
             find_files(&configuration.input_directory)?
         };
 
@@ -93,7 +93,7 @@ impl Analysis {
     where L: FileLoader + std::marker::Sync
     {
         // Load and analyze each solution and place them into folders.
-        let tmr = qtimer!("Load Solution files".into());
+        let tmr = timer!("Load Solution files".into());
         let solutions = self.paths_analyzed.sln_files.par_iter()
             .map(|sln_path| {
                 Solution::new(sln_path, &file_loader.clone())
@@ -108,7 +108,7 @@ impl Analysis {
         // For each project, grab all the 'other' files in the same directory.
         // (This is very hacky. Assumes they are all in the project directory! Can fix by replacing
         // the '==' with a closure). Then analyze the project itself.
-        let tmr = qtimer!("Load Project files".into());
+        let tmr = stimer!("Load Project files".into());
         let projects = self.paths_analyzed.csproj_files.par_iter()
             .map(|proj_path| {
                 let other_paths = self.paths_analyzed.other_files.iter()

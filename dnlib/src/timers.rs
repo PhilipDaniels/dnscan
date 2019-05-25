@@ -1,75 +1,123 @@
 use std::time::Instant;
 use log::{RecordBuilder, Level};
 
-
-// When this struct is dropped, it logs a message stating its name and how long, in seconds,
-// execution time was. Can be used to time functions or other critical areas.
-pub struct ExecutionTimer<'a> {
-	start_time: Instant,
+/// When this struct is dropped, it logs a message stating its name and how long, in seconds,
+/// execution time was. Can be used to time functions or other critical areas.
+pub struct LoggingTimer<'a> {
+    start_time: Instant,
     file: &'static str,
     module_path: &'static str,
     line: u32,
-	name: &'a str
+    name: &'a str
 }
 
-impl<'a> ExecutionTimer<'a> {
-	pub fn new(name: &'a str,
+const TARGET: &'static str = "Timer";
+const LOG_LEVEL: Level = Level::Debug;
+
+impl<'a> LoggingTimer<'a> {
+    pub fn new(name: &'a str,
         file: &'static str,
         module_path: &'static str,
         line: u32
         ) -> Self
     {
-		ExecutionTimer {
-			start_time: Instant::now(),
+        LoggingTimer {
+            start_time: Instant::now(),
             file: file,
             module_path: module_path,
             line: line,
-			name: name
-		}
-	}
+            name: name
+        }
+    }
 
-	// // Construct a new ExecutionTimer and prints a message saying execution is starting.
-	// pub fn with_start_message(name: String, file: &'static str) -> Self {
-    //     // Determine this before calling debug!(), since debug!() will take time
-    //     // itself, i.e. it is overhead that can confuse timings.
-    //     let start_time = Instant::now();
-	// 	debug!("Starting: {}", name);
-	// 	ExecutionTimer2 { start_time, file, name }
-	// }
+    // Construct a new ExecutionTimer and prints a message saying execution is starting.
+    pub fn with_start_message(name: &'a str,
+        file: &'static str,
+        module_path: &'static str,
+        line: u32
+        ) -> Self
+    {
+        // Determine this before calling log(), since debug!() will take time
+        // itself, i.e. it is overhead that can confuse timings.
+        let start_time = Instant::now();
+
+        log::logger().log(&
+            RecordBuilder::new()
+                .level(LOG_LEVEL)
+                .target(TARGET)
+                .file(Some(file))
+                .module_path(Some(module_path))
+                .line(Some(line))
+                .args(format_args!("Starting: {}", name))
+                .build()
+        );
+
+        LoggingTimer {
+            start_time: start_time,
+            file: file,
+            module_path: module_path,
+            line: line,
+            name: name
+        }
+    }
+
+    /// Outputs a log message showing the current elapsed time,
+    /// but does not stop the timer. This method can be called multiple times
+    /// until the timer is dropped.
+    pub fn log(&self) {
+        let elapsed = self.start_time.elapsed();
+
+        log::logger().log(&
+            RecordBuilder::new()
+                .level(LOG_LEVEL)
+                .target(TARGET)
+                .file(Some(self.file))
+                .module_path(Some(self.module_path))
+                .line(Some(self.line))
+                .args(format_args!("Executing: {}, Elapsed={:?}", self.name, elapsed))
+                .build()
+        );
+    }
 }
 
-impl<'a> Drop for ExecutionTimer<'a> {
-	fn drop(&mut self) {
-		let elapsed = self.start_time.elapsed();
-        let mut builder = RecordBuilder::new();
-        let logger = log::logger();
+impl<'a> Drop for LoggingTimer<'a> {
+    fn drop(&mut self) {
+        let elapsed = self.start_time.elapsed();
 
-        logger.log(&
-            builder
-                .level(Level::Debug)
-                .target("ExecutionTimer")
+        log::logger().log(&
+            RecordBuilder::new()
+                .level(LOG_LEVEL)
+                .target(TARGET)
                 .file(Some(self.file))
                 .module_path(Some(self.module_path))
                 .line(Some(self.line))
                 .args(format_args!("Completed: {}, Elapsed={:?}", self.name, elapsed))
                 .build()
         );
-	}
+    }
 }
 
-
-/// Creates a timer that logs a starting and completed message.
+/// Creates a timer that does not log a starting message, only a completed one.
 #[macro_export]
 macro_rules! timer {
-    ($str:expr) => { crate::ExecutionTimer::with_start_message($str) }
-}
-
-/// Creates a quiet timer that does not log a starting message, only a completed one.
-#[macro_export]
-macro_rules! qtimer {
     ($str:expr) => {
         {
-            crate::ExecutionTimer::new(
+            crate::LoggingTimer::new(
+                $str,
+                file!(),
+                module_path!(),
+                line!()
+                )
+        }
+    }
+}
+
+/// Creates a timer that logs a starting mesage and a completed message.
+#[macro_export]
+macro_rules! stimer {
+    ($str:expr) => {
+        {
+            crate::LoggingTimer::with_start_message(
                 $str,
                 file!(),
                 module_path!(),
