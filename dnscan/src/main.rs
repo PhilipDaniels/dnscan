@@ -6,9 +6,40 @@ mod configuration;
 use errors::AnalysisResult;
 use options::Options;
 use dnlib::prelude::*;
+use log::{info, warn};
+use std::io::Write;
+use chrono::{DateTime, Utc};
+use env_logger::Builder;
+
+fn configure_logging() {
+    let mut builder = Builder::from_default_env();
+    builder.format(|buf, record| {
+            let utc: DateTime<Utc> = Utc::now();
+
+            write!(buf,
+                "{:?} {} [{}] ",
+                //utc.format("%Y-%m-%dT%H:%M:%S.%fZ"),
+                utc,                    // same, probably faster?
+                record.level(),
+                record.target()         // "dnlib::timers" - defaults to same as module_path
+            )?;
+
+            match (record.file(), record.line()) {
+                (Some(file), Some(line)) => write!(buf, "[{}/{}] ", file, line),
+                (Some(file), None) => write!(buf, "[{}] ", file),
+                (None, Some(_line)) => write!(buf, " "),
+                (None, None) => write!(buf, " "),
+            }?;
+
+
+            writeln!(buf, "{}", record.args())
+    });
+
+    builder.init();
+}
 
 fn main() {
-    env_logger::init();
+    configure_logging();
     let options = options::get_options();
 
     if options.dump_example_config {
@@ -27,7 +58,9 @@ fn main() {
         }
     }
 
-    let configuration = Configuration::new(options.input_directory.as_ref().unwrap());
+    let dir = options.input_directory.as_ref().unwrap();
+    info!("Analysing {}", dir.display());
+    let configuration = Configuration::new(dir);
     let configuration = merge_configuration_and_options(configuration, options);
 
     let start = std::time::Instant::now();
@@ -48,18 +81,16 @@ pub fn run_analysis_and_print_result(configuration: &Configuration) {
 pub fn run_analysis(configuration: &Configuration) -> AnalysisResult<()> {
     let analysis = Analysis::new(&configuration)?;
     if analysis.is_empty() {
-        println!(
+        warn!(
             "Did not find any .sln or .csproj files under {}",
             configuration.input_directory.display()
         );
     }
 
-    println!("Discovered files in {:?}", analysis.disk_walk_duration);
-    println!("Loaded {} solutions in {:?}", analysis.num_solutions(), analysis.solution_load_duration);
-    println!("Loaded {} linked projects and {} orphaned projects in {:?}",
+    println!("Loaded {} linked projects and {} orphaned projects",
         analysis.num_linked_projects(),
-        analysis.num_orphaned_projects(),
-        analysis.project_load_duration);
+        analysis.num_orphaned_projects()
+        );
 
     let start = std::time::Instant::now();
     let graph_flags = GraphFlags::PROJECTS;

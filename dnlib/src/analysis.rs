@@ -3,13 +3,13 @@ use crate::git_info::GitInfo;
 use crate::enums::*;
 use crate::io::{PathExtensions, PathsToAnalyze, DiskFileLoader, find_files, FileLoader};
 use crate::configuration::Configuration;
-use crate::timer;
+use crate::{timer, qtimer};
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use rayon::prelude::*;
+use log::info;
 use std::path::{Path, PathBuf};
-use std::time::{self, Duration};
 use std::ffi::OsStr;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
@@ -21,9 +21,6 @@ pub struct Analysis {
     pub root_path: PathBuf,
     pub paths_analyzed: PathsToAnalyze,
     pub solution_directories: Vec<SolutionDirectory>,
-    pub disk_walk_duration: Duration,
-    pub solution_load_duration: Duration,
-    pub project_load_duration: Duration,
 }
 
 impl PartialEq for Analysis {
@@ -45,21 +42,20 @@ impl Eq for Analysis { }
 impl Analysis {
     pub fn new(configuration: &Configuration) -> DnLibResult<Self>
     {
-        let disk_walk_start_time = time::Instant::now();
-        let tmr = timer!("Find Files");
-        let pta = find_files(&configuration.input_directory)?;
-        drop(tmr);
-
+        let pta = {
+            let _ = qtimer!("Find Files");
+            find_files(&configuration.input_directory)?
+        };
 
         let mut af = Self {
             root_path: configuration.input_directory.clone(),
             paths_analyzed: pta,
-            disk_walk_duration: disk_walk_start_time.elapsed(),
             ..Default::default()
         };
 
         let fs_loader = DiskFileLoader::default();
         af.analyze(configuration, fs_loader)?;
+        info!("Analysis complete");
         Ok(af)
     }
 
@@ -97,8 +93,7 @@ impl Analysis {
     where L: FileLoader + std::marker::Sync
     {
         // Load and analyze each solution and place them into folders.
-        let solution_analysis_start_time = time::Instant::now();
-
+        let tmr = qtimer!("Load Solution files".into());
         let solutions = self.paths_analyzed.sln_files.par_iter()
             .map(|sln_path| {
                 Solution::new(sln_path, &file_loader.clone())
@@ -107,15 +102,13 @@ impl Analysis {
         for sln in solutions {
             self.add_solution(sln);
         }
-
-        self.solution_load_duration = solution_analysis_start_time.elapsed();
+        drop(tmr);
 
 
         // For each project, grab all the 'other' files in the same directory.
         // (This is very hacky. Assumes they are all in the project directory! Can fix by replacing
         // the '==' with a closure). Then analyze the project itself.
-        let project_analysis_start_time = time::Instant::now();
-
+        let tmr = qtimer!("Load Project files".into());
         let projects = self.paths_analyzed.csproj_files.par_iter()
             .map(|proj_path| {
                 let other_paths = self.paths_analyzed.other_files.iter()
@@ -130,8 +123,7 @@ impl Analysis {
         for proj in projects {
             self.add_project(proj);
         }
-
-        self.project_load_duration = project_analysis_start_time.elapsed();
+        drop(tmr);
 
         self.sort();
         Ok(())
