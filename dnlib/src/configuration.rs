@@ -110,7 +110,7 @@ impl Configuration {
         match fs::File::open(path) {
             Ok(f) => match serde_json::from_reader(f) {
                 Ok(r) => {
-                    info!("Loaded configuration from {}", path.display());
+                    info!("Loaded configuration from {:?}", path);
                     Some(r)
                 },
                 Err(e) => { warn!("Could not parse JSON, falling back to default configuration. {:?}", e); None },
