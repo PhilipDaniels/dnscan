@@ -5,6 +5,7 @@ use std::str::FromStr;
 use walkdir::{DirEntry, WalkDir};
 use crate::errors::DnLibResult;
 use crate::enums::InterestingFile;
+use crate::{timer, finish};
 
 /// A trait for disk IO, to allow us to mock out the filesystem.
 pub trait FileLoader : Clone {
@@ -58,6 +59,8 @@ pub struct PathsToAnalyze {
 pub fn find_files<P>(path: P) -> DnLibResult<PathsToAnalyze>
     where P: AsRef<Path>
 {
+    let tmr = timer!("Find Files", "Dir={:?}", path.as_ref());
+
     let mut pta = PathsToAnalyze::default();
     let walker = WalkDir::new(path);
 
@@ -76,6 +79,13 @@ pub fn find_files<P>(path: P) -> DnLibResult<PathsToAnalyze>
             }
         }
     }
+
+    finish!(tmr,
+        "NumSolutions={} NumCsProj={}, NumOtherFiles={}",
+        pta.sln_files.len(),
+        pta.csproj_files.len(),
+        pta.other_files.len()
+        );
 
     Ok(pta)
 }

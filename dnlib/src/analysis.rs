@@ -3,12 +3,12 @@ use crate::git_info::GitInfo;
 use crate::enums::*;
 use crate::io::{PathExtensions, PathsToAnalyze, DiskFileLoader, find_files, FileLoader};
 use crate::configuration::Configuration;
-use crate::{timer, stimer, finish, progress};
+use crate::{timer, finish};
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use rayon::prelude::*;
-use log::info;
+use log::warn;
 use std::path::{Path, PathBuf};
 use std::ffi::OsStr;
 use std::cmp::Ordering;
@@ -42,10 +42,7 @@ impl Eq for Analysis { }
 impl Analysis {
     pub fn new(configuration: &Configuration) -> DnLibResult<Self>
     {
-        let tmr = stimer!("Find Files", "Dir=");
         let pta = find_files(&configuration.input_directory)?;
-        progress!(tmr);
-        drop(tmr);
 
         let mut af = Self {
             root_path: configuration.input_directory.clone(),
@@ -53,13 +50,8 @@ impl Analysis {
             ..Default::default()
         };
 
-        let tmr = timer!("Analyze Found Files");
         let fs_loader = DiskFileLoader::default();
         af.analyze(configuration, fs_loader)?;
-        finish!(tmr, "Loaded {} linked projects and {} orphaned projects",
-            af.num_linked_projects(),
-            af.num_orphaned_projects()
-            );
 
         Ok(af)
     }
@@ -98,7 +90,7 @@ impl Analysis {
     where L: FileLoader + std::marker::Sync
     {
         // Load and analyze each solution and place them into folders.
-        let tmr = timer!("Load Solution files".into());
+        let tmr = timer!("Load And Analyze Solution files");
         let solutions = self.paths_analyzed.sln_files.par_iter()
             .map(|sln_path| {
                 Solution::new(sln_path, &file_loader.clone())
@@ -113,7 +105,7 @@ impl Analysis {
         // For each project, grab all the 'other' files in the same directory.
         // (This is very hacky. Assumes they are all in the project directory! Can fix by replacing
         // the '==' with a closure). Then analyze the project itself.
-        let tmr = stimer!("Load Project files".into());
+        let tmr = timer!("Load And Analyze Project files");
         let projects = self.paths_analyzed.csproj_files.par_iter()
             .map(|proj_path| {
                 let other_paths = self.paths_analyzed.other_files.iter()
@@ -128,7 +120,11 @@ impl Analysis {
         for proj in projects {
             self.add_project(proj);
         }
-        drop(tmr);
+
+        finish!(tmr, "Found {} linked projects and {} orphaned projects",
+            self.num_linked_projects(),
+            self.num_orphaned_projects()
+            );
 
         self.sort();
         Ok(())
@@ -156,7 +152,7 @@ impl Analysis {
             project.ownership = ownership;
             sln.projects.push(project);
         } else {
-            eprintln!("Could not associate project {:?} with a solution, ignoring.", &project.file_info.path);
+            warn!("Could not associate project {:?} with a solution, ignoring.", &project.file_info.path);
         }
     }
 
@@ -997,12 +993,9 @@ mod analysis_tests {
             &Configuration::default()
             ).unwrap();
 
-        //println!("AF = {:#?}", analyzed_files);
-
         assert_eq!(analyzed_files.solution_directories.len(), 2);
 
         let car_sln_dir = &analyzed_files.solution_directories[0];
-        println!("car_sln_dir = {:#?}", car_sln_dir);
         assert_eq!(car_sln_dir.directory, root_dir);
         assert_eq!(car_sln_dir.num_solutions(), 1);
         assert_eq!(car_sln_dir.num_linked_projects(), 2);
@@ -1016,7 +1009,6 @@ mod analysis_tests {
 
 
         let truck_sln_dir = &analyzed_files.solution_directories[1];
-        println!("truck_sln_dir = {:#?}", truck_sln_dir);
         let expected_truck_dir = root_dir.join("trucks");
         assert_eq!(truck_sln_dir.directory, expected_truck_dir);
         assert_eq!(truck_sln_dir.num_solutions(), 1);

@@ -6,6 +6,7 @@ use regex::Regex;
 use serde::{Serialize, Deserialize};
 use serde_json;
 use serde_regex;
+use log::warn;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackageGroup {
@@ -104,7 +105,7 @@ impl Configuration {
                     println!("Loaded configuration from {}", path.display());
                     Some(r)
                 },
-                Err(e) => { eprintln!("Could not parse JSON {:?}", e); None },
+                Err(e) => { warn!("Could not parse JSON, falling back to default configuration. {:?}", e); None },
             },
             Err(ref e) if e.kind() == io::ErrorKind::NotFound => None,
             Err(e) => panic!("Error opening config file {:?}", e)

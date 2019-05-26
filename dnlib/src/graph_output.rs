@@ -31,8 +31,6 @@ where
             node_idx.index(), node_ref, node_ref.dot_attributes())?;
     }
 
-    println!("Removed edges = {:?}", removed_edges);
-
     for edge in graph.edge_references() {
         let source_node_idx = edge.source().index();
         let target_node_idx = edge.target().index();

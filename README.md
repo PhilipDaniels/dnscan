@@ -15,7 +15,6 @@ cargo run --bin dnscan [-v]
 
 ## TODO
 - Add abbreviations for the graph
-- Add logging.
 - Find packages that are redundant
     - First level is to find redundant installs within a solution (caused by project references brining them in)
     - Second level is to analyze the NuGet package itself, find redundancies within a project and then transitively

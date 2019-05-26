@@ -10,7 +10,7 @@ use log::{warn};
 use std::io::Write;
 use chrono::{DateTime, Utc};
 use env_logger::Builder;
-use dnlib::{timer, stimer};
+use dnlib::{timer, stimer, finish};
 
 fn configure_logging() {
     let mut builder = Builder::from_default_env();
@@ -82,18 +82,16 @@ pub fn run_analysis(configuration: &Configuration) -> AnalysisResult<()> {
         );
     }
 
-    let _tmr = timer!("Calculate project graph and redundant projects");
+    let tmr = timer!("Calculate project graph and redundant projects");
     let graph_flags = GraphFlags::PROJECTS;
     let mut analysis_graph = make_project_graph(&analysis, graph_flags);
     let removed_edges = analysis_graph.transitive_reduction();
-    drop(_tmr);
-
+    finish!(tmr, "Found {} redundant project relationships", removed_edges.len());
 
     let _tmr = timer!("Write output files");
     csv_output::write_solutions(&analysis)?;
     csv_output::write_solutions_to_projects(&analysis)?;
     csv_output::write_projects_to_packages(&analysis)?;
-
     let redundant_projects = convert_nodes_to_projects(&analysis_graph, &removed_edges);
     csv_output::write_projects_to_child_projects(&analysis, &redundant_projects)?;
     dnlib::graph_output::write_project_dot_file(&analysis_graph, &removed_edges)?;
