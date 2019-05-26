@@ -140,6 +140,73 @@ pub fn make_project_graph(
     graph
 }
 
+/// Construct a set of graphs, one graph for each solution in the analysis results.
+pub fn make_project_graphs(analysis: &Analysis) -> HashMap<&Solution, DnGraph> {
+    let mut results = HashMap::default();
+
+    for sd in &analysis.solution_directories {
+        for sln in &sd.solutions {
+            let mut graph = DnGraph::default();
+            let sln_node_idx = graph.add_node(Node::Solution(&sln));
+            //add_proj(&mut graph, &sln, sln_node_idx);
+
+            // COMMON
+            // Get all projects and add them to the graph as nodes.
+            // We will work out the edges in a moment.
+            let mut proj_node_mapping = HashMap::new();
+            for proj in &sln.projects {
+                let proj_node_idx = graph.add_node(Node::Project(&proj));
+                proj_node_mapping.insert(proj, proj_node_idx);
+            }
+
+            // Now we have to work out all the edges. A project is either (a)
+            // referenced by other projects or (b) referenced only by the sln,
+            // i.e. it is a top-level deliverable.
+            for proj in &sln.projects {
+                let parent_projects = proj.get_parent_projects(sln);
+                if parent_projects.is_empty() {
+                    graph.add_edge(sln_node_idx, proj_node_mapping[proj], ());
+                } else {
+                    for parent in parent_projects {
+                        graph.add_edge(proj_node_mapping[parent], proj_node_mapping[proj], ());
+                    }
+                }
+            }
+            // COMMON
+
+            results.insert(sln, graph);
+        }
+    }
+
+    results
+}
+
+// fn add_proj<'a>(graph: &'a mut DnGraph<'a>, sln: &'a Solution, sln_node_idx: NodeIndex<u32>)
+// {
+//     // Get all projects and add them to the graph as nodes.
+//     // We will work out the edges in a moment.
+//     let mut proj_node_mapping = HashMap::new();
+//     for proj in &sln.projects {
+//         let proj_node_idx = graph.add_node(Node::Project(&proj));
+//         proj_node_mapping.insert(proj, proj_node_idx);
+//     }
+
+//     // Now we have to work out all the edges. A project is either (a)
+//     // referenced by other projects or (b) referenced only by the sln,
+//     // i.e. it is a top-level deliverable.
+//     for proj in &sln.projects {
+//         let parent_projects = proj.get_parent_projects(sln);
+//         if parent_projects.is_empty() {
+//             graph.add_edge(sln_node_idx, proj_node_mapping[proj], ());
+//         } else {
+//             for parent in parent_projects {
+//                 graph.add_edge(proj_node_mapping[parent], proj_node_mapping[proj], ());
+//             }
+//         }
+//     }
+// }
+
+
 // TODO: Only the method needs to be generic? But that causes a shadowing when we impl it.
 pub trait TredExtensions<Ix> {
     fn get_path_matrix(&self) -> GraphMatrix;

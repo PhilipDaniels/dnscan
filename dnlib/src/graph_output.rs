@@ -1,11 +1,13 @@
 use crate::errors::DnLibResult;
 use crate::graph::DnGraph;
 use std::collections::HashSet;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufWriter, Write};
+use std::path::{Path, PathBuf};
 
 use petgraph::prelude::*;
 use petgraph::visit::{IntoNodeReferences, IntoEdgeReferences};
+use log::info;
 
 pub fn write_project_dot_file(
     graph: &DnGraph,
@@ -15,6 +17,28 @@ pub fn write_project_dot_file(
     let mut writer = BufWriter::new(file);
     write_project_dot(&mut writer, graph, removed_edges)
 }
+
+pub fn write_project_dot_file2<P: AsRef<Path>>(
+    dir: P,
+    filename: &Path,
+    graph: &DnGraph,
+    removed_edges: &HashSet<(NodeIndex, NodeIndex)>,
+) -> DnLibResult<()> {
+
+    let mut path = dir.as_ref().to_path_buf();
+    fs::create_dir_all(&path)?;
+    path.push(filename);
+    path.set_extension("dot");
+
+    let file = File::create(&path)?;
+    let mut writer = BufWriter::new(file);
+    write_project_dot(&mut writer, graph, removed_edges)?;
+    info!("Successfully wrote {:?}", path);
+    Ok(())
+}
+
+
+
 
 pub fn write_project_dot<W>(
     writer: &mut W,
