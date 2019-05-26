@@ -21,11 +21,11 @@ A small Rust library with two binaries for analyzing .Net solutions.
     analyzed the entire directory
 - A web site built on the REST API
 - Handle VB and F#.
-
+- Does oaf have a better approach to timers?
 
 ## Links for the NuGet stuff
 
-https://docs.microsoft.com/en-us/nuget/api/overview
-https://github.com/NuGet/Home/issues/6393
-https://joelverhagen.github.io/NuGetUndocs/?http#endpoint-get-a-single-package
-https://stackoverflow.com/questions/34958908/where-can-i-find-documentation-for-the-nuget-v3-api
+* https://docs.microsoft.com/en-us/nuget/api/overview
+* https://github.com/NuGet/Home/issues/6393
+* https://joelverhagen.github.io/NuGetUndocs/?http#endpoint-get-a-single-package
+* https://stackoverflow.com/questions/34958908/where-can-i-find-documentation-for-the-nuget-v3-api
