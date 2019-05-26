@@ -92,11 +92,11 @@ pub fn run_analysis(configuration: &Configuration) -> AnalysisResult<()> {
     finish!(tmr, "Found {} redundant project relationships", removed_edges.len());
 
     let _tmr = timer!("Write output files");
-    csv_output::write_solutions(&analysis)?;
-    csv_output::write_solutions_to_projects(&analysis)?;
-    csv_output::write_projects_to_packages(&analysis)?;
+    csv_output::write_solutions(&configuration.output_directory, &analysis)?;
+    csv_output::write_solutions_to_projects(&configuration.output_directory, &analysis)?;
+    csv_output::write_projects_to_packages(&configuration.output_directory, &analysis)?;
     let redundant_projects = convert_nodes_to_projects(&analysis_graph, &removed_edges);
-    csv_output::write_projects_to_child_projects(&analysis, &redundant_projects)?;
+    csv_output::write_projects_to_child_projects(&configuration.output_directory, &analysis, &redundant_projects)?;
     dnlib::graph_output::write_project_dot_file(&analysis_graph, &removed_edges)?;
 
     Ok(())
