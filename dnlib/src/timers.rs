@@ -19,6 +19,10 @@ pub struct LoggingTimer<'a> {
     start_time: Instant,
     /// The name of the timer. Used in messages to identify it.
     name: &'a str,
+    /// Any extra information to be logged along with the name. Unfortunately, due
+    /// to the lifetimes associated with a `format_args!` invocation, this currently allocates
+    /// if you use it.
+    extra_info: Option<String>
 }
 
 impl<'a> LoggingTimer<'a> {
@@ -29,6 +33,7 @@ impl<'a> LoggingTimer<'a> {
         module_path: &'static str,
         line: u32,
         name: &'a str,
+        extra_info: Option<String>,
         ) -> Self
     {
         LoggingTimer {
@@ -38,6 +43,7 @@ impl<'a> LoggingTimer<'a> {
             line: line,
             name: name,
             finished: AtomicBool::new(false),
+            extra_info: extra_info,
         }
     }
 
@@ -48,6 +54,7 @@ impl<'a> LoggingTimer<'a> {
         module_path: &'static str,
         line: u32,
         name: &'a str,
+        extra_info: Option<String>,
         ) -> Self
     {
         // Determine this before calling log(), since debug!() will take time
@@ -63,6 +70,7 @@ impl<'a> LoggingTimer<'a> {
             line: line,
             name: name,
             finished: AtomicBool::new(false),
+            extra_info: extra_info,
         }
     }
 
@@ -76,10 +84,25 @@ impl<'a> LoggingTimer<'a> {
     /// The message includes only the elapsed time. To include more informmation, use
     /// the 'progress!' macro or the progress() method.
     pub fn log(&self) {
-        inner_log(self.file,
-            self.module_path,
-            self.line,
-            format_args!("Executing: {}, Elapsed={:?}", self.name, self.elapsed()));
+        if let Some(info) = self.extra_info.as_ref() {
+            inner_log(self.file,
+                self.module_path,
+                self.line,
+                format_args!("Executing: {}, Elapsed={:?} {}", self.name, self.elapsed(), info)
+                );
+        } else {
+            inner_log(self.file,
+                self.module_path,
+                self.line,
+                format_args!("Executing: {}, Elapsed={:?}", self.name, self.elapsed())
+                );
+        }
+
+
+        // inner_log(self.file,
+        //     self.module_path,
+        //     self.line,
+        //     format_args!("Executing: {}, Elapsed={:?}", self.name, self.elapsed()));
     }
 
     /// Outputs a log message showing the current elapsed time, but does not stop the timer.
@@ -88,10 +111,24 @@ impl<'a> LoggingTimer<'a> {
     /// This method is usually not called directly, it is easier to call via the `progress!`
     /// macro.
     pub fn progress(&self, args: fmt::Arguments) {
-        inner_log(self.file,
-            self.module_path,
-            self.line,
-            format_args!("Executing: {}, Elapsed={:?} {}", self.name, self.elapsed(), args));
+        if let Some(info) = self.extra_info.as_ref() {
+            inner_log(self.file,
+                self.module_path,
+                self.line,
+                format_args!("Executing: {}, Elapsed={:?} {} {}", self.name, self.elapsed(), info, args)
+                );
+        } else {
+            inner_log(self.file,
+                self.module_path,
+                self.line,
+                format_args!("Executing: {}, Elapsed={:?} {}", self.name, self.elapsed(), args)
+                );
+        }
+
+        // inner_log(self.file,
+        //     self.module_path,
+        //     self.line,
+        //     format_args!("Executing: {}, Elapsed={:?} {}", self.name, self.elapsed(), args));
     }
 
     /// Outputs a 'Completed' log message and suppresses the normal message that is
@@ -102,10 +139,19 @@ impl<'a> LoggingTimer<'a> {
         if !self.finished.load(Ordering::SeqCst) {
             self.finished.store(true, Ordering::SeqCst);
 
-            inner_log(self.file,
-                self.module_path,
-                self.line,
-                format_args!("Completed: {}, Elapsed={:?} {}", self.name, self.elapsed(), args));
+            if let Some(info) = self.extra_info.as_ref() {
+                inner_log(self.file,
+                    self.module_path,
+                    self.line,
+                    format_args!("Completed: {}, Elapsed={:?} {} {}", self.name, self.elapsed(), info, args)
+                    );
+            } else {
+                inner_log(self.file,
+                    self.module_path,
+                    self.line,
+                    format_args!("Completed: {}, Elapsed={:?} {}", self.name, self.elapsed(), args)
+                    );
+            }
         }
     }
 }
@@ -147,9 +193,22 @@ macro_rules! timer {
                 module_path!(),
                 line!(),
                 $name,
+                None,
                 )
         }
-    }
+    };
+
+    ($name:expr, $format:tt, $($arg:expr),*) => {
+        {
+            crate::LoggingTimer::new(
+                file!(),
+                module_path!(),
+                line!(),
+                $name,
+                Some(format!($format, $($arg), *)),
+                )
+        }
+    };
 }
 
 /// Creates a timer that logs a starting mesage and a completed message.
@@ -162,9 +221,22 @@ macro_rules! stimer {
                 module_path!(),
                 line!(),
                 $name,
+                None,
                 )
         }
-    }
+    };
+
+    ($name:expr, $format:tt, $($arg:expr),*) => {
+        {
+            crate::LoggingTimer::with_start_message(
+                file!(),
+                module_path!(),
+                line!(),
+                $name,
+                Some(format!($format, $($arg), *)),
+                )
+        }
+    };
 }
 
 #[macro_export]
