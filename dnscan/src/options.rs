@@ -18,7 +18,7 @@ pub fn get_options() -> Options {
             Arg::with_name("dump-example-config")
                 .short("x")
                 .help("Prints the default configuration to stdout (for use as the basis of a custom configuration file)")
-                .conflicts_with_all(&["DIR", "verbose"]),
+                .conflicts_with_all(&["output-directory", "input-directory"]),
         )
         .arg(
             Arg::with_name("output-directory")
