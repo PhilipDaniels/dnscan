@@ -67,7 +67,7 @@ pub fn write_solutions<P: AsRef<Path>>(dir: P, analysis: &Analysis) -> AnalysisR
     }
 
     wtr.flush()?;
-    info!("Successfully wrote {:?}", path);
+    info!("Wrote {:?}", path);
     Ok(())
 }
 
@@ -146,7 +146,7 @@ pub fn write_solutions_to_projects<P: AsRef<Path>>(dir: P, analysis: &Analysis) 
     }
 
     wtr.flush()?;
-    info!("Successfully wrote {:?}", path);
+    info!("Wrote {:?}", path);
     Ok(())
 }
 
@@ -206,7 +206,7 @@ pub fn write_projects_to_packages<P: AsRef<Path>>(dir: P, analysis: &Analysis) -
     }
 
     wtr.flush()?;
-    info!("Successfully wrote {:?}", path);
+    info!("Wrote {:?}", path);
     Ok(())
 }
 
@@ -271,6 +271,6 @@ pub fn write_projects_to_child_projects<P: AsRef<Path>>(
     }
 
     wtr.flush()?;
-    info!("Successfully wrote {:?}", path);
+    info!("Wrote {:?}", path);
     Ok(())
 }

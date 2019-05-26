@@ -64,7 +64,7 @@ fn main() {
     let configuration = Configuration::new(dir);
     let configuration = merge_configuration_and_options(configuration, options);
 
-    println!("Effective config={:#?}", configuration);
+    //println!("Effective config={:#?}", configuration);
 
     run_analysis_and_print_result(&configuration);
 }
@@ -86,18 +86,42 @@ pub fn run_analysis(configuration: &Configuration) -> AnalysisResult<()> {
     }
 
     let tmr = timer!("Calculate project graph and redundant projects");
-    let graph_flags = GraphFlags::PROJECTS;
-    let mut analysis_graph = make_project_graph(&analysis, graph_flags);
-    let removed_edges = analysis_graph.transitive_reduction();
+    let mut individual_graphs = make_project_graphs(&analysis);
+    let individual_graphs = individual_graphs
+        .iter_mut()
+        .map(|(sln, graph)| {
+            let removed_edges = graph.transitive_reduction();
+            (sln, graph, removed_edges)
+        })
+        .collect::<Vec<_>>();
+
+    let mut overall_graph = make_project_graph(&analysis, GraphFlags::PROJECTS);
+    let removed_edges = overall_graph.transitive_reduction();
+    let redundant_projects = convert_nodes_to_projects(&overall_graph, &removed_edges);
     finish!(tmr, "Found {} redundant project relationships", removed_edges.len());
+
 
     let _tmr = timer!("Write output files");
     csv_output::write_solutions(&configuration.output_directory, &analysis)?;
     csv_output::write_solutions_to_projects(&configuration.output_directory, &analysis)?;
     csv_output::write_projects_to_packages(&configuration.output_directory, &analysis)?;
-    let redundant_projects = convert_nodes_to_projects(&analysis_graph, &removed_edges);
+    // We could probably figure out the overall set of redundant projects from the individual graphs,
+    // but this is the way I did it originally, and for now it's good enough.
     csv_output::write_projects_to_child_projects(&configuration.output_directory, &analysis, &redundant_projects)?;
-    dnlib::graph_output::write_project_dot_file(&analysis_graph, &removed_edges)?;
+
+    dnlib::graph_output::write_project_dot_file2(
+        &configuration.output_directory,
+        &std::path::PathBuf::from("dnscan.dot"),
+        &overall_graph,
+        &removed_edges)?;
+
+    for (sln, graph, removed_edges) in individual_graphs {
+        dnlib::graph_output::write_project_dot_file2(
+            &configuration.output_directory,
+            &std::path::PathBuf::from(sln.file_info.path.file_name().unwrap()),
+            &graph,
+            &removed_edges)?;
+    }
 
     Ok(())
 }

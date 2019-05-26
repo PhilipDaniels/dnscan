@@ -3,7 +3,7 @@ use crate::graph::DnGraph;
 use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 
 use petgraph::prelude::*;
 use petgraph::visit::{IntoNodeReferences, IntoEdgeReferences};
@@ -33,7 +33,7 @@ pub fn write_project_dot_file2<P: AsRef<Path>>(
     let file = File::create(&path)?;
     let mut writer = BufWriter::new(file);
     write_project_dot(&mut writer, graph, removed_edges)?;
-    info!("Successfully wrote {:?}", path);
+    info!("Wrote {:?}", path);
     Ok(())
 }
 
