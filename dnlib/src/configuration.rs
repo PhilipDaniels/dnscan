@@ -6,7 +6,7 @@ use regex::Regex;
 use serde::{Serialize, Deserialize};
 use serde_json;
 use serde_regex;
-use log::warn;
+use log::{info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackageGroup {
@@ -28,13 +28,18 @@ impl PackageGroup {
 }
 
 /// Represents the contents of our configuration file.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Configuration {
     pub package_groups: Vec<PackageGroup>,
+    #[serde(default)]
     pub abbreviations: HashMap<String, Vec<String>>,
+    #[serde(default)]
     pub input_directory: PathBuf,
+    #[serde(default)]
     pub output_directory: PathBuf,
 }
+
+const DEFAULT_OUTPUT_DIR: &str = "dnscan-output";
 
 impl Default for Configuration {
     fn default() -> Self {
@@ -51,7 +56,7 @@ impl Default for Configuration {
                 PackageGroup::new("Third Party", r#".*"#),
             ],
             abbreviations: abbrevs,
-            output_directory: "dnscan-output".into(),
+            output_directory: DEFAULT_OUTPUT_DIR.into(),
             input_directory: "".into()
         }
     }
@@ -77,7 +82,10 @@ impl Configuration {
         // If we have one, look for our standard config directory.
         home_dir.push(".dnscan");
         home_dir.push(CONFIG_FILE);
-        if let Some(cfg) = Self::load_from_file(&home_dir) {
+        if let Some(mut cfg) = Self::load_from_file(&home_dir) {
+            if cfg.output_directory == PathBuf::new() {
+                cfg.output_directory = DEFAULT_OUTPUT_DIR.into();
+            }
             return cfg;
         }
 
@@ -102,7 +110,7 @@ impl Configuration {
         match fs::File::open(path) {
             Ok(f) => match serde_json::from_reader(f) {
                 Ok(r) => {
-                    println!("Loaded configuration from {}", path.display());
+                    info!("Loaded configuration from {}", path.display());
                     Some(r)
                 },
                 Err(e) => { warn!("Could not parse JSON, falling back to default configuration. {:?}", e); None },

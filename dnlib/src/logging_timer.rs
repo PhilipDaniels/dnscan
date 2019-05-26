@@ -1,6 +1,6 @@
 use std::time::Instant;
 use std::fmt;
-use log::{RecordBuilder, Level};
+use log::{RecordBuilder, Level, log_enabled};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// When this struct is dropped, it logs a message stating its name and how long
@@ -182,6 +182,8 @@ enum TimerTarget {
     Completed
 }
 
+// TODO: Make the log level configurable.
+// Need a static mutex?
 #[inline]
 fn inner_log(
     target: TimerTarget,
@@ -190,20 +192,22 @@ fn inner_log(
     line: u32,
     args: fmt::Arguments)
 {
-    log::logger().log(&
-        RecordBuilder::new()
-            .level(Level::Debug)
-            .target(match target {
-                TimerTarget::Starting => "TimerStarting",
-                TimerTarget::Executing => "TimerExecuting",
-                TimerTarget::Completed => "TimerCompleted",
-            })
-            .file(Some(file))
-            .module_path(Some(module_path))
-            .line(Some(line))
-            .args(args)
-            .build()
-    );
+    if log_enabled!(Level::Debug) {
+        log::logger().log(&
+            RecordBuilder::new()
+                .level(Level::Debug)
+                .target(match target {
+                    TimerTarget::Starting => "TimerStarting",
+                    TimerTarget::Executing => "TimerExecuting",
+                    TimerTarget::Completed => "TimerCompleted",
+                })
+                .file(Some(file))
+                .module_path(Some(module_path))
+                .line(Some(line))
+                .args(args)
+                .build()
+        );
+    }
 }
 
 /// Creates a timer that does not log a starting message, only a completed one.

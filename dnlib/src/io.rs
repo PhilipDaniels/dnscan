@@ -81,7 +81,7 @@ pub fn find_files<P>(path: P) -> DnLibResult<PathsToAnalyze>
     }
 
     finish!(tmr,
-        "NumSolutions={} NumCsProj={}, NumOtherFiles={}",
+        "NumSolutions={} NumCsproj={}, NumOtherFiles={}",
         pta.sln_files.len(),
         pta.csproj_files.len(),
         pta.other_files.len()

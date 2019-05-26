@@ -987,11 +987,8 @@ mod analysis_tests {
     pub fn test_disk_scanning_and_project_association() {
         let temp_files = make_temporary_directory().unwrap();
         let root_dir = temp_files.path();
-
-        let analyzed_files = Analysis::new(
-            root_dir,
-            &Configuration::default()
-            ).unwrap();
+        let config = Configuration::default();
+        let analyzed_files = Analysis::new(&config).unwrap();
 
         assert_eq!(analyzed_files.solution_directories.len(), 2);
 

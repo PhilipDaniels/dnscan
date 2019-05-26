@@ -63,6 +63,9 @@ fn main() {
     let dir = options.input_directory.as_ref().unwrap();
     let configuration = Configuration::new(dir);
     let configuration = merge_configuration_and_options(configuration, options);
+
+    println!("Effective config={:#?}", configuration);
+
     run_analysis_and_print_result(&configuration);
 }
 
@@ -106,6 +109,12 @@ fn merge_configuration_and_options(mut config: Configuration, options: Options) 
 
     if let Some(dir) = options.input_directory {
         config.input_directory = dir;
+    }
+
+    if config.output_directory.is_relative() {
+        let tmp = config.output_directory;
+        config.output_directory = config.input_directory.clone();
+        config.output_directory.push(tmp);
     }
 
     config
