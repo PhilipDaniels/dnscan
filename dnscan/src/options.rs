@@ -17,12 +17,14 @@ pub fn get_options() -> Options {
         .arg(
             Arg::with_name("dump-example-config")
                 .short("x")
-                .help("Prints the default configuration to stdout (for use as the basis of a custom configuration file")
+                .help("Prints the default configuration to stdout (for use as the basis of a custom configuration file)")
                 .conflicts_with_all(&["DIR", "verbose"]),
         )
         .arg(
             Arg::with_name("output-directory")
                 .short("o")
+                .long("output-directory")
+                .takes_value(true)
                 .help("Specifies the output directory where CSV and graphs will be written. Can be relative or absolute.")
         )
         .arg(

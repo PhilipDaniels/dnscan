@@ -6,13 +6,6 @@ A small Rust library with two binaries for analyzing .Net solutions.
 - dnscan - scan dotnet projects and make fancy graphs and statistics
 - dnclean - cleans bin, obj and other folders from a dotnet solution folder
 
-## To run
-
-```
-cargo run --bin dnclean [-cmxgvp]
-cargo run --bin dnscan [-v]
-```
-
 ## TODO
 - Find packages that are redundant
     - First level is to find redundant installs within a solution (caused by project references brining them in)
