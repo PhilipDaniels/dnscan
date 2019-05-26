@@ -3,22 +3,32 @@ use std::fmt;
 use log::{RecordBuilder, Level};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// When this struct is dropped, it logs a message stating its name and how long, in seconds,
-/// execution time was. Can be used to time functions or other critical areas.
+/// When this struct is dropped, it logs a message stating its name and how long
+/// the execution time was. Can be used to time functions or other critical areas.
 pub struct LoggingTimer<'a> {
-    start_time: Instant,
+    /// Set by the file!() macro to the name of the file where the timer is instantiated.
     file: &'static str,
+    /// Set by the module_path!() macro to the module where the timer is instantiated.
     module_path: &'static str,
+    /// Set by the line!() macro to the line number where the timer is instantiated.
     line: u32,
-    name: &'a str,
+    /// A flag used to suppress printing of the 'Completed' message in the drop() function
+    /// It is set by the finish method.
     finished: AtomicBool,
+    /// The instant, in UTC, that the timer was instantiated.
+    start_time: Instant,
+    /// The name of the timer. Used in messages to identify it.
+    name: &'a str,
 }
 
 impl<'a> LoggingTimer<'a> {
-    pub fn new(name: &'a str,
+    /// Constructs a new `LoggingTimer` that prints only a 'Completed' message.
+    /// This method is not usually called directly, use the `timer!` macro instead.
+    pub fn new(
         file: &'static str,
         module_path: &'static str,
-        line: u32
+        line: u32,
+        name: &'a str,
         ) -> Self
     {
         LoggingTimer {
@@ -31,11 +41,13 @@ impl<'a> LoggingTimer<'a> {
         }
     }
 
-    // Construct a new ExecutionTimer and prints a message saying execution is starting.
-    pub fn with_start_message(name: &'a str,
+    /// Constructs a new `LoggingTimer` that prints a 'Starting' and a 'Completed' message.
+    /// This method is not usually called directly, use the `stimer!` macro instead.
+    pub fn with_start_message(
         file: &'static str,
         module_path: &'static str,
-        line: u32
+        line: u32,
+        name: &'a str,
         ) -> Self
     {
         // Determine this before calling log(), since debug!() will take time
@@ -54,6 +66,7 @@ impl<'a> LoggingTimer<'a> {
         }
     }
 
+    /// Returns how long the timer has been running for.
     pub fn elapsed(&self) -> std::time::Duration {
         self.start_time.elapsed()
     }
@@ -69,6 +82,11 @@ impl<'a> LoggingTimer<'a> {
             format_args!("Executing: {}, Elapsed={:?}", self.name, self.elapsed()));
     }
 
+    /// Outputs a log message showing the current elapsed time, but does not stop the timer.
+    /// This method can be called multiple times until the timer is dropped.
+    /// The message can include further information via a `format_args!` approach.
+    /// This method is usually not called directly, it is easier to call via the `progress!`
+    /// macro.
     pub fn progress(&self, args: fmt::Arguments) {
         inner_log(self.file,
             self.module_path,
@@ -77,8 +95,9 @@ impl<'a> LoggingTimer<'a> {
     }
 
     /// Outputs a 'Completed' log message and suppresses the normal message that is
-    /// output when the timer is dropped. This method is normally called using the
-    /// 'finish!' macro. Calling finish again will have no effect.
+    /// output when the timer is dropped. The message can include further `format_args!`
+    /// information. This method is normally called using the `finish!` macro. Calling
+    /// finish() again will have no effect.
     pub fn finish(&self, args: fmt::Arguments) {
         if !self.finished.load(Ordering::SeqCst) {
             self.finished.store(true, Ordering::SeqCst);
@@ -92,6 +111,8 @@ impl<'a> LoggingTimer<'a> {
 }
 
 impl<'a> Drop for LoggingTimer<'a> {
+    /// Drops the timer, outputting a 'Completed' message if `finish` has not yet
+    /// been called.
     fn drop(&mut self) {
         self.finish(format_args!(""));
     }
@@ -119,13 +140,13 @@ fn inner_log(
 /// Creates a timer that does not log a starting message, only a completed one.
 #[macro_export]
 macro_rules! timer {
-    ($str:expr) => {
+    ($name:expr) => {
         {
             crate::LoggingTimer::new(
-                $str,
                 file!(),
                 module_path!(),
-                line!()
+                line!(),
+                $name,
                 )
         }
     }
@@ -134,13 +155,13 @@ macro_rules! timer {
 /// Creates a timer that logs a starting mesage and a completed message.
 #[macro_export]
 macro_rules! stimer {
-    ($str:expr) => {
+    ($name:expr) => {
         {
             crate::LoggingTimer::with_start_message(
-                $str,
                 file!(),
                 module_path!(),
-                line!()
+                line!(),
+                $name,
                 )
         }
     }
