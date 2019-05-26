@@ -37,6 +37,8 @@ pub struct Configuration {
     pub input_directory: PathBuf,
     #[serde(default)]
     pub output_directory: PathBuf,
+    #[serde(default)]
+    pub abbreviate_on_graphs: bool,
 }
 
 const DEFAULT_OUTPUT_DIR: &str = "dnscan-output";
@@ -57,7 +59,8 @@ impl Default for Configuration {
             ],
             abbreviations: abbrevs,
             output_directory: DEFAULT_OUTPUT_DIR.into(),
-            input_directory: "".into()
+            input_directory: "".into(),
+            abbreviate_on_graphs: true
         }
     }
 }

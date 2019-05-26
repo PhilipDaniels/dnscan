@@ -84,7 +84,7 @@ pub fn run_analysis(configuration: &Configuration) -> AnalysisResult<()> {
         );
     }
 
-    let tmr = timer!("Calculate project graph and redundant projects");
+    let tmr = timer!("Calculate project graphs and redundant projects");
     let mut individual_graphs = make_project_graphs(&analysis);
     let individual_graphs = individual_graphs
         .iter_mut()
@@ -116,7 +116,7 @@ pub fn run_analysis(configuration: &Configuration) -> AnalysisResult<()> {
     )?;
 
     dnlib::graph_output::write_project_dot_file(
-        &configuration.output_directory,
+        &configuration,
         &std::path::PathBuf::from("dnscan.dot"),
         &overall_graph,
         &removed_edges,
@@ -124,7 +124,7 @@ pub fn run_analysis(configuration: &Configuration) -> AnalysisResult<()> {
 
     for (sln, graph, removed_edges) in individual_graphs {
         dnlib::graph_output::write_project_dot_file(
-            &configuration.output_directory,
+            &configuration,
             &std::path::PathBuf::from(sln.file_info.path.file_name().unwrap()),
             &graph,
             &removed_edges,
