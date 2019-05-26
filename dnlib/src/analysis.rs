@@ -42,8 +42,9 @@ impl Eq for Analysis { }
 impl Analysis {
     pub fn new(configuration: &Configuration) -> DnLibResult<Self>
     {
-        let tmr = timer!("Find Files", "Dir={:?}", configuration.input_directory);
+        let tmr = stimer!("Find Files", "Dir=");
         let pta = find_files(&configuration.input_directory)?;
+        progress!(tmr);
         drop(tmr);
 
         let mut af = Self {

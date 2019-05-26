@@ -59,7 +59,7 @@ fn main() {
         }
     }
 
-    let _tmr = stimer!("Beginning Analysis");
+    let _tmr = stimer!("Directory Analysis");
     let dir = options.input_directory.as_ref().unwrap();
     let configuration = Configuration::new(dir);
     let configuration = merge_configuration_and_options(configuration, options);

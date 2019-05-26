@@ -61,7 +61,7 @@ impl<'a> LoggingTimer<'a> {
         // itself, i.e. it is overhead that can confuse timings.
         let start_time = Instant::now();
 
-        inner_log(file, module_path, line, format_args!("Starting: {}", name));
+        inner_log(TimerTarget::Starting, file, module_path, line, format_args!("{}", name));
 
         LoggingTimer {
             start_time: start_time,
@@ -85,19 +85,22 @@ impl<'a> LoggingTimer<'a> {
     /// the 'progress!' macro or the progress() method.
     pub fn log(&self) {
         if let Some(info) = self.extra_info.as_ref() {
-            inner_log(self.file,
+            inner_log(
+                TimerTarget::Executing,
+                self.file,
                 self.module_path,
                 self.line,
-                format_args!("Executing: {}, Elapsed={:?} {}", self.name, self.elapsed(), info)
+                format_args!("{}, Elapsed={:?} {}", self.name, self.elapsed(), info)
                 );
         } else {
-            inner_log(self.file,
+            inner_log(
+                TimerTarget::Executing,
+                self.file,
                 self.module_path,
                 self.line,
-                format_args!("Executing: {}, Elapsed={:?}", self.name, self.elapsed())
+                format_args!("{}, Elapsed={:?}", self.name, self.elapsed())
                 );
         }
-
 
         // inner_log(self.file,
         //     self.module_path,
@@ -112,16 +115,20 @@ impl<'a> LoggingTimer<'a> {
     /// macro.
     pub fn progress(&self, args: fmt::Arguments) {
         if let Some(info) = self.extra_info.as_ref() {
-            inner_log(self.file,
+            inner_log(
+                TimerTarget::Executing,
+                self.file,
                 self.module_path,
                 self.line,
-                format_args!("Executing: {}, Elapsed={:?} {} {}", self.name, self.elapsed(), info, args)
+                format_args!("{}, Elapsed={:?} {} {}", self.name, self.elapsed(), info, args)
                 );
         } else {
-            inner_log(self.file,
+            inner_log(
+                TimerTarget::Executing,
+                self.file,
                 self.module_path,
                 self.line,
-                format_args!("Executing: {}, Elapsed={:?} {}", self.name, self.elapsed(), args)
+                format_args!("{}, Elapsed={:?} {}", self.name, self.elapsed(), args)
                 );
         }
 
@@ -140,16 +147,20 @@ impl<'a> LoggingTimer<'a> {
             self.finished.store(true, Ordering::SeqCst);
 
             if let Some(info) = self.extra_info.as_ref() {
-                inner_log(self.file,
+                inner_log(
+                    TimerTarget::Completed,
+                    self.file,
                     self.module_path,
                     self.line,
-                    format_args!("Completed: {}, Elapsed={:?} {} {}", self.name, self.elapsed(), info, args)
+                    format_args!("{}, Elapsed={:?} {} {}", self.name, self.elapsed(), info, args)
                     );
             } else {
-                inner_log(self.file,
+                inner_log(
+                    TimerTarget::Completed,
+                    self.file,
                     self.module_path,
                     self.line,
-                    format_args!("Completed: {}, Elapsed={:?} {}", self.name, self.elapsed(), args)
+                    format_args!("{}, Elapsed={:?} {}", self.name, self.elapsed(), args)
                     );
             }
         }
@@ -164,8 +175,16 @@ impl<'a> Drop for LoggingTimer<'a> {
     }
 }
 
+
+enum TimerTarget {
+    Starting,
+    Executing,
+    Completed
+}
+
 #[inline]
 fn inner_log(
+    target: TimerTarget,
     file: &str,
     module_path: &str,
     line: u32,
@@ -174,7 +193,11 @@ fn inner_log(
     log::logger().log(&
         RecordBuilder::new()
             .level(Level::Debug)
-            .target("Timer")
+            .target(match target {
+                TimerTarget::Starting => "TimerStarting",
+                TimerTarget::Executing => "TimerExecuting",
+                TimerTarget::Completed => "TimerCompleted",
+            })
             .file(Some(file))
             .module_path(Some(module_path))
             .line(Some(line))
@@ -194,6 +217,18 @@ macro_rules! timer {
                 line!(),
                 $name,
                 None,
+                )
+        }
+    };
+
+    ($name:expr, $format:tt) => {
+        {
+            crate::LoggingTimer::new(
+                file!(),
+                module_path!(),
+                line!(),
+                $name,
+                Some(format!($format)),
                 )
         }
     };
@@ -222,6 +257,18 @@ macro_rules! stimer {
                 line!(),
                 $name,
                 None,
+                )
+        }
+    };
+
+    ($name:expr, $format:tt) => {
+        {
+            crate::LoggingTimer::with_start_message(
+                file!(),
+                module_path!(),
+                line!(),
+                $name,
+                Some(format!($format)),
                 )
         }
     };
