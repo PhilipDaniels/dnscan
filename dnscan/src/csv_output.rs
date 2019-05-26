@@ -1,9 +1,9 @@
 use crate::errors::AnalysisResult;
 use csv;
 use dnlib::prelude::*;
-use std::path::{Path, PathBuf};
-use std::fs;
 use log::info;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 fn bool_to_str(b: bool) -> &'static str {
     if b {
@@ -71,7 +71,10 @@ pub fn write_solutions<P: AsRef<Path>>(dir: P, analysis: &Analysis) -> AnalysisR
     Ok(())
 }
 
-pub fn write_solutions_to_projects<P: AsRef<Path>>(dir: P, analysis: &Analysis) -> AnalysisResult<()> {
+pub fn write_solutions_to_projects<P: AsRef<Path>>(
+    dir: P,
+    analysis: &Analysis,
+) -> AnalysisResult<()> {
     let path = ensure_dir(dir, "solutions_to_projects.csv")?;
     let mut wtr = csv::Writer::from_path(&path)?;
 
@@ -150,7 +153,10 @@ pub fn write_solutions_to_projects<P: AsRef<Path>>(dir: P, analysis: &Analysis) 
     Ok(())
 }
 
-pub fn write_projects_to_packages<P: AsRef<Path>>(dir: P, analysis: &Analysis) -> AnalysisResult<()> {
+pub fn write_projects_to_packages<P: AsRef<Path>>(
+    dir: P,
+    analysis: &Analysis,
+) -> AnalysisResult<()> {
     let path = ensure_dir(dir, "projects_to_packages.csv")?;
     let mut wtr = csv::Writer::from_path(&path)?;
 
@@ -215,9 +221,8 @@ use std::collections::HashSet;
 pub fn write_projects_to_child_projects<P: AsRef<Path>>(
     dir: P,
     analysis: &Analysis,
-    redundant_project_relationships: &HashSet<(&Project, &Project)>
-    ) -> AnalysisResult<()>
-{
+    redundant_project_relationships: &HashSet<(&Project, &Project)>,
+) -> AnalysisResult<()> {
     let path = ensure_dir(dir, "projects_to_child_projects.csv")?;
     let mut wtr = csv::Writer::from_path(&path)?;
 
@@ -235,7 +240,7 @@ pub fn write_projects_to_child_projects<P: AsRef<Path>>(
         "ChildProjIsValidUTF8",
         "ChildProjVersion",
         "ChildProjOutputType",
-        "IsRedundant"
+        "IsRedundant",
     ])?;
 
     for sd in &analysis.solution_directories {
@@ -263,7 +268,7 @@ pub fn write_projects_to_child_projects<P: AsRef<Path>>(
                             "Redundant"
                         } else {
                             ""
-                        }
+                        },
                     ])?;
                 }
             }

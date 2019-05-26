@@ -1,14 +1,14 @@
-use std::{io, fs};
-use std::path::{Path, PathBuf};
-use std::collections::HashMap;
-use std::str::FromStr;
-use walkdir::{DirEntry, WalkDir};
-use crate::errors::DnLibResult;
 use crate::enums::InterestingFile;
-use crate::{timer, finish};
+use crate::errors::DnLibResult;
+use crate::{finish, timer};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
+use std::{fs, io};
+use walkdir::{DirEntry, WalkDir};
 
 /// A trait for disk IO, to allow us to mock out the filesystem.
-pub trait FileLoader : Clone {
+pub trait FileLoader: Clone {
     fn read_to_string(&self, path: &Path) -> io::Result<String>;
 }
 
@@ -27,7 +27,7 @@ impl FileLoader for DiskFileLoader {
 /// an in-memory hash map of paths to file contents.
 #[derive(Debug, Default, Clone)]
 pub struct MemoryFileLoader {
-    pub files: HashMap<PathBuf, String>
+    pub files: HashMap<PathBuf, String>,
 }
 
 impl MemoryFileLoader {
@@ -38,10 +38,13 @@ impl MemoryFileLoader {
 
 impl FileLoader for MemoryFileLoader {
     fn read_to_string(&self, path: &Path) -> io::Result<String> {
-        self.files.get(path)
-        .map_or(
-            Err(io::Error::new(io::ErrorKind::NotFound, path.to_string_lossy())),
-            |contents| Ok(contents.to_owned()))
+        self.files.get(path).map_or(
+            Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                path.to_string_lossy(),
+            )),
+            |contents| Ok(contents.to_owned()),
+        )
     }
 }
 
@@ -53,11 +56,12 @@ impl FileLoader for MemoryFileLoader {
 pub struct PathsToAnalyze {
     pub sln_files: Vec<PathBuf>,
     pub csproj_files: Vec<PathBuf>,
-    pub other_files: Vec<PathBuf>
+    pub other_files: Vec<PathBuf>,
 }
 
 pub fn find_files<P>(path: P) -> DnLibResult<PathsToAnalyze>
-    where P: AsRef<Path>
+where
+    P: AsRef<Path>,
 {
     let tmr = timer!("Find Files", "Dir={:?}", path.as_ref());
 
@@ -80,12 +84,13 @@ pub fn find_files<P>(path: P) -> DnLibResult<PathsToAnalyze>
         }
     }
 
-    finish!(tmr,
+    finish!(
+        tmr,
         "NumSolutions={} NumCsproj={}, NumOtherFiles={}",
         pta.sln_files.len(),
         pta.csproj_files.len(),
         pta.other_files.len()
-        );
+    );
 
     Ok(pta)
 }
@@ -205,10 +210,8 @@ impl PathExtensions for Path {
 
     fn is_bin_or_obj_dir(&self) -> bool {
         let last_part = self.filename_as_str();
-        self.is_dir() && (
-            unicase::eq_ascii(last_part, "obj")
-            || unicase::eq_ascii(last_part, "bin")
-        )
+        self.is_dir()
+            && (unicase::eq_ascii(last_part, "obj") || unicase::eq_ascii(last_part, "bin"))
     }
 
     fn is_test_results_dir(&self) -> bool {

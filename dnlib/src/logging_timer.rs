@@ -101,11 +101,6 @@ impl<'a> LoggingTimer<'a> {
                 format_args!("{}, Elapsed={:?}", self.name, self.elapsed())
                 );
         }
-
-        // inner_log(self.file,
-        //     self.module_path,
-        //     self.line,
-        //     format_args!("Executing: {}, Elapsed={:?}", self.name, self.elapsed()));
     }
 
     /// Outputs a log message showing the current elapsed time, but does not stop the timer.
@@ -131,11 +126,6 @@ impl<'a> LoggingTimer<'a> {
                 format_args!("{}, Elapsed={:?} {}", self.name, self.elapsed(), args)
                 );
         }
-
-        // inner_log(self.file,
-        //     self.module_path,
-        //     self.line,
-        //     format_args!("Executing: {}, Elapsed={:?} {}", self.name, self.elapsed(), args));
     }
 
     /// Outputs a 'Completed' log message and suppresses the normal message that is

@@ -1,7 +1,7 @@
-use std::io;
+use csv;
 use std::error::Error;
 use std::fmt;
-use csv;
+use std::io;
 
 #[derive(Debug)]
 pub enum AnalysisError {
@@ -9,7 +9,6 @@ pub enum AnalysisError {
     DnLib(dnlib::DnLibError),
     Io(io::Error),
     Csv(csv::Error),
-
     // Errors raised by us...
     //Regular(ErrorKind),
     //Custom(String)

@@ -1,39 +1,38 @@
 mod csv_output;
 mod errors;
 mod options;
-mod configuration;
 
-use errors::AnalysisResult;
-use options::Options;
-use dnlib::prelude::*;
-use log::{warn};
-use std::io::Write;
 use chrono::{DateTime, Utc};
+use dnlib::prelude::*;
+use dnlib::{finish, stimer, timer};
 use env_logger::Builder;
-use dnlib::{timer, stimer, finish};
+use errors::AnalysisResult;
+use log::warn;
+use options::Options;
+use std::io::Write;
 
 fn configure_logging() {
     let mut builder = Builder::from_default_env();
     builder.format(|buf, record| {
-            let utc: DateTime<Utc> = Utc::now();
+        let utc: DateTime<Utc> = Utc::now();
 
-            write!(buf,
-                "{:?} {} [{}] ",
-                //utc.format("%Y-%m-%dT%H:%M:%S.%fZ"),
-                utc,                    // same, probably faster?
-                record.level(),
-                record.target()         // "dnlib::timers" - defaults to same as module_path
-            )?;
+        write!(
+            buf,
+            "{:?} {} [{}] ",
+            //utc.format("%Y-%m-%dT%H:%M:%S.%fZ"),
+            utc, // same, probably faster?
+            record.level(),
+            record.target() // "dnlib::timers" - defaults to same as module_path
+        )?;
 
-            match (record.file(), record.line()) {
-                (Some(file), Some(line)) => write!(buf, "[{}/{}] ", file, line),
-                (Some(file), None) => write!(buf, "[{}] ", file),
-                (None, Some(_line)) => write!(buf, " "),
-                (None, None) => write!(buf, " "),
-            }?;
+        match (record.file(), record.line()) {
+            (Some(file), Some(line)) => write!(buf, "[{}/{}] ", file, line),
+            (Some(file), None) => write!(buf, "[{}] ", file),
+            (None, Some(_line)) => write!(buf, " "),
+            (None, None) => write!(buf, " "),
+        }?;
 
-
-            writeln!(buf, "{}", record.args())
+        writeln!(buf, "{}", record.args())
     });
 
     builder.init();
@@ -49,10 +48,12 @@ fn main() {
     }
 
     match options.input_directory.as_ref() {
-        Some(d) => if !d.exists() || !d.is_dir() {
-            eprintln!("The directory {:?} does not exist or is a file.", d);
-            std::process::exit(1);
-        },
+        Some(d) => {
+            if !d.exists() || !d.is_dir() {
+                eprintln!("The directory {:?} does not exist or is a file.", d);
+                std::process::exit(1);
+            }
+        }
         None => {
             eprintln!("Please specify a DIR to scan");
             std::process::exit(1);
@@ -64,15 +65,13 @@ fn main() {
     let configuration = Configuration::new(dir);
     let configuration = merge_configuration_and_options(configuration, options);
 
-    //println!("Effective config={:#?}", configuration);
-
     run_analysis_and_print_result(&configuration);
 }
 
 pub fn run_analysis_and_print_result(configuration: &Configuration) {
     if let Err(e) = run_analysis(configuration) {
-            eprintln!("Error occurred {:#?}", e);
-            std::process::exit(1);
+        eprintln!("Error occurred {:#?}", e);
+        std::process::exit(1);
     }
 }
 
@@ -98,8 +97,11 @@ pub fn run_analysis(configuration: &Configuration) -> AnalysisResult<()> {
     let mut overall_graph = make_project_graph(&analysis, GraphFlags::PROJECTS);
     let removed_edges = overall_graph.transitive_reduction();
     let redundant_projects = convert_nodes_to_projects(&overall_graph, &removed_edges);
-    finish!(tmr, "Found {} redundant project relationships", removed_edges.len());
-
+    finish!(
+        tmr,
+        "Found {} redundant project relationships",
+        removed_edges.len()
+    );
 
     let _tmr = timer!("Write output files");
     csv_output::write_solutions(&configuration.output_directory, &analysis)?;
@@ -107,20 +109,26 @@ pub fn run_analysis(configuration: &Configuration) -> AnalysisResult<()> {
     csv_output::write_projects_to_packages(&configuration.output_directory, &analysis)?;
     // We could probably figure out the overall set of redundant projects from the individual graphs,
     // but this is the way I did it originally, and for now it's good enough.
-    csv_output::write_projects_to_child_projects(&configuration.output_directory, &analysis, &redundant_projects)?;
+    csv_output::write_projects_to_child_projects(
+        &configuration.output_directory,
+        &analysis,
+        &redundant_projects,
+    )?;
 
-    dnlib::graph_output::write_project_dot_file2(
+    dnlib::graph_output::write_project_dot_file(
         &configuration.output_directory,
         &std::path::PathBuf::from("dnscan.dot"),
         &overall_graph,
-        &removed_edges)?;
+        &removed_edges,
+    )?;
 
     for (sln, graph, removed_edges) in individual_graphs {
-        dnlib::graph_output::write_project_dot_file2(
+        dnlib::graph_output::write_project_dot_file(
             &configuration.output_directory,
             &std::path::PathBuf::from(sln.file_info.path.file_name().unwrap()),
             &graph,
-            &removed_edges)?;
+            &removed_edges,
+        )?;
     }
 
     Ok(())

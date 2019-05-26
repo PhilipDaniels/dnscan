@@ -33,7 +33,13 @@ pub fn get_options() -> Options {
 
     Options {
         dump_example_config: matches.is_present("dump-example-config"),
-        input_directory: matches.value_of("input-directory").map(|d| Some(PathBuf::from(d))).unwrap_or_default(),
-        output_directory: matches.value_of("output-directory").map(|d| Some(PathBuf::from(d))).unwrap_or_default(),
+        input_directory: matches
+            .value_of("input-directory")
+            .map(|d| Some(PathBuf::from(d)))
+            .unwrap_or_default(),
+        output_directory: matches
+            .value_of("output-directory")
+            .map(|d| Some(PathBuf::from(d)))
+            .unwrap_or_default(),
     }
 }
