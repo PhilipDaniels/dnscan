@@ -4,7 +4,7 @@ mod options;
 
 use chrono::{DateTime, Utc};
 use dnlib::prelude::*;
-use dnlib::{finish, stimer, timer};
+use dnlib::{finish, stimer, timer, progress};
 use env_logger::Builder;
 use errors::AnalysisResult;
 use log::{warn, Level};
@@ -84,7 +84,7 @@ pub fn run_analysis(configuration: &Configuration) -> AnalysisResult<()> {
         );
     }
 
-    let tmr = timer!("Calculate project graphs and redundant projects");
+    let tmr = stimer!("Calculate project graphs and redundant projects").level(Level::Warn);
     let mut individual_graphs = make_project_graphs(&analysis);
     let individual_graphs = individual_graphs
         .iter_mut()
@@ -93,6 +93,8 @@ pub fn run_analysis(configuration: &Configuration) -> AnalysisResult<()> {
             (sln, graph, removed_edges)
         })
         .collect::<Vec<_>>();
+
+    progress!(tmr, "Individual graphs done");
 
     let mut overall_graph = make_project_graph(&analysis, GraphFlags::PROJECTS);
     let removed_edges = overall_graph.transitive_reduction();
