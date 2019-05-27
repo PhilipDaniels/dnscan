@@ -7,7 +7,7 @@ use dnlib::prelude::*;
 use dnlib::{finish, stimer, timer};
 use env_logger::Builder;
 use errors::AnalysisResult;
-use log::warn;
+use log::{warn, Level};
 use options::Options;
 use std::io::Write;
 
@@ -60,7 +60,7 @@ fn main() {
         }
     }
 
-    let _tmr = stimer!("Directory Analysis");
+    let _tmr = stimer!("Directory Analysis").level(Level::Info);
     let dir = options.input_directory.as_ref().unwrap();
     let configuration = Configuration::new(dir);
     let configuration = merge_configuration_and_options(configuration, options);

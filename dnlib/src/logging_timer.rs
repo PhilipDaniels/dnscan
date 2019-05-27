@@ -1,11 +1,42 @@
-use std::time::Instant;
+use log::{log_enabled, Level, RecordBuilder};
 use std::fmt;
-use log::{RecordBuilder, Level, log_enabled};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
+
+
+/*
+
+2019-05-27T12:10:47.817228120Z DEBUG [TimerCompleted] [dnscan/src/main.rs/106] Write output files/Elapsed=149.14987ms.
+
+
+// This is a standard drop message.
+2019-05-27T12:10:47.817228120Z DEBUG [TimerCompleted] [dnscan/src/main.rs/106] Elapsed=149.14987ms. Write output files
+
+// This is finish!(tmr, "Found {} redundant project relationships", removed_edges.len());
+2019-05-27T12:10:47.668001906Z DEBUG [TimerCompleted] [dnscan/src/main.rs/87] Elapsed=265.503463ms. Calculate project graphs and redundant projects,  Found 136 redundant project relationships
+
+// Starting mesasges have no elapsed.
+2019-05-27T12:10:45.790794752Z DEBUG [TimerStarting] [dnscan/src/main.rs/63] Directory Analysis
+
+// let tmr = timer!("Find Files", "Dir={:?}", path.as_ref());
+// finish!(tmr, "NumSolutions={} NumCsproj={}, NumOtherFiles={}", pta.sln_files.len(), pta.csproj_files.len(), pta.other_files.len());
+2019-05-27T12:10:46.120897216Z DEBUG [TimerCompleted] [dnlib/src/io.rs/66] Find Files, Elapsed=310.472426ms Dir="/home/phil/slow/From Work2" NumSolutions=55 NumCsproj=433, NumOtherFiles=477
+
+
+
+2019-05-27T12:10:47.817228120Z DEBUG [TimerCompleted] [dnscan/src/main.rs/106] Write output files, Elapsed=149.14987ms
+2019-05-27T12:10:47.668001906Z DEBUG [TimerCompleted] [dnscan/src/main.rs/87] Calculate project graphs and redundant projects, Elapsed=265.503463ms Found 136 redundant project relationships
+2019-05-27T12:10:45.790794752Z DEBUG [TimerStarting] [dnscan/src/main.rs/63] Directory Analysis
+2019-05-27T12:10:46.120897216Z DEBUG [TimerCompleted] [dnlib/src/io.rs/66] Find Files, Elapsed=310.472426ms Dir="/home/phil/slow/From Work2" NumSolutions=55 NumCsproj=433, NumOtherFiles=477
+
+*/
+
 
 /// When this struct is dropped, it logs a message stating its name and how long
 /// the execution time was. Can be used to time functions or other critical areas.
 pub struct LoggingTimer<'a> {
+    /// The log level. Defaults to Debug.
+    level: Level,
     /// Set by the file!() macro to the name of the file where the timer is instantiated.
     file: &'static str,
     /// Set by the module_path!() macro to the module where the timer is instantiated.
@@ -22,7 +53,7 @@ pub struct LoggingTimer<'a> {
     /// Any extra information to be logged along with the name. Unfortunately, due
     /// to the lifetimes associated with a `format_args!` invocation, this currently allocates
     /// if you use it.
-    extra_info: Option<String>
+    extra_info: Option<String>,
 }
 
 impl<'a> LoggingTimer<'a> {
@@ -34,9 +65,9 @@ impl<'a> LoggingTimer<'a> {
         line: u32,
         name: &'a str,
         extra_info: Option<String>,
-        ) -> Self
-    {
+    ) -> Self {
         LoggingTimer {
+            level: Level::Debug,
             start_time: Instant::now(),
             file: file,
             module_path: module_path,
@@ -55,15 +86,13 @@ impl<'a> LoggingTimer<'a> {
         line: u32,
         name: &'a str,
         extra_info: Option<String>,
-        ) -> Self
-    {
+    ) -> Self {
         // Determine this before calling log(), since debug!() will take time
         // itself, i.e. it is overhead that can confuse timings.
         let start_time = Instant::now();
 
-        inner_log(TimerTarget::Starting, file, module_path, line, format_args!("{}", name));
-
-        LoggingTimer {
+        let tmr = LoggingTimer {
+            level: Level::Debug,
             start_time: start_time,
             file: file,
             module_path: module_path,
@@ -71,7 +100,11 @@ impl<'a> LoggingTimer<'a> {
             name: name,
             finished: AtomicBool::new(false),
             extra_info: extra_info,
-        }
+        };
+
+        tmr.inner_log2(TimerTarget::Starting, format_args!(""));
+
+        tmr
     }
 
     /// Returns how long the timer has been running for.
@@ -79,28 +112,18 @@ impl<'a> LoggingTimer<'a> {
         self.start_time.elapsed()
     }
 
+    /// Sets the logging level.
+    pub fn level(mut self, level: Level) -> Self {
+        self.level = level;
+        self
+    }
+
     /// Outputs a log message showing the current elapsed time, but does not stop the timer.
     /// This method can be called multiple times until the timer is dropped.
     /// The message includes only the elapsed time. To include more informmation, use
     /// the 'progress!' macro or the progress() method.
     pub fn log(&self) {
-        if let Some(info) = self.extra_info.as_ref() {
-            inner_log(
-                TimerTarget::Executing,
-                self.file,
-                self.module_path,
-                self.line,
-                format_args!("{}, Elapsed={:?} {}", self.name, self.elapsed(), info)
-                );
-        } else {
-            inner_log(
-                TimerTarget::Executing,
-                self.file,
-                self.module_path,
-                self.line,
-                format_args!("{}, Elapsed={:?}", self.name, self.elapsed())
-                );
-        }
+        self.inner_log2(TimerTarget::Executing, format_args!(""));
     }
 
     /// Outputs a log message showing the current elapsed time, but does not stop the timer.
@@ -109,23 +132,7 @@ impl<'a> LoggingTimer<'a> {
     /// This method is usually not called directly, it is easier to call via the `progress!`
     /// macro.
     pub fn progress(&self, args: fmt::Arguments) {
-        if let Some(info) = self.extra_info.as_ref() {
-            inner_log(
-                TimerTarget::Executing,
-                self.file,
-                self.module_path,
-                self.line,
-                format_args!("{}, Elapsed={:?} {} {}", self.name, self.elapsed(), info, args)
-                );
-        } else {
-            inner_log(
-                TimerTarget::Executing,
-                self.file,
-                self.module_path,
-                self.line,
-                format_args!("{}, Elapsed={:?} {}", self.name, self.elapsed(), args)
-                );
-        }
+        self.inner_log2(TimerTarget::Executing, args);
     }
 
     /// Outputs a 'Completed' log message and suppresses the normal message that is
@@ -135,24 +142,38 @@ impl<'a> LoggingTimer<'a> {
     pub fn finish(&self, args: fmt::Arguments) {
         if !self.finished.load(Ordering::SeqCst) {
             self.finished.store(true, Ordering::SeqCst);
+            self.inner_log2(TimerTarget::Completed, args);
+        }
+    }
 
-            if let Some(info) = self.extra_info.as_ref() {
-                inner_log(
-                    TimerTarget::Completed,
-                    self.file,
-                    self.module_path,
-                    self.line,
-                    format_args!("{}, Elapsed={:?} {} {}", self.name, self.elapsed(), info, args)
-                    );
-            } else {
-                inner_log(
-                    TimerTarget::Completed,
-                    self.file,
-                    self.module_path,
-                    self.line,
-                    format_args!("{}, Elapsed={:?} {}", self.name, self.elapsed(), args)
-                    );
-            }
+    fn inner_log2(&self, target: TimerTarget, args: fmt::Arguments) {
+        if !log_enabled!(self.level) { return; }
+
+
+        if let Some(info) = self.extra_info.as_ref() {
+            inner_log(
+                self.level,
+                target,
+                self.file,
+                self.module_path,
+                self.line,
+                format_args!(
+                    "Elapsed={:?}, {} {} {}",
+                    self.elapsed(),
+                    self.name,
+                    info,
+                    args
+                ),
+            );
+        } else {
+            inner_log(
+                self.level,
+                target,
+                self.file,
+                self.module_path,
+                self.line,
+                format_args!("Elapsed={:?}, {} {}", self.elapsed(), self.name, args),
+            );
         }
     }
 }
@@ -165,27 +186,25 @@ impl<'a> Drop for LoggingTimer<'a> {
     }
 }
 
-
 enum TimerTarget {
     Starting,
     Executing,
-    Completed
+    Completed,
 }
 
-// TODO: Make the log level configurable.
-// Need a static mutex?
 #[inline]
 fn inner_log(
+    level: Level,
     target: TimerTarget,
     file: &str,
     module_path: &str,
     line: u32,
-    args: fmt::Arguments)
-{
-    if log_enabled!(Level::Debug) {
-        log::logger().log(&
-            RecordBuilder::new()
-                .level(Level::Debug)
+    args: fmt::Arguments,
+) {
+    if log_enabled!(level) {
+        log::logger().log(
+            &RecordBuilder::new()
+                .level(level)
                 .target(match target {
                     TimerTarget::Starting => "TimerStarting",
                     TimerTarget::Executing => "TimerExecuting",
@@ -195,7 +214,7 @@ fn inner_log(
                 .module_path(Some(module_path))
                 .line(Some(line))
                 .args(args)
-                .build()
+                .build(),
         );
     }
 }
