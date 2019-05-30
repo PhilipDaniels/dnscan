@@ -14,4 +14,4 @@ fixedbitset = "0.1.9"
 log = "0.4"
 env_logger = "0.6"
 chrono = "0.4"
-logging_timer = { git = "https://github.com/PhilipDaniels/logging_timer" }
+logging_timer = "0.2"
