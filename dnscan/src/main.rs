@@ -4,7 +4,7 @@ mod options;
 
 use chrono::{DateTime, Utc};
 use dnlib::prelude::*;
-use dnlib::{finish, stimer, timer, progress};
+use logging_timer::{finish, timer, stimer, progress};
 use env_logger::Builder;
 use errors::AnalysisResult;
 use log::{warn, Level};

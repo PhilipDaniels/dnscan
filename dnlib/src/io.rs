@@ -1,6 +1,7 @@
 use crate::enums::InterestingFile;
 use crate::errors::DnLibResult;
-use crate::{finish, timer};
+use logging_timer::{timer, finish};
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;

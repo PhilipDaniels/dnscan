@@ -8,7 +8,6 @@ pub mod analysis;
 pub mod git_info;
 pub mod graph;
 pub mod graph_output;
-pub mod logging_timer;
 
 pub mod prelude {
     pub use crate::errors::*;
@@ -18,7 +17,6 @@ pub mod prelude {
     pub use crate::analysis::*;
     pub use crate::git_info::*;
     pub use crate::graph::*;
-    pub use crate::logging_timer::*;
 }
 
 pub use prelude::*;

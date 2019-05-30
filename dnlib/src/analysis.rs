@@ -3,8 +3,8 @@ use crate::git_info::GitInfo;
 use crate::enums::*;
 use crate::io::{PathExtensions, PathsToAnalyze, DiskFileLoader, find_files, FileLoader};
 use crate::configuration::Configuration;
-use crate::{timer, finish};
 
+use logging_timer::{timer, finish};
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use rayon::prelude::*;
