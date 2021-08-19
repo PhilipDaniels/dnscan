@@ -60,7 +60,7 @@ fn main() {
         }
     }
 
-    let _tmr = stimer!("Directory Analysis").level(Level::Info);
+    let _tmr = stimer!(Level::Info; "Directory Analysis");
     let dir = options.input_directory.as_ref().unwrap();
     let configuration = Configuration::new(dir);
     let configuration = merge_configuration_and_options(configuration, options);

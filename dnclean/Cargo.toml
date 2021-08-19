@@ -8,7 +8,6 @@ edition = "2018"
 dnlib = { path = "../dnlib" }
 clap = "2.32.0"
 getch = "0.2.0"
-rayon = "1.0.3"
+rayon = "1.5"
 termcolor = "1"
-walkdir = "2.2.7"
-
+walkdir = "2.3"
